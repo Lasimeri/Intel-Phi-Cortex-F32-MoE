@@ -45,4 +45,16 @@
 #define CX_LOGITS (128u << 10)     /* 4096 F32, written by the card's DMA; CX_C_ACK is the DMA status word */
 #define CX_STAGE (1u << 20)        /* the staged checkpoint, 23,463,424 B, host-written before CX_OP_LOAD */
 
+/* ---- MoE stage 1: the n-gram row ring (PLAN-MOE.md). Per chunk of 32 steps the host gathers 64 rows (2 orders x 32
+ * steps x 128 F32 = 32 KiB) into row slot chunk % 2 and publishes CX_NGR_H_SEQ = chunks published; the card DMAs the
+ * slot into GDDR at the chunk start and, at the chunk end, DMAs the 64 row gradients into gradient slot chunk % 2 with
+ * CX_NGR_C_SEQ as the DMA status word (= chunks whose gradients have landed). The host applies the gradients to its
+ * tables and gathers chunk + 2 into the slot the card has finished with. */
+#define CX_NGR_BASE (48u << 20)
+#define CX_NGR_BYTES 32768u
+#define CX_NGR_ROWS(s) (CX_NGR_BASE + (uint32_t)(s) * CX_NGR_BYTES)
+#define CX_NGR_GRAD(s) (CX_NGR_BASE + (2u + (uint32_t)(s)) * CX_NGR_BYTES)
+#define CX_NGR_H_SEQ (CX_NGR_BASE + 4u * CX_NGR_BYTES)
+#define CX_NGR_C_SEQ (CX_NGR_BASE + 4u * CX_NGR_BYTES + 64u)
+
 #endif

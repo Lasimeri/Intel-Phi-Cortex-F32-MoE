@@ -1,0 +1,2 @@
+cortex: checkpoint loaded by DMA in 12.2 ms; prompt 4 tokens; sampling
+cortex: 4 prompt + 512 generated tokens in 0.357 s: 1442.8 tok/s overall; per token card 368.7 us (mailbox + forward + DMA), host 326.2 us (sampling + print)

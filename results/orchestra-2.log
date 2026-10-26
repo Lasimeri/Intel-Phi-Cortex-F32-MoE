@@ -1,0 +1,84 @@
+=== orchestra comparison: data/s4/run4off/ckpt.bin, n-gram model data/stories-10m.ngc, word list /mnt/Intel Phi Cortex F64/data/wordlist-stories.txt
+prompt 'Once upon a time', 512 tokens, default sampler (temp 0.5, top-k 75, top-p 0.95, min-p 0.05, rp 1.2), seeds 1-3
+human bands (TinyStories 256-word windows): hit5 1.000, big 0.995 (p10 0.986), rep4 0.022 (p90 0.036)
+
+--- plain: (no orchestra)
+cortex: 4 prompt + 512 generated tokens in 0.356 s: 1447.9 tok/s overall; per token card 364.4 us (mailbox + forward + DMA), host 328.1 us (sampling + print)
+seed 1 text (420 words): Once upon a time, there was a little girl named Sue. She loved to play with his toy and became good friends. <|endoftext|> One day, her mom the bird became best friend was playing in the forest. She saw it to help her toy and took he had a big and the cat started to walk. The bird was very happy.  T
+seed 1 score: hit 0.993  hit5 0.964  big 0.974  rep4 0.043  sent 10.3 (0.98 in 3..40)  wlen 3.7  words 421 
+cortex: 4 prompt + 512 generated tokens in 0.362 s: 1421.9 tok/s overall; per token card 374.9 us (mailbox + forward + DMA), host 330.3 us (sampling + print)
+seed 2 text (419 words): Once upon a time, there was a little girl named Sue. One day, the best friend was playing with her mom. She was so happy to do it. She had a big his surprise.  The bird was very sad and liked to play together all day. They were very excited and had lots of fun. But then, she saw that he could not fi
+seed 2 score: hit 0.998  hit5 0.987  big 0.995  rep4 0.043  sent 10.5 (1.00 in 3..40)  wlen 3.5  words 420 
+cortex: 4 prompt + 512 generated tokens in 0.357 s: 1442.8 tok/s overall; per token card 368.7 us (mailbox + forward + DMA), host 326.2 us (sampling + print)
+seed 3 text (422 words): Once upon a time, there was a little girl named Sue. Tim loved to play with her mom and had a big box in the park. One day, his mom saw him and asked it. She was very happy. He loved to share on he was sad and they could not find it. The bird was so excited to do that she had an idea.  The girl was 
+seed 3 score: hit 0.998  hit5 0.988  big 0.982  rep4 0.046  sent 10.3 (1.00 in 3..40)  wlen 3.5  words 422 
+
+--- ng15: --orchestra data/stories-10m.ngc --lambda 0.15
+cortex: orchestra: 512 steps, trigram context 508, bigram 512, candidates 98748, word-filtered 13056, repeat-blocked 148
+cortex: 4 prompt + 512 generated tokens in 0.368 s: 1397.9 tok/s overall; per token card 375.4 us (mailbox + forward + DMA), host 341.9 us (sampling + print)
+seed 1 text (406 words): Once upon a time, there was a little girl named Sue. She loved to play with his friends. One day, a little girl came to the store. The bird was very happy. She had a big, red ball. The little girl was so happy! She wanted to play with her mom and dad. One day on, he saw a big box of toys. She wanted
+seed 1 score: hit 1.000  hit5 1.000  big 1.000  rep4 0.022  sent 8.5 (0.98 in 3..40)  wlen 3.5  words 407 
+cortex: orchestra: 512 steps, trigram context 509, bigram 512, candidates 94428, word-filtered 11219, repeat-blocked 150
+cortex: 4 prompt + 512 generated tokens in 0.367 s: 1404.9 tok/s overall; per token card 371.5 us (mailbox + forward + DMA), host 342.2 us (sampling + print)
+seed 2 text (399 words): Once upon a time, there was a little girl named Sue. One day, a big bird came to the park. She loved to play with her mom and dad. One day the little girl was so happy. She wanted to go home, he saw a big, red ball. The bird was very happy. One day on, Tom saw a big box in the park. He wanted to hel
+seed 2 score: hit 1.000  hit5 1.000  big 0.994  rep4 0.013  sent 8.7 (1.00 in 3..40)  wlen 3.5  words 399 
+cortex: orchestra: 512 steps, trigram context 508, bigram 512, candidates 98104, word-filtered 11845, repeat-blocked 169
+cortex: 4 prompt + 512 generated tokens in 0.368 s: 1397.9 tok/s overall; per token card 370.5 us (mailbox + forward + DMA), host 346.9 us (sampling + print)
+seed 3 text (408 words): Once upon a time, there was a little girl named Sue. She loved to play with her mom and dad. One day, a little girl came to the store. She wanted to play with his mom and dad for the bird. <|endoftext|> Once upon a time there was a big, red bird. The bird was very happy. She loved the sun was very h
+seed 3 score: hit 1.000  hit5 1.000  big 0.997  rep4 0.027  sent 9.1 (1.00 in 3..40)  wlen 3.5  words 408 
+
+--- ng30: --orchestra data/stories-10m.ngc --lambda 0.3
+cortex: orchestra: 512 steps, trigram context 512, bigram 512, candidates 48888, word-filtered 3243, repeat-blocked 157
+cortex: 4 prompt + 512 generated tokens in 0.363 s: 1418.9 tok/s overall; per token card 370.0 us (mailbox + forward + DMA), host 336.7 us (sampling + print)
+seed 1 text (411 words): Once upon a time, there was a little girl named Sue. She loved to play with his friends. One day, a little girl was very happy. She took the bird and the cat were very happy. The bird was sad. The bird was sad, and they played with the toy. They saw a big, red ball in the park. <|endoftext|> One day
+seed 1 score: hit 1.000  hit5 1.000  big 0.995  rep4 0.040  sent 8.9 (1.00 in 3..40)  wlen 3.5  words 411 
+cortex: orchestra: 512 steps, trigram context 511, bigram 512, candidates 50699, word-filtered 3697, repeat-blocked 146
+cortex: 4 prompt + 512 generated tokens in 0.361 s: 1427.6 tok/s overall; per token card 367.3 us (mailbox + forward + DMA), host 335.1 us (sampling + print)
+seed 2 text (406 words): Once upon a time, there was a little girl named Sue. She loved to play with it. One day, a little girl was so happy to be a big tree. The bird was very happy. They were very happy. The bird looked sad and asked, "I can't know what to do. The bird said, "I want to play with the toy and became best fr
+seed 2 score: hit 1.000  hit5 1.000  big 0.997  rep4 0.020  sent 9.0 (1.00 in 3..40)  wlen 3.6  words 405 
+cortex: orchestra: 512 steps, trigram context 512, bigram 512, candidates 45531, word-filtered 3532, repeat-blocked 163
+cortex: 4 prompt + 512 generated tokens in 0.369 s: 1394.5 tok/s overall; per token card 379.6 us (mailbox + forward + DMA), host 339.5 us (sampling + print)
+seed 3 text (408 words): Once upon a time, there was a little girl named Sue. She loved to play with her mom and dad. One day, a little girl was very happy. She had a lot of fun. One day the little girl named Lily went to the park. He had a big, red ball. The bird was very happy and said, "I can't know what it was time to g
+seed 3 score: hit 1.000  hit5 1.000  big 1.000  rep4 0.020  sent 9.3 (1.00 in 3..40)  wlen 3.6  words 408 
+
+--- ng30-repeat-ok: --orchestra data/stories-10m.ngc --lambda 0.3 --repeat-ok
+cortex: orchestra: 512 steps, trigram context 512, bigram 512, candidates 35184, word-filtered 2101, repeat-blocked 0
+cortex: 4 prompt + 512 generated tokens in 0.372 s: 1385.0 tok/s overall; per token card 378.9 us (mailbox + forward + DMA), host 345.1 us (sampling + print)
+seed 1 text (415 words): Once upon a time, there was a little girl named Sue. She loved to play with his friends. One day, a little girl named Sue went to the tree. The bird was very happy. The bird was so happy and said, "I want to be careful and listen. It's mom saw him and said, "I want to play with it. "Look, Tom?" Lily
+seed 1 score: hit 1.000  hit5 1.000  big 1.000  rep4 0.093  sent 8.6 (0.96 in 3..40)  wlen 3.5  words 415 
+cortex: orchestra: 512 steps, trigram context 512, bigram 512, candidates 35094, word-filtered 2518, repeat-blocked 0
+cortex: 4 prompt + 512 generated tokens in 0.362 s: 1422.1 tok/s overall; per token card 373.3 us (mailbox + forward + DMA), host 331.8 us (sampling + print)
+seed 2 text (415 words): Once upon a time, there was a little girl named Sue. She loved to play with it. One day, a little girl named Lily went to the park. He had a big tree. The bird was very happy. The bird was happy. She wanted to go home. One day, a little girl named Sue went to the park. She said, "I will take you on 
+seed 2 score: hit 1.000  hit5 1.000  big 1.000  rep4 0.103  sent 8.6 (1.00 in 3..40)  wlen 3.5  words 415 
+cortex: orchestra: 512 steps, trigram context 512, bigram 512, candidates 33396, word-filtered 2266, repeat-blocked 0
+cortex: 4 prompt + 512 generated tokens in 0.364 s: 1416.3 tok/s overall; per token card 369.3 us (mailbox + forward + DMA), host 338.8 us (sampling + print)
+seed 3 text (416 words): Once upon a time, there was a little girl named Sue. She loved to play with her mom and dad. One day, a little girl named Sue went to the park. He had a big, red ball. The bird was very happy. <|endoftext|> Once upon a time, there was a big box. She had a big, red ball in the water. The bird was ver
+seed 3 score: hit 1.000  hit5 1.000  big 1.000  rep4 0.120  sent 9.0 (1.00 in 3..40)  wlen 3.6  words 416 
+
+--- ng15-no-filter: --orchestra data/stories-10m.ngc --lambda 0.15 --no-filter
+cortex: orchestra: 512 steps, trigram context 507, bigram 512, candidates 99639, word-filtered 0, repeat-blocked 140
+cortex: 4 prompt + 512 generated tokens in 0.355 s: 1449.2 tok/s overall; per token card 365.5 us (mailbox + forward + DMA), host 326.4 us (sampling + print)
+seed 1 text (409 words): Once upon a time, there was a little girl named Sue. She loved to play with his friends. One day, a little girl came to the store. The bird was very happy. She had a big, red ball. The little girl was so happy! She wanted to play with her mom and dad. One day on, he saw a big box of toys. She wanted
+seed 1 score: hit 1.000  hit5 1.000  big 0.997  rep4 0.022  sent 8.7 (0.98 in 3..40)  wlen 3.4  words 410 
+cortex: orchestra: 512 steps, trigram context 509, bigram 512, candidates 94428, word-filtered 0, repeat-blocked 150
+cortex: 4 prompt + 512 generated tokens in 0.365 s: 1409.1 tok/s overall; per token card 378.0 us (mailbox + forward + DMA), host 333.6 us (sampling + print)
+seed 2 text (399 words): Once upon a time, there was a little girl named Sue. One day, a big bird came to the park. She loved to play with her mom and dad. One day the little girl was so happy. She wanted to go home, he saw a big, red ball. The bird was very happy. One day on, Tom saw a big box in the park. He wanted to hel
+seed 2 score: hit 1.000  hit5 1.000  big 0.994  rep4 0.013  sent 8.7 (1.00 in 3..40)  wlen 3.5  words 399 
+cortex: orchestra: 512 steps, trigram context 508, bigram 512, candidates 98104, word-filtered 0, repeat-blocked 169
+cortex: 4 prompt + 512 generated tokens in 0.368 s: 1400.1 tok/s overall; per token card 376.2 us (mailbox + forward + DMA), host 340.0 us (sampling + print)
+seed 3 text (408 words): Once upon a time, there was a little girl named Sue. She loved to play with her mom and dad. One day, a little girl came to the store. She wanted to play with his mom and dad for the bird. <|endoftext|> Once upon a time there was a big, red bird. The bird was very happy. She loved the sun was very h
+seed 3 score: hit 1.000  hit5 1.000  big 0.997  rep4 0.027  sent 9.1 (1.00 in 3..40)  wlen 3.5  words 408 
+
+--- block-only: --orchestra data/stories-10m.ngc --lambda 0.0
+cortex: orchestra: 512 steps, trigram context 494, bigram 512, candidates 117427, word-filtered 16657, repeat-blocked 128
+cortex: 4 prompt + 512 generated tokens in 0.369 s: 1395.5 tok/s overall; per token card 374.5 us (mailbox + forward + DMA), host 344.1 us (sampling + print)
+seed 1 text (403 words): Once upon a time, there was a little girl named Sue. She loved to play with his toy. One day, a little girl came to the box.  The bird was very happy. She liked to play with her mom and played with the boy. One day friend, a little bird named Kitty. She had a big, red ball in the room.  As she saw h
+seed 1 score: hit 0.998  hit5 0.986  big 0.975  rep4 0.030  sent 8.6 (0.98 in 3..40)  wlen 3.6  words 404 
+cortex: orchestra: 512 steps, trigram context 498, bigram 512, candidates 116831, word-filtered 17103, repeat-blocked 130
+cortex: 4 prompt + 512 generated tokens in 0.366 s: 1405.6 tok/s overall; per token card 368.4 us (mailbox + forward + DMA), host 345.1 us (sampling + print)
+seed 2 text (412 words): Once upon a time, there was a little girl named Sue. One day, a big bird named Tim. Tim loved to play with it all day. He was so happy that she was not happy. She was very happy. <|endoftext|> One day the little girl came to the room. The bird was very sad. He wanted to go to the best friend. <|endo
+seed 2 score: hit 0.998  hit5 0.986  big 0.970  rep4 0.032  sent 8.2 (1.00 in 3..40)  wlen 3.5  words 411 
+cortex: orchestra: 512 steps, trigram context 502, bigram 512, candidates 117338, word-filtered 17048, repeat-blocked 119
+cortex: 4 prompt + 512 generated tokens in 0.374 s: 1377.4 tok/s overall; per token card 370.2 us (mailbox + forward + DMA), host 357.9 us (sampling + print)
+seed 3 text (418 words): Once upon a time, there was a little girl named Sue. She loved to play with her mom and had a big, From that she could not find it. <|endoftext|> One day, a little girl came to the bird. She was very happy. She was sad. She wanted to do. The bird was very happy and said, "I want to play with you, To
+seed 3 score: hit 0.998  hit5 0.986  big 0.984  rep4 0.051  sent 8.9 (0.96 in 3..40)  wlen 3.5  words 418 

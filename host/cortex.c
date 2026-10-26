@@ -10,6 +10,7 @@
  */
 #define _GNU_SOURCE
 #define BPE_NO_MAIN
+#include "orchestra.h"
 #include "../tools/bpe.c"
 #include "../lib/cx-proto.h"
 #include "../lib/cx-col.h"
@@ -114,7 +115,10 @@ int main(int argc, char **argv)
 	const char *ckpt = argv[1], *vocab = "data/bpe/vocab4096.txt";
 	char *prompt = argv[2];
 	int ngen = atoi(argv[3]);
-	int greedy = 0, bus = 1, topk = 75, chat = 0;
+	int greedy = 0, bus = 1, topk = 75, chat = 0, orch_filter = 1, orch_norepeat = 1;
+	const char *orch_ngc = NULL, *orch_words = "data/wordlist-stories.txt";
+	float orch_lambda = 0.3f;
+	static orch O;
 	float temp = 0.5f, topp = 0.95f, minp = 0.05f, rp = 1.2f;
 	rng = 0x5EED0000C0A7E8ull;
 	for (int i = 4; i < argc; i++) {
@@ -128,11 +132,18 @@ int main(int argc, char **argv)
 		else if (!strcmp(argv[i], "--rp") && i + 1 < argc) rp = (float)atof(argv[++i]);
 		else if (!strcmp(argv[i], "--seed") && i + 1 < argc) rng = strtoull(argv[++i], NULL, 10);
 		else if (!strcmp(argv[i], "--vocab") && i + 1 < argc) vocab = argv[++i];
+		else if (!strcmp(argv[i], "--orchestra") && i + 1 < argc) orch_ngc = argv[++i];
+		else if (!strcmp(argv[i], "--words") && i + 1 < argc) orch_words = argv[++i];
+		else if (!strcmp(argv[i], "--lambda") && i + 1 < argc) orch_lambda = (float)atof(argv[++i]);
+		else if (!strcmp(argv[i], "--no-filter")) orch_filter = 0;
+		else if (!strcmp(argv[i], "--repeat-ok")) orch_norepeat = 0;
 	}
 	if (chat) { char *w = malloc(strlen(prompt) + 40); sprintf(w, "\n\nHuman: %s\n\nAssistant:", prompt); prompt = w; }
 	if (load_vocab(vocab)) return 1;
 	for (int id = 0; id < 256 + nmerges; id++) expand(id);
 	expand(EOT);
+	if (orch_ngc && orch_load(&O, orch_ngc, orch_words, orch_lambda, orch_filter, orch_norepeat)) return 1;
+	if (orch_ngc) fprintf(stderr, "cortex: orchestra on: %s, lambda %.2f, word filter %s (%s), repeat block %s\n", orch_ngc, orch_lambda, orch_filter ? "on" : "off", orch_words, orch_norepeat ? "on" : "off");
 
 	/* the prompt's tokens */
 	uint32_t *ids = malloc((size_t)(strlen(prompt) + ngen + 16) * 4);
@@ -193,6 +204,7 @@ int main(int argc, char **argv)
 		card_ns += b - a;
 		if (s + 1 < nprompt) continue;
 		memcpy(logits, part + CX_LOGITS, CX_VOCAB * sizeof *logits);
+		if (orch_ngc) orch_adjust(&O, logits, ids, s + 1, tok_s, tok_len, EOT);
 		const int id = sample(logits, ids, s + 1, greedy, temp, topk, topp, minp, rp);
 		if (chat && id == EOT) { ngen = s + 1 - nprompt; break; }
 		ids[s + 1] = (uint32_t)id;
@@ -209,6 +221,7 @@ int main(int argc, char **argv)
 	}
 	const uint64_t g1 = ns();
 	printf("\n");
+	if (orch_ngc) fprintf(stderr, "cortex: orchestra: %ld steps, trigram context %ld, bigram %ld, candidates %ld, word-filtered %ld, repeat-blocked %ld\n", O.adjusted, O.ng3, O.ng2, O.cand, O.penalised, O.repeated);
 	fprintf(stderr, "cortex: %d prompt + %d generated tokens in %.3f s: %.1f tok/s overall; per token card %.1f us (mailbox + forward + DMA), host %.1f us (sampling + print)\n",
 	        nprompt, ngen, (g1 - g0) / 1e9, (nprompt + ngen - 1) / ((g1 - g0) / 1e9), card_ns / 1e3 / (nprompt + ngen - 1), host_ns / 1e3 / ngen);
 	ST64(CX_H_CMD, CX_CMD(CX_CMD_QUIT, 0));

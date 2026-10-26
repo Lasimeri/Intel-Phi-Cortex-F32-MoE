@@ -1,0 +1,4 @@
+cortex: orchestra on: data/stories-10m.ngc, lambda 0.00, word filter on (data/wordlist-stories.txt), repeat block on
+cortex: checkpoint loaded by DMA in 12.2 ms; prompt 4 tokens; sampling
+cortex: orchestra: 512 steps, trigram context 498, bigram 512, candidates 116831, word-filtered 17103, repeat-blocked 130
+cortex: 4 prompt + 512 generated tokens in 0.366 s: 1405.6 tok/s overall; per token card 368.4 us (mailbox + forward + DMA), host 345.1 us (sampling + print)

@@ -55,14 +55,23 @@ cc "${flags[@]}" -O2 -o "$out/host/unigram" "$here/tools/unigram.c" -lm
 
 # Stage 4: cluster reference (host)
 cc "${flags[@]}" -O2 -o "$out/host/ctrain-ref" "$here/tools/ctrain-ref.c" -lm
-knc cluster-gate tools/cluster-gate.c
+knc cluster-gate tools/cluster-gate.c card/cdma.c
+defs="-DCX_NG_ROWS=4096" knc cluster-gate-ng4k tools/cluster-gate.c card/cdma.c
 cc "${flags[@]}" -O2 -o "$out/host/ctrain-check" "$here/tools/ctrain-check.c" -lm
-defs="-DCX_NOSNAP" knc cluster-gate-nosnap tools/cluster-gate.c
-defs="-DCX_NOCOLL" knc cluster-gate-nocoll tools/cluster-gate.c
+defs="-DCX_NOSNAP" knc cluster-gate-nosnap tools/cluster-gate.c card/cdma.c
+defs="-DCX_NOCOLL" knc cluster-gate-nocoll tools/cluster-gate.c card/cdma.c
 
 # Stage 5: the generation daemon (card) and its host client
 knc cortexd card/cortexd.c card/cdma.c
-cc "${flags[@]}" -O2 -o "$out/host/cortex" "$here/host/cortex.c" -lm
+cc "${flags[@]}" -O2 -mavx2 -mfma -Wno-format-truncation -Wno-stringop-truncation -o "$out/host/cortex" "$here/host/cortex.c" -lm
 
 # dataset conversion (oasst1 guanaco JSONL -> Human/Assistant text)
 cc "${flags[@]}" -O2 -o "$out/host/jsonl-text" "$here/tools/jsonl-text.c"
+
+# MoE stage 1: the host n-gram server and the checker at the gate table size
+cc "${flags[@]}" -O2 -o "$out/host/ngserve" "$here/host/ngserve.c"
+cc "${flags[@]}" -O2 -DCX_NG_ROWS=4096 -o "$out/host/ngserve-ng4k" "$here/host/ngserve.c"
+cc "${flags[@]}" -O2 -DCX_NG_ROWS=4096 -o "$out/host/ctrain-check-ng4k" "$here/tools/ctrain-check.c" -lm
+
+# diagnostics
+knc partpoll tools/partpoll.c

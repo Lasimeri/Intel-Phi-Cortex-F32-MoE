@@ -37,7 +37,7 @@ int main(int argc, char **argv)
 	double *T0 = calloc((size_t)N * CX_NT, sizeof *T0);
 	float *bus0 = calloc(CX_DB * CX_NBUS, sizeof *bus0);
 	C.bus_mode = CREF_BUS_LIVE;
-	for (int t = 0; t < warm; t++) cref_step(&C, t, ids[t]);
+	for (int t = 0; t < warm; t++) cref_step(&C, t, ids[t], t >= 1 ? ids[t - 1] : CX_NG_PAD, t >= 2 ? ids[t - 2] : CX_NG_PAD);
 	memcpy(T0, C.T, (size_t)N * CX_NT * sizeof *T0);
 	memcpy(bus0, C.bus + (long)warm * CX_DB * CX_NBUS, CX_DB * CX_NBUS * sizeof *bus0);   /* the bus the last warm-up step wrote */
 
@@ -45,7 +45,7 @@ int main(int argc, char **argv)
 	C.bus_mode = CREF_BUS_EXT;
 	C.ext = ext + warm;
 	cgrads_zero(&G, N);
-	const double loss = cref_chunk(&C, &G, T0, bus0, ids + warm, L);
+	const double loss = cref_chunk(&C, &G, T0, bus0, ids + warm, L, warm >= 1 ? ids[warm - 1] : CX_NG_PAD, warm >= 2 ? ids[warm - 2] : CX_NG_PAD);
 	printf("ctrain-ref: N %d, L %d, warm %d: loss %.6f nats (%.4f bits/token), external bus\n", N, L, warm, loss, loss / log(2.0));
 	uint64_t rs = 0x5EED5EED5EEDull;
 	const double h = 1e-6;
@@ -67,9 +67,9 @@ int main(int argc, char **argv)
 				if (g == 3 && idx % CX_NW >= 194) idx -= idx % CX_NW;
 				const double keep = base[idx];
 				base[idx] = keep + h;
-				const double lp = cref_chunk(&C, NULL, T0, bus0, ids + warm, L);
+				const double lp = cref_chunk(&C, NULL, T0, bus0, ids + warm, L, warm >= 1 ? ids[warm - 1] : CX_NG_PAD, warm >= 2 ? ids[warm - 2] : CX_NG_PAD);
 				base[idx] = keep - h;
-				const double lm = cref_chunk(&C, NULL, T0, bus0, ids + warm, L);
+				const double lm = cref_chunk(&C, NULL, T0, bus0, ids + warm, L, warm >= 1 ? ids[warm - 1] : CX_NG_PAD, warm >= 2 ? ids[warm - 2] : CX_NG_PAD);
 				base[idx] = keep;
 				const double fd = (lp - lm) / (2 * h), gr = gb[idx];
 				const double den = fabs(fd) > fabs(gr) ? fabs(fd) : fabs(gr);
@@ -83,7 +83,7 @@ int main(int argc, char **argv)
 	/* B: the live bus: how large is the gradient path the stop-gradient drops? FD (true gradient) vs analytic */
 	C.bus_mode = CREF_BUS_LIVE;
 	cgrads_zero(&G, N);
-	const double lossB = cref_chunk(&C, &G, T0, bus0, ids + warm, L);
+	const double lossB = cref_chunk(&C, &G, T0, bus0, ids + warm, L, warm >= 1 ? ids[warm - 1] : CX_NG_PAD, warm >= 2 ? ids[warm - 2] : CX_NG_PAD);
 	printf("live bus: loss %.6f nats; dropped-path check on column 0 (FD = true gradient incl. the bus path, grad = analytic without it):\n", lossB);
 	const int gl[] = { 9, 6, 3, 0 };
 	for (int gi = 0; gi < 4; gi++) {
@@ -96,9 +96,9 @@ int main(int argc, char **argv)
 			const long idx = (long)(cx_rng(&rs) % (uint64_t)gsize[g]);
 			const double keep = base[idx];
 			base[idx] = keep + h;
-			const double lp = cref_chunk(&C, NULL, T0, bus0, ids + warm, L);
+			const double lp = cref_chunk(&C, NULL, T0, bus0, ids + warm, L, warm >= 1 ? ids[warm - 1] : CX_NG_PAD, warm >= 2 ? ids[warm - 2] : CX_NG_PAD);
 			base[idx] = keep - h;
-			const double lm = cref_chunk(&C, NULL, T0, bus0, ids + warm, L);
+			const double lm = cref_chunk(&C, NULL, T0, bus0, ids + warm, L, warm >= 1 ? ids[warm - 1] : CX_NG_PAD, warm >= 2 ? ids[warm - 2] : CX_NG_PAD);
 			base[idx] = keep;
 			const double fd = (lp - lm) / (2 * h), gr = gb[idx];
 			if (fabs(fd - gr) > worst_abs) { worst_abs = fabs(fd - gr); wfd = fd; wgr = gr; }

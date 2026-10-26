@@ -44,6 +44,8 @@ int main(int argc, char **argv)
 	cref C;
 	cref_alloc(&C, N, L);
 	cref_init(&C);
+	const int ng = getenv("CX_NG") && atoi(getenv("CX_NG"));
+	if (ng) cref_ng_init(&C);
 	cgrads G;
 	cgrads_alloc(&G, N);
 	cgrads_zero(&G, N);
@@ -58,7 +60,7 @@ int main(int argc, char **argv)
 	/* warm-up chunks (live bus, state carried), then the chunk */
 	C.bus_mode = CREF_BUS_LIVE;
 	for (int ch = 0; ch < warm / L; ch++) {
-		for (int t = 0; t < L; t++) cref_step(&C, t, ids[(long)ch * L + t]);
+		for (int t = 0; t < L; t++) { const long p = (long)ch * L + t; cref_step(&C, t, ids[p], p >= 1 ? ids[p - 1] : CX_NG_PAD, p >= 2 ? ids[p - 2] : CX_NG_PAD); }
 		/* the next chunk's bus[0] = this chunk's bus[L] */
 		memcpy(C.bus, C.bus + (long)L * CX_DB * CX_NBUS, CX_DB * CX_NBUS * sizeof *C.bus);
 	}
@@ -66,7 +68,7 @@ int main(int argc, char **argv)
 	float *bus0 = malloc(CX_DB * CX_NBUS * sizeof *bus0);
 	memcpy(T0, C.T, (size_t)N * CX_NT * sizeof *T0);
 	memcpy(bus0, C.bus, CX_DB * CX_NBUS * sizeof *bus0);
-	const double loss = cref_chunk(&C, bwd ? &G : NULL, T0, bus0, ids + warm, L);
+	const double loss = cref_chunk(&C, bwd ? &G : NULL, T0, bus0, ids + warm, L, warm >= 1 ? ids[warm - 1] : CX_NG_PAD, warm >= 2 ? ids[warm - 2] : CX_NG_PAD);
 
 	float *closs = load(dir, "cl-loss", -1, (size_t)L), *chc = load(dir, "cl-hc", -1, (size_t)L * CX_DU);
 	if (!closs || !chc) return 1;
@@ -116,6 +118,12 @@ int main(int argc, char **argv)
 		float *ge = malloc((size_t)CX_VOCAB * CX_DE * sizeof *ge);
 		for (int v = 0; v < CX_VOCAB; v++) for (int c = 0; c < CX_DE; c++) ge[(long)v * CX_DE + c] = get[(((long)v >> 4) * CX_DE + c) * 16 + (v & 15)];
 		cmp("E", -1, ge, G.E, (long)CX_VOCAB * CX_DE);
+		if (ng) {
+			float *crow = load(dir, "cl-ngrows", -1, (size_t)L * CX_NG_ORDERS * CX_DE), *cgr = load(dir, "cl-ngrad", -1, (size_t)L * CX_NG_ORDERS * CX_DE), *cgg = load(dir, "cl-gng", -1, (size_t)CX_NG_ORDERS * CX_DE);
+			if (crow) cmp("ngrow", -1, crow, C.ngr, (long)L * CX_NG_ORDERS * CX_DE);
+			if (cgr) cmp("ngrad", -1, cgr, G.ngrad, (long)L * CX_NG_ORDERS * CX_DE);
+			if (cgg) cmp("gng", -1, cgg, &G.ngg[0][0], (long)CX_NG_ORDERS * CX_DE);
+		}
 	}
 	return 0;
 }

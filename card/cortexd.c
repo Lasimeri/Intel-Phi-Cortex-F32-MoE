@@ -2,7 +2,7 @@
  * cortexd: the Intel Phi Cortex generation daemon on the card (Stage 5). usage: cortexd [PART_MIB]
  *
  * 120 column threads (card/cluster.h); thread 0 also serves the host's mailbox (lib/cx-proto.h, part at 1344 MiB of
- * the shared host-memory region, mapped uncached through /dev/phihost) and drives DMA channel 2 (card/cdma.h):
+ * the shared host-memory region, mapped uncached through /dev/phihost) and drives a card-owned DMA channel, 2 unless CX_DMA_CHAN names another (card/cdma.h):
  *   LOAD   the host staged a checkpoint in the part; the card pulls 120 column weight blocks, cg and the embedding
  *          into place by DMA (each thread's huge page has a known physical address), then rebuilds the shadow ES.
  *   RESET  every column's fast weights T and the bus to zero.
@@ -17,6 +17,7 @@
 
 #include <fcntl.h>
 #include <stdio.h>
+#include <time.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -127,24 +128,45 @@ static int load_ckpt(void)
 static volatile uint32_t ctl_op, ctl_arg, ctl_quit, ctl_exit;
 static int step_t;   /* the step slot within the chunk buffers (0..L-1); the bus wraps with the chunk */
 
+/* the card-owned DMA channel: 2 unless CX_DMA_CHAN names another (a channel left enabled by a killed owner stays
+ * unusable until the card reboots; the daemon then runs on a different one) */
+static int dma_channel(void)
+{
+	const char *e = getenv("CX_DMA_CHAN");
+	return e && *e ? atoi(e) : 2;
+}
+
+/* A session with no first command within this many seconds is abandoned: a client that wrote its session while no
+ * daemon was alive leaves CX_H_SESSION dangling, and without the grace period the next daemon would take that session
+ * and wait forever for a client that is gone (2026-10-26, four hours of "did not take the session"). */
+#define CX_SESSION_GRACE_S 5.0
+
 static void serve(void *arg, int k)
 {
 	(void)arg;
-	uint64_t done = 0;
+	uint64_t done = 0, first = 0;
+	double t0 = 0;
 	if (!k) {
-		done = CX_CMD_SEQ(rd64(CX_H_CMD));
+		done = first = CX_CMD_SEQ(rd64(CX_H_CMD));
 		wr64(CX_C_ACK, done);
 		cx_fence();
 		wr64(CX_C_SESSION, rd64(CX_H_SESSION));
 		wr32(CX_C_STATE, 1);
+		t0 = cx_now();
 	}
 	for (;;) {
 		/* thread 0 waits for a command and publishes it; everyone else waits at the barrier */
 		if (!k) {
-			for (;;) {
+			for (uint32_t spins = 0;; spins++) {
 				const uint64_t c = rd64(CX_H_CMD), seq = CX_CMD_SEQ(c);
 				if (seq == CX_CMD_QUIT) { ctl_quit = 1; break; }
 				if (seq != done) { ctl_op = rd32(CX_H_CMD_OP); ctl_arg = CX_CMD_ARG(c); done = seq; break; }
+				if (done == first && (spins & 4095) == 0 && cx_now() - t0 > CX_SESSION_GRACE_S) {
+					printf("cortexd: no command within %.0f s, session abandoned\n", CX_SESSION_GRACE_S);
+					fflush(stdout);
+					ctl_quit = 1;
+					break;
+				}
 				__asm__ volatile("delay %0" : : "r"(16u));
 			}
 		}
@@ -218,7 +240,8 @@ int main(int argc, char **argv)
 	if (!etb_phys[0] || !cg_phys || !logits_phys) { fprintf(stderr, "cortexd: physical addresses unavailable\n"); return 1; }
 	for (int i = 0; i < CX_DU; i++) C.cg[i] = 1.0f;
 
-	if (cdma_open(&dma, 2)) return 1;
+	const int chan = dma_channel();
+	if (cdma_open(&dma, chan)) return 1;
 	int fd = open("/dev/phihost", O_RDWR | O_SYNC);
 	part = fd < 0 ? MAP_FAILED : mmap(NULL, CX_STAGE + (24u << 20), PROT_READ | PROT_WRITE, MAP_SHARED, fd, (off_t)(part_mib << 20));
 	if (part == MAP_FAILED) { perror("/dev/phihost"); return 1; }
@@ -226,8 +249,8 @@ int main(int argc, char **argv)
 
 	cx_barrier_init(&C.bar, CL_N, 2, CX_CORE_REL);
 	cx_team_run(CL_N, setup, NULL);
-	printf("cortexd: %d columns, part %llu MiB, DMA channel 2 (region 0x%llx, %llu MiB); waiting for a session\n", CL_N,
-	       (unsigned long long)part_mib, (unsigned long long)dma.region_addr, (unsigned long long)(dma.region_size >> 20));
+	printf("cortexd: %d columns, part %llu MiB, DMA channel %d (region 0x%llx, %llu MiB); waiting for a session\n", CL_N,
+	       (unsigned long long)part_mib, chan, (unsigned long long)dma.region_addr, (unsigned long long)(dma.region_size >> 20));
 	fflush(stdout);
 	for (;;) {
 		const uint64_t session = rd64(CX_C_SESSION);

@@ -1,0 +1,2 @@
+ngserve: 2 orders x 4096 rows (gate), 2 train + 0 valid chunks of 32, lr 0, ring at part + 48 MiB
+ngserve: 2 chunks served

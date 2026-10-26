@@ -24,6 +24,7 @@ typedef struct {
 	double p[CX_DP], qb[CX_DB], alpha[CX_NBUS], xin[CX_DX], xs, x[CX_DX], y[CX_NW], k[CX_DS], ks, a, b;
 	double Sk[CX_DS], Sq[CX_DS], d[CX_DS], kq, o[CX_DS], h[CX_DH], sg[CX_DH], z[CX_DH], u[CX_DU], g, gl, bc[CX_DB], xsu, hc[CX_DU];
 	double T0[CX_NT];   /* T before this step's update */
+	double e[CX_DE];    /* the input actually used (E row, plus the n-gram rows when the memory is on) */
 } rstep;
 
 typedef struct { double *prm, *E, *cg; } rparams;   /* CX_NPARAM, 4096 x 128, 128 */
@@ -69,13 +70,13 @@ static inline void rgemv(const double *W, const double *x, int K, int N, double 
 }
 
 /* the column forward (no consensus norm): T (64x64, T = S^T) updated in place; everything the backward needs saved */
-static inline void ref_col_forward(const double *prm, const double *E, double *T, rstep *s, uint32_t id, const float *Bt)
+static inline void ref_col_forward(const double *prm, const double *E, double *T, rstep *s, uint32_t id, const float *Bt, const double *ein)
 {
 	s->id = id;
 	s->Bt = Bt;
 	memcpy(s->T0, T, sizeof s->T0);
-	double e[CX_DE];
-	for (int i = 0; i < CX_DE; i++) e[i] = E[(long)id * CX_DE + i];
+	double *e = s->e;
+	for (int i = 0; i < CX_DE; i++) e[i] = ein ? ein[i] : E[(long)id * CX_DE + i];
 	rgemv(prm + CX_O_PIN, e, CX_DE, CX_DP, s->p);
 	rgemv(prm + CX_O_WQB, s->p, CX_DP, CX_DB, s->qb);
 	double sc[CX_NBUS], m = -INFINITY, sum = 0;
@@ -118,7 +119,7 @@ static inline void ref_col_forward(const double *prm, const double *E, double *T
 /* single column: forward plus the consensus norm of its own vote */
 static inline void ref_forward(const rparams *P, double *T, rstep *s, uint32_t id, const float *Bt)
 {
-	ref_col_forward(P->prm, P->E, T, s, id, Bt);
+	ref_col_forward(P->prm, P->E, T, s, id, Bt, NULL);
 	double su = 0;
 	for (int i = 0; i < CX_DU; i++) su += s->u[i] * s->u[i];
 	s->xsu = 1.0 / sqrt(su / CX_DU + (double)CX_EPS);
@@ -184,7 +185,7 @@ static inline void ref_norm_backward(const double *dx, const double *xin, double
 
 /* backward of one step given the gradient on the vote u (du) and on the confidence pre-activation gl (dgl). dT: in =
  * gradient on T after this step's update (from the future), out = gradient on T before it. gE: the input row's gradient. */
-static inline void ref_col_backward(const double *prm, double *gp, const double *E, double *gE, const rstep *s, const double *du, double dgl, double *dT)
+static inline void ref_col_backward(const double *prm, double *gp, const double *E, double *gE, const rstep *s, const double *du, double dgl, double *dT, double *de_out)
 {
 	/* u = Wu^T z; g = sigmoid(z . wg + bg) */
 	double dz[CX_DH], dh[CX_DH];
@@ -246,12 +247,14 @@ static inline void ref_col_backward(const double *prm, double *gp, const double 
 		for (int d = 0; d < CX_DB; d++) { gp[CX_O_WQB + i * CX_DB + d] += s->p[i] * dqb[d]; dp[i] += prm[CX_O_WQB + i * CX_DB + d] * dqb[d]; }
 	}
 	/* p = P_in^T e */
-	const double *e = E + (long)s->id * CX_DE;
+	const double *e = s->e;
+	(void)E;
 	double *ge = gE + (long)s->id * CX_DE;
 	for (int kk = 0; kk < CX_DE; kk++) {
 		double de = 0;
 		for (int n = 0; n < CX_DP; n++) { gp[CX_O_PIN + kk * CX_DP + n] += e[kk] * dp[n]; de += prm[CX_O_PIN + kk * CX_DP + n] * dp[n]; }
 		ge[kk] += de;
+		if (de_out) de_out[kk] = de;
 	}
 }
 
@@ -261,7 +264,7 @@ static inline void ref_backward(const rparams *P, rgrads *G, const rstep *s, con
 	double dhc[CX_DU] = { 0 }, du[CX_DU];
 	ref_head_backward(P->E, G->E, s->hc, dl, dhc);
 	ref_norm_backward(dhc, s->u, s->xsu, P->cg, G->cg, du, CX_DU);
-	ref_col_backward(P->prm, G->prm, P->E, G->E, s, du, 0.0, dT);
+	ref_col_backward(P->prm, G->prm, P->E, G->E, s, du, 0.0, dT, NULL);
 }
 
 /* loss (mean over L steps) and, if G is not NULL, the gradients, from T0 (copied, not modified) over tokens ids[0..L]

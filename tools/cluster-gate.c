@@ -8,6 +8,7 @@
  * cl-gcg.f32, cl-get.f32 (ETB layout). The host side: tools/ctrain-check.c.
  */
 #include "../card/cluster.h"
+#include <fcntl.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -37,6 +38,14 @@ static uint64_t pmu_read(int fd)
 }
 static int L, warm, bwd, runm, ndump, dump_list[CL_N];
 static uint32_t *ids;
+static cdma ngdma;   /* MoE stage 1: the n-gram ring DMA channel */
+
+/* the card-owned DMA channel of the n-gram ring: 2 unless CX_DMA_CHAN names another */
+static int dma_channel(void)
+{
+	const char *e = getenv("CX_DMA_CHAN");
+	return e && *e ? atoi(e) : 2;
+}
 static long ntok;
 static const char *outdir;
 
@@ -92,6 +101,8 @@ static void setup(void *arg, int k)
 	C.dhc[k] = TAKE((size_t)CX_LMAX * CX_DU * 4);
 	C.lg[k] = TAKE((size_t)CX_LMAX * CL_MAXBLK * 16 * 4);
 	C.tgtrow[k] = TAKE(CX_DE * 4);
+	tr->ng = C.ng;
+	tr->ngr = TAKE((size_t)CX_LMAX * CX_NG_ORDERS * CX_DE * 4);
 	if (o > (4u << 20)) { fprintf(stderr, "cluster-gate: arena overflow %zu\n", o); exit(1); }
 	tr->ET = C.ETB;
 	tr->ES = C.ES;
@@ -119,6 +130,7 @@ static void run_check(void *arg, int k)
 	(void)arg;
 	cx_gather_prefetch(C.ETB, ids[0]);
 	for (int ch = 0; ch < warm / L; ch++) {
+		cl_ng_begin(&C, k, ch);
 		const uint32_t *id = ids + (long)ch * L;
 		for (int t = 0; t < L; t++) cl_fwd_step(&C, k, t, id[t], id[t + 1], id[t + 1]);
 		cl_wait(&C, k);
@@ -126,6 +138,7 @@ static void run_check(void *arg, int k)
 		cl_wait(&C, k);
 	}
 	const uint32_t *id = ids + (long)warm;
+	cl_ng_begin(&C, k, warm / L);
 	const int pfd = pmu_open(getenv("CX_PMU") ? strtoull(getenv("CX_PMU"), NULL, 16) : 0x10cb);
 	const uint64_t p0 = pmu_read(pfd);
 	if (!k) wall[0] = cx_now();
@@ -150,7 +163,7 @@ static void run_check(void *arg, int k)
 	cl_bwd_chunk(&C, k, id, 0.9f, 0.95f, -1.0f, 1e-8f);   /* lr < 0: gradients only, no Adam, GET kept */
 	if (!k) wall[3] = cx_now();
 	if (is_dumped(k)) dump("cl-gprm", k, C.tr[k].gprm, CX_NPARAM * 4);
-	if (!k) { dump("cl-gcg", -1, C.tr[0].gcg, CX_DU * 4); }
+	if (!k) { dump("cl-gcg", -1, C.tr[0].gcg, CX_DU * 4); if (C.ng) dump("cl-gng", -1, C.gng, CX_NG_ORDERS * CX_DE * 4); }
 }
 
 /* ---- run mode: pretraining of the whole cluster ---- */
@@ -177,6 +190,7 @@ static void run_train(void *arg, int k)
 	cx_gather_prefetch(C.ETB, ids[0]);
 	for (long ch = 0; ch < nchunks; ch++) {
 		const uint32_t *id = ids + ch * L;
+		cl_ng_begin(&C, k, ch);
 		const uint64_t c0 = cx_rdtsc();
 		for (int t = 0; t < L; t++) cl_fwd_step(&C, k, t, id[t], id[t + 1], id[t + 1]);
 		const uint64_t c1 = cx_rdtsc();
@@ -373,9 +387,33 @@ int main(int argc, char **argv)
 	C.dep = STAKE((size_t)CL_N * CX_LMAX * CX_DU * 4);
 	C.loss = STAKE(CX_LMAX * 4);
 	C.argmax = (volatile uint32_t *)STAKE(2 * 16 * 4);
+	if (getenv("CX_NG") && atoi(getenv("CX_NG"))) {
+		C.ng = STAKE(CX_NG_ORDERS * CX_DE * 4);
+		C.m_ng = STAKE(CX_NG_ORDERS * CX_DE * 4);
+		C.v_ng = STAKE(CX_NG_ORDERS * CX_DE * 4);
+		C.gng = STAKE(CX_NG_ORDERS * CX_DE * 4);
+		C.desum = STAKE((size_t)CX_LMAX * CX_DU * 4);
+		uint64_t ph[2];
+		C.ngbuf = huge_alloc(2 * CX_NGR_BYTES, ph, 1); C.ngbuf_phys = ph[0];
+		C.nggrad = huge_alloc(2 * CX_NGR_BYTES, ph, 1); C.nggrad_phys = ph[0];
+		if (!C.ngbuf || !C.nggrad) { fprintf(stderr, "cluster-gate: n-gram ring huge pages\n"); return 1; }
+		const int chan = dma_channel();
+		if (cdma_open(&ngdma, chan)) { fprintf(stderr, "cluster-gate: DMA channel %d\n", chan); return 1; }
+		const int pfd = open("/dev/phihost", O_RDWR | O_SYNC);
+		void *pm = pfd < 0 ? MAP_FAILED : mmap(NULL, CX_PART_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, pfd, (off_t)CX_PART_MIB << 20);
+		if (pm == MAP_FAILED) { perror("cluster-gate: /dev/phihost"); return 1; }
+		C.part = pm;
+		C.dma = &ngdma;
+		const uint64_t base = ngdma.region_addr + ((uint64_t)CX_PART_MIB << 20);
+		C.ng_host_rows = base + CX_NGR_ROWS(0);
+		C.ng_host_grad = base + CX_NGR_GRAD(0);
+		C.ng_host_cseq = base + CX_NGR_C_SEQ;
+		printf("n-gram memory: on, %u rows per order on the host, ring at part + %u MiB, DMA channel %d\n", CX_NG_ROWS, CX_NGR_BASE >> 20, chan);
+	}
 	if (o > (8u << 20)) { fprintf(stderr, "cluster-gate: shared overflow %zu\n", o); return 1; }
 	memset(sh, 0, o);
 	for (int i = 0; i < CX_DU; i++) C.cg[i] = 1.0f;
+	if (C.ng) for (int i = 0; i < CX_NG_ORDERS * CX_DE; i++) C.ng[i] = 1.0f;   /* the gates: after the arena is zeroed, like cg */
 	float *E = malloc((size_t)CX_VOCAB * CX_DE * 4);
 	cx_emb_init(E);
 	for (int v = 0; v < CX_VOCAB; v++) for (int c = 0; c < CX_DE; c++) C.ETB[CX_ETB(v, c)] = E[(long)v * CX_DE + c];
@@ -399,7 +437,7 @@ int main(int argc, char **argv)
 	cx_barrier_init(&C.bar, CL_N, 2, CX_CORE_REL);
 	cx_team_run(CL_N, setup, NULL);
 	printf("cluster-gate %s: %d columns, L %d, warm %d, pin failures %d, thread 0 cpu %d, thread 119 cpu %d\n", argv[1], CL_N, L, warm, cx_pin_fail, cx_found_cpu[0], cx_found_cpu[CL_N - 1]);
-	if (runm) return run_mode(argc, argv);
+	if (runm) { const int rc = run_mode(argc, argv); if (C.ng) cdma_close(&ngdma); return rc; }
 	cx_team_run(CL_N, run_check, NULL);
 	double mean = 0;
 	for (int t = 0; t < L; t++) mean += C.loss[t];
@@ -410,5 +448,6 @@ int main(int argc, char **argv)
 	if (bwd) printf("backward + gradients: %.1f us per step (whole chunk %.2f ms)\n", (wall[3] - wall[2]) * 1e6 / L, (wall[3] - wall[2]) * 1e3);
 	if (dump("cl-loss", -1, C.loss, (size_t)L * 4) || dump("cl-hc", -1, C.hcp[0], (size_t)L * CX_DU * 4)) return 1;
 	if (bwd && dump("cl-get", -1, C.GET, 2u << 20)) return 1;
+	if (C.ng) cdma_close(&ngdma);
 	return 0;
 }

@@ -77,3 +77,43 @@ side is a double-buffered ring in the part, one DMA each way per chunk, and the 
 Stages, revised: 1a the n-gram path with small tables, host rows and gradients over the real DMA ring, gated against
 the double reference; 1b the 2 GiB tables and a 320k-token run; 2 the heads shrink (MLP out) and the experts stream
 from GDDR; 3 the sparse attention memory; 4 the coach.
+
+## Sizing (06:32, user): 4 GiB of GDDR for the inactive weights, one pool read by every head
+
+Shapes from lib/cx-col.h with CX_HID 64 (the trained F32 model): a column holds 44,512 F32. The MLP (W1 144 x 64,
+b1 64, Wu 64 x 128) is 17,472 of them; everything else (P_in, Wqb, gain, W, Wg, bg, Wb) is 27,040 and stays in the
+head. The head is the per-VPU unit the user asked for: two heads per core, 60 cores, 120 heads, each in its core's L2.
+
+| item | count | bytes | where |
+|---|---|---|---|
+| expert (one MLP: W1, b1, Wu) | 17,472 F32 | 69,888 B | GDDR, shared pool |
+| experts in 4 GiB | 61,440 | 4,293,918,720 B (4 GiB - 1,048,576 B) | GDDR |
+| expert parameters | 1,073,479,680 | | |
+| head (column minus MLP) | 27,040 F32 | 108,160 B | L2 of its core |
+| fast weights T per head | 4,096 F32 | 16,384 B | L2 |
+| step activations per head | about 3,300 F32 | about 13 KB | L2 |
+| expert staging per head (2 slots) | 2 x 17,472 F32 | 139,776 B | L2 (prefetch of the next step's expert) |
+| product keys (router), shared | 2 x 248 x 40 = 19,840 F32 | 79,360 B | L2 of every core |
+| per core total | | 2 x (108,160 + 16,384 + 13,000 + 139,776) + 79,360 = 634,000 B | over the 524,288 B L2 |
+| resident dense parameters | 120 x 27,040 + 19,840 + E 524,288 + cg 128 = 3,789,056 | | the "3-4 M in cache" budget |
+
+The per-core total above exceeds L2 by about 110 KB with two staging slots per head; one staging slot per head
+(the expert of the current step, the next one's prefetch landing in the same slot after use) gives 494,000 B and fits.
+Which is measured first: the L2 miss rate of a head with one slot versus two (pmu 0x10cb as in the cluster gate).
+
+Routing: every head reads the same pool. Top-1 expert per head per step through product keys: x (80 wide) is split
+into two 40-wide halves, each half scores 248 keys, the expert index is (best of half A) x 248 + (best of half B)
+over 248 x 248 = 61,504 >= 61,440 slots (indices past 61,439 wrap to index mod 61,440). 2 x 248 x 40 FMAs per head
+per step, no per-head router weights. Reads per step: 120 x 69,888 B = 8,386,560 B; at the F32 step time of 793 us
+that is 10.6 GB/s of GDDR reads, under the 7120A's measured STREAM figures. Updates: an expert used by a head gets
+that head's gradient; plain SGD in place (Adam moments for 1.07 G parameters would need another 8 GiB).
+
+Context in host RAM over DMA (sparse attention, stage 3): each head's k (64) and v (64) of every step go to the
+host: 512 B per head per step, 61,440 B per step for 120 heads, 77 MB/s at 1,260 steps/s. The host keeps them in
+RAM and answers each head's query with the top-4 matches by dot product (AVX2 FMA), 4 x 64 F32 per head = 122,880 B
+back per step, one step of lag (the match for step t uses the context up to t-1). An exact scan over a window of W
+steps reads 120 x W x 256 B of keys per step: W = 1,024 is 31.5 MB and fits the 5800X's 32 MB L3 (about 0.15 ms per
+step at L3 bandwidth, computed, not measured); W = 4,096 is 126 MB from DRAM (about 3 ms per step, too slow), so a
+window past 1,024 needs an index (sign-bit hashing of k into 65,536 buckets, probing a few). Measured when built.
+
+The n-gram tables keep their own host RAM (2^21 rows x 2 orders x 128 F32 = 2 GiB, or 2^22 rows = 4 GiB).

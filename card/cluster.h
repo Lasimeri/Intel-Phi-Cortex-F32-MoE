@@ -19,6 +19,9 @@
 
 #include "team.h"
 #include "train.h"
+#include "cdma.h"
+#include <stdio.h>
+#include "../lib/cx-proto.h"
 
 #define CL_N CX_COLUMNS
 #define CL_GROUPS 12
@@ -48,6 +51,14 @@ typedef struct {
 	float *hs[CL_N], *xsh[CL_N], *hcp[CL_N], *dhc[CL_N], *lg[CL_N], *tgtrow[CL_N];
 	int nblk[CL_N], blk[CL_N][CL_MAXBLK];
 	uint64_t epoch[CL_N];
+	/* MoE stage 1: the n-gram memory (ng NULL = off). Gates 2 x 128 with Adam moments and their gradient (thread 0);
+	 * ngbuf = 2 slots x 32 KiB of rows DMAd in from the host; nggrad = 2 slots x 32 KiB of row gradients DMAd out;
+	 * desum = the owner-summed input gradient of each step (L x 128, shared); part = the uncached part mapping. */
+	float *ng, *m_ng, *v_ng, *gng, *ngbuf, *nggrad, *desum;
+	uint64_t ngbuf_phys, nggrad_phys, ng_host_rows, ng_host_grad, ng_host_cseq, ng_dma_seq[2];
+	volatile uint8_t *part;
+	cdma *dma;
+	long chunk;
 } cluster;
 
 static inline void cl_blocks(cluster *C, int k)
@@ -67,6 +78,22 @@ static inline int cl_owns(const cluster *C, int k, int g)
 static inline void cl_wait(cluster *C, int k) { cx_barrier_wait(&C->bar, k, ++C->epoch[k]); }
 
 /* one cluster step for thread k: token id, next token (prefetch), target tgt; writes bus[t+1] */
+/* n-gram ring, chunk start: thread 0 waits until the host has published chunk ch, DMAs its 32 KiB row slot into GDDR
+ * (card-owned channel, measured ~10 us), then the team proceeds. No-op without the memory. */
+static inline void cl_ng_begin(cluster *C, int k, long ch)
+{
+	if (!C->ng) return;
+	if (!k) {
+		C->chunk = ch;
+		while (__atomic_load_n((volatile uint64_t *)(C->part + CX_NGR_H_SEQ), __ATOMIC_ACQUIRE) < (uint64_t)ch + 1) cx_relax();
+		const int s = (int)(ch & 1);
+		const uint64_t seq = cdma_submit(C->dma, C->ng_host_rows + (uint64_t)s * CX_NGR_BYTES, C->ngbuf_phys + (uint64_t)s * CX_NGR_BYTES, CX_NGR_BYTES, 0, 0);
+		if (!seq || cdma_wait(C->dma, seq, 5.0)) { fprintf(stderr, "cl_ng_begin: row DMA failed at chunk %ld\n", ch); }
+		for (uint32_t i = 0; i < CX_NGR_BYTES / 4; i += 16) cx_evict1(C->ngbuf + (size_t)s * (CX_NGR_BYTES / 4) + i);
+	}
+	cl_wait(C, k);
+}
+
 static inline void cl_fwd_step(cluster *C, int k, int t, uint32_t id, uint32_t id_next, uint32_t tgt)
 {
 	cx_train *tr = &C->tr[k];
@@ -75,6 +102,13 @@ static inline void cl_fwd_step(cluster *C, int k, int t, uint32_t id, uint32_t i
 	const float *Bt = C->bus + (long)t * CL_BUS;
 	float *bn = C->bus + (long)(t + 1) * CL_BUS;
 	cx_pf_lines(C->ES + (long)tgt * CX_DE, CX_DE);
+	if (C->ng) {
+		const float *rows = C->ngbuf + (C->chunk & 1) * (CX_NGR_BYTES / 4);
+		for (int n = 0; n < CX_NG_ORDERS; n++) {
+			tr->ngrow[n] = rows + ((long)t * CX_NG_ORDERS + n) * CX_DE;
+			tr->ngnext[n] = t + 1 < C->L ? rows + ((long)(t + 1) * CX_NG_ORDERS + n) * CX_DE : NULL;
+		}
+	}
 	cx_train_fwd_step(tr, t, id, id_next, Bt);
 #ifdef CX_NOCOLL
 	(void)tgt; (void)L; (void)zero; (void)l2e; (void)invL; (void)bn;
@@ -236,8 +270,40 @@ static inline void cl_bwd_chunk(cluster *C, int k, const uint32_t *ids, float b1
 		}
 		float de[CX_DU] __attribute__((aligned(64)));
 		for (int v = 0; v < 8; v++) _mm512_store_ps(de + 16 * v, acc[v]);
+		if (C->ng) cx_copy(C->desum + (long)t * CX_DU, de, CX_DU);
 		float *col = C->GET + (long)g * CX_BLOCK + (ids[t] & 15);
 		for (int c = 0; c < CX_DE; c++) col[c * 16] += de[c];
+	}
+	/* n-gram memory: row gradients g_n * desum_t by thread t, the gate gradient by thread 0, then the DMA to the host */
+	if (C->ng) {
+		cl_wait(C, k);   /* desum complete */
+		const int s = (int)(C->chunk & 1);
+		float *gslot = C->nggrad + (size_t)s * (CX_NGR_BYTES / 4);
+		if (!k && C->ng_dma_seq[s]) cdma_wait(C->dma, C->ng_dma_seq[s], 5.0);   /* the slot's previous DMA (two chunks ago) */
+		cl_wait(C, k);
+		if (k < L) {
+			for (int n = 0; n < CX_NG_ORDERS; n++) {
+				const float *g = C->ng + n * CX_DE, *ds = C->desum + (long)k * CX_DU;
+				float *out = gslot + ((long)k * CX_NG_ORDERS + n) * CX_DE;
+				for (int v = 0; v < CX_DE / 16; v++) _mm512_store_ps(out + 16 * v, _mm512_mul_ps(_mm512_load_ps(g + 16 * v), _mm512_load_ps(ds + 16 * v)));
+			}
+		}
+		if (!k) {
+			for (int n = 0; n < CX_NG_ORDERS; n++) {
+				__m512 acc[CX_DE / 16];
+				for (int v = 0; v < CX_DE / 16; v++) acc[v] = _mm512_load_ps(C->gng + n * CX_DE + 16 * v);
+				for (int t = 0; t < L; t++) {
+					const float *ds = C->desum + (long)t * CX_DU, *r = tr->ngr + ((long)t * CX_NG_ORDERS + n) * CX_DE;
+					for (int v = 0; v < CX_DE / 16; v++) acc[v] = _mm512_fmadd_ps(_mm512_load_ps(ds + 16 * v), _mm512_load_ps(r + 16 * v), acc[v]);
+				}
+				for (int v = 0; v < CX_DE / 16; v++) _mm512_store_ps(C->gng + n * CX_DE + 16 * v, acc[v]);
+			}
+		}
+		cl_wait(C, k);   /* gradients written */
+		if (!k) {
+			C->ng_dma_seq[s] = cdma_submit(C->dma, C->nggrad_phys + (uint64_t)s * CX_NGR_BYTES, C->ng_host_grad + (uint64_t)s * CX_NGR_BYTES, CX_NGR_BYTES, C->ng_host_cseq, (uint64_t)C->chunk + 1);
+			if (!C->ng_dma_seq[s]) fprintf(stderr, "cl_bwd_chunk: gradient DMA submit failed at chunk %ld\n", C->chunk);
+		}
 	}
 	/* Adam: own column, own blocks; cg by thread 0 (every thread holds the same gcg); lr_t < 0 = gradients only (gate) */
 	if (lr_t < 0) { cl_wait(C, k); return; }
@@ -248,6 +314,7 @@ static inline void cl_bwd_chunk(cluster *C, int k, const uint32_t *ids, float b1
 		cx_zero(C->GET + o, CX_BLOCK);
 	}
 	if (!k) cx_adam(C->cg, tr->gcg, C->m_cg, C->v_cg, CX_DU, b1, b2, lr_t, eps_t);
+	if (!k && C->ng) { cx_adam(C->ng, C->gng, C->m_ng, C->v_ng, CX_NG_ORDERS * CX_DE, b1, b2, lr_t, eps_t); cx_zero(C->gng, CX_NG_ORDERS * CX_DE); }
 	/* refresh the shadow rows of the own blocks (the blocks are L2-hot after Adam) */
 	for (int b = 0; b < C->nblk[k]; b++) {
 		const int g = C->blk[k][b];
