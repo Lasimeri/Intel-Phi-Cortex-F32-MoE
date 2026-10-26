@@ -63,3 +63,6 @@ defs="-DCX_NOCOLL" knc cluster-gate-nocoll tools/cluster-gate.c
 # Stage 5: the generation daemon (card) and its host client
 knc cortexd card/cortexd.c card/cdma.c
 cc "${flags[@]}" -O2 -o "$out/host/cortex" "$here/host/cortex.c" -lm
+
+# dataset conversion (oasst1 guanaco JSONL -> Human/Assistant text)
+cc "${flags[@]}" -O2 -o "$out/host/jsonl-text" "$here/tools/jsonl-text.c"

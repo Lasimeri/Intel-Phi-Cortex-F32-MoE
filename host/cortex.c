@@ -111,13 +111,15 @@ int main(int argc, char **argv)
 		return 0;
 	}
 	if (argc < 4) { fprintf(stderr, "usage: cortex --stop | cortex CKPT \"prompt\" NGEN [--greedy] [--bus 0|1] [--temp T] [--topk K] [--topp P] [--minp M] [--rp R] [--seed S] [--vocab FILE]\n"); return 2; }
-	const char *ckpt = argv[1], *prompt = argv[2], *vocab = "data/bpe/vocab4096.txt";
-	const int ngen = atoi(argv[3]);
-	int greedy = 0, bus = 1, topk = 75;
+	const char *ckpt = argv[1], *vocab = "data/bpe/vocab4096.txt";
+	char *prompt = argv[2];
+	int ngen = atoi(argv[3]);
+	int greedy = 0, bus = 1, topk = 75, chat = 0;
 	float temp = 0.5f, topp = 0.95f, minp = 0.05f, rp = 1.2f;
 	rng = 0x5EED0000C0A7E8ull;
 	for (int i = 4; i < argc; i++) {
 		if (!strcmp(argv[i], "--greedy")) greedy = 1;
+		else if (!strcmp(argv[i], "--chat")) chat = 1;
 		else if (!strcmp(argv[i], "--bus") && i + 1 < argc) bus = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--temp") && i + 1 < argc) temp = (float)atof(argv[++i]);
 		else if (!strcmp(argv[i], "--topk") && i + 1 < argc) topk = atoi(argv[++i]);
@@ -127,6 +129,7 @@ int main(int argc, char **argv)
 		else if (!strcmp(argv[i], "--seed") && i + 1 < argc) rng = strtoull(argv[++i], NULL, 10);
 		else if (!strcmp(argv[i], "--vocab") && i + 1 < argc) vocab = argv[++i];
 	}
+	if (chat) { char *w = malloc(strlen(prompt) + 40); sprintf(w, "\n\nHuman: %s\n\nAssistant:", prompt); prompt = w; }
 	if (load_vocab(vocab)) return 1;
 	for (int id = 0; id < 256 + nmerges; id++) expand(id);
 	expand(EOT);
@@ -191,7 +194,15 @@ int main(int argc, char **argv)
 		if (s + 1 < nprompt) continue;
 		memcpy(logits, part + CX_LOGITS, CX_VOCAB * sizeof *logits);
 		const int id = sample(logits, ids, s + 1, greedy, temp, topk, topp, minp, rp);
+		if (chat && id == EOT) { ngen = s + 1 - nprompt; break; }
 		ids[s + 1] = (uint32_t)id;
+		if (chat) {
+			static char tail[64]; static int tl;
+			const int add = tok_len[id] < 63 ? tok_len[id] : 63;
+			if (tl + add > 63) { memmove(tail, tail + tl + add - 63, (size_t)(63 - add)); tl = 63 - add; }
+			memcpy(tail + tl, tok_s[id], (size_t)add); tl += add; tail[tl] = 0;
+			if (strstr(tail, "\n\nHuman:") || strstr(tail, "\nHuman:")) { ngen = s + 1 - nprompt; break; }
+		}
 		fwrite(tok_s[id], 1, (size_t)tok_len[id], stdout);
 		fflush(stdout);
 		host_ns += ns() - b;

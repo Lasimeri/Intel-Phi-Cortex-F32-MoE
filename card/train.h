@@ -49,6 +49,11 @@ typedef struct {
 	float *gbg;      /* 16, lane 0 */
 	float *GET;      /* ETB-layout embedding gradient */
 	float *tmp;      /* 256 floats of scratch */
+	/* MoE stage 1: n-gram memory. ng = gates (2 x 128, shared) or NULL (plain model); ngrow / ngnext = this and the next
+	 * step's rows (set by the cluster before each step); ngr = the rows used at each step (L x 2 x 128, for the gate gradient) */
+	const float *ng;
+	const float *ngrow[CX_NG_ORDERS], *ngnext[CX_NG_ORDERS];
+	float *ngr;
 	int L;
 } cx_train;
 
@@ -92,6 +97,14 @@ static inline void cx_train_fwd_step(cx_train *tr, int t, uint32_t id, uint32_t 
 	} else {
 		cx_gather_row(tr->ET, id, tr->ebuf);
 		cx_gather_prefetch(tr->ET, id_next);
+	}
+	if (tr->ng) {
+		for (int n = 0; n < CX_NG_ORDERS; n++) {
+			const float *r = tr->ngrow[n], *g = tr->ng + n * CX_DE;
+			for (int v = 0; v < CX_DE / 16; v++) _mm512_store_ps(tr->ebuf + 16 * v, _mm512_fmadd_ps(_mm512_load_ps(g + 16 * v), _mm512_load_ps(r + 16 * v), _mm512_load_ps(tr->ebuf + 16 * v)));
+			cx_copy(tr->ngr + ((long)t * CX_NG_ORDERS + n) * CX_DE, r, CX_DE);
+			if (tr->ngnext[n]) cx_pf_lines(tr->ngnext[n], CX_DE);
+		}
 	}
 	if (t + 1 < CX_LMAX) { cx_pfe_lines(tr->Ts + (long)(t + 1) * CX_NT, CX_NT); cx_pfe_lines(tr->acts + (long)(t + 1) * CX_NACT, CX_NACT); }
 	cx_col_step(&tr->col, tr->ebuf, Bt);

@@ -1,0 +1,40 @@
+=== PROMPT: What is the capital of France?
+cortex: checkpoint loaded by DMA in 12.2 ms; prompt 22 tokens; sampling
+
+
+Human: What is the capital of France?
+
+Assistant: The dataction interferience, a dett may be interformations. Theproritions to the (relebles can be atutchnce or mainerenties of thestimumansicality that is an example and their red you use.
+
+Assistant: The iveion, it is used to be Pythonproperience for a uscationing, and the audatural datcortex: 22 prompt + 120 generated tokens in 0.093 s: 1513.2 tok/s overall; per token card 382.4 us (mailbox + forward + DMA), host 327.2 us (sampling + print)
+
+=== PROMPT: Write a short poem about the sea.
+cortex: checkpoint loaded by DMA in 12.1 ms; prompt 23 tokens; sampling
+
+
+Human: Write a short poem about the sea.
+
+Assistant: The that Aniation to be used interactional, as (0. These are the dature of Pythonents and effectionsed by aule?
+
+Assistant: an information may can be a comple for the 25. The other What is the Ibtring interfrachience, as Greconactionalstitics or and mainoperation to with a system of example?cortex: 23 prompt + 120 generated tokens in 0.094 s: 1505.0 tok/s overall; per token card 384.1 us (mailbox + forward + DMA), host 331.7 us (sampling + print)
+
+=== PROMPT: How do I make a cup of tea?
+cortex: checkpoint loaded by DMA in 12.2 ms; prompt 22 tokens; sampling
+
+
+Human: How do I make a cup of tea?
+
+Assistant: The that Imiberate the interactional, as (2. Anoides, is a actical econ-breramnodule can be used to provide a their other of the datations and appling.
+
+Humancortex: 22 prompt + 71 generated tokens in 0.060 s: 1520.8 tok/s overall; per token card 390.5 us (mailbox + forward + DMA), host 341.2 us (sampling + print)
+
+=== GREEDY: What is the capital of France?
+cortex: checkpoint loaded by DMA in 12.2 ms; prompt 22 tokens; greedy
+
+
+Human: What is the capital of France?
+
+Assistant: These are the 1.
+
+Humancortex: 22 prompt + 12 generated tokens in 0.016 s: 2005.0 tok/s overall; per token card 492.2 us (mailbox + forward + DMA), host 16.8 us (sampling + print)
+

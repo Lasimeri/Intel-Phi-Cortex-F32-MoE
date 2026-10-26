@@ -56,3 +56,24 @@ rows, two 64 KB key scans), 16 GB/s aggregate at 1 ms per step, latency hidden b
 
 Checkpoints: the dense part as today (`ckpt.bin`), the GDDR parts in their own files (`ckpt-ng.bin`, `ckpt-ex.bin`)
 so a run can restart with or without them.
+
+## Revision (06:12, user): heads per VPU, experts in GDDR, n-grams in host RAM over DMA
+
+"There should be an MoE head per KNC core's VPU, just like the small models we're already running per core VPU, but
+they need to be reduced in size to support CPU cache and data transfer to and from the MoE heads and VRAM weights,
+along with n-grams in host RAM accessed via DMA."
+
+| part | where | size | traffic per step |
+|---|---|---|---|
+| MoE head, two per core (one per hardware thread used) | L2 | today's column without its MLP: 27,040 F32 = 108 KB, plus T 16 KB and activations 13 KB; the MLP becomes the routed experts | none (resident) |
+| expert staging | L2 | the selected expert's weights, single-buffered: hidden 64 = 68 KB, hidden 32 = 34 KB; measured L2 misses decide the hidden size | one expert read from GDDR per head per step, prefetched at the router decision |
+| experts | GDDR | E per head; hidden 64, E = 16: 1.12 MB per head, 134 MB (402 MB with Adam moments); up to 4 GB allows E = 190 | the read above plus the sparse update of the one expert touched |
+| n-gram tables | host RAM | orders 2 and 3; 2^22 rows x 128 F32 = 2 GiB per order (the host has the RAM; the tables never cross PCIe whole) | per chunk of 32 steps: the host gathers 64 rows (32 KB) into a ring in the part; the card DMAs them into GDDR once per chunk (card-owned channel 2, measured 3.6 GB/s, about 10 us) and reads them from L2; the card DMAs the 64 row gradients (32 KB) back; the host applies the sparse updates on its own CPU between chunks |
+
+The host side of the n-gram memory is a process that owns the tables and the token stream (it knows the ids ahead,
+so it gathers chunk c + 1 while the card computes chunk c), and applies the gradients the card returns. The card
+side is a double-buffered ring in the part, one DMA each way per chunk, and the gated addition in the heads.
+
+Stages, revised: 1a the n-gram path with small tables, host rows and gradients over the real DMA ring, gated against
+the double reference; 1b the 2 GiB tables and a 320k-token run; 2 the heads shrink (MLP out) and the experts stream
+from GDDR; 3 the sparse attention memory; 4 the coach.

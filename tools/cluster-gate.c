@@ -155,6 +155,8 @@ static void run_check(void *arg, int k)
 
 /* ---- run mode: pretraining of the whole cluster ---- */
 static long run_ntok, run_nval;
+static int ckpt_every;
+static int write_ckpt(const char *path);
 static float run_lr;
 static int run_every, bus_on = 1;
 static uint32_t *vids;
@@ -201,6 +203,11 @@ static void run_train(void *arg, int k)
 				rcyc[0] = rcyc[1] = 0;
 			}
 		}
+		if (ckpt_every && (ch + 1) % ckpt_every == 0 && ch + 1 < nchunks) {
+			memcpy(stage + (long)k * CX_NPARAM, C.tr[k].col.prm, CX_NPARAM * 4);
+			cl_wait(&C, k);
+			if (!k) { char p[512]; snprintf(p, sizeof p, "%s/ckpt-%ld.bin", outdir, ch + 1); write_ckpt(p); printf("checkpoint %s\n", p); fflush(stdout); }
+		}
 		cl_wait(&C, k);   /* H: bus[0] visible */
 	}
 	if (!k) rwall[2] = cx_now();
@@ -226,6 +233,15 @@ static void run_train(void *arg, int k)
 	cl_wait(&C, k);
 }
 
+static int load_ckpt(const char *path);
+static int write_ckpt(const char *path)
+{
+	FILE *f = fopen(path, "wb");
+	if (!f || fwrite(stage, 4, (size_t)CL_N * CX_NPARAM, f) != (size_t)CL_N * CX_NPARAM || fwrite(C.cg, 4, CX_DU, f) != CX_DU ||
+	    fwrite(C.ETB, 4, (size_t)CX_VOCAB * CX_DE, f) != (size_t)CX_VOCAB * CX_DE || fclose(f)) { perror(path); return -1; }
+	return 0;
+}
+
 static int run_mode(int argc, char **argv)
 {
 	/* run TOKENS.u16 OUTDIR L NTOK LR VALID.u16 NVAL [EVERY] */
@@ -244,6 +260,8 @@ static int run_mode(int argc, char **argv)
 	vids = malloc((size_t)run_nval * 4);
 	for (long t = 0; t < run_nval; t++) vids[t] = vt[t];
 	stage = huge((size_t)CL_N * CX_NPARAM * 4 + (2u << 20));
+	if (getenv("CX_CKPT_EVERY")) ckpt_every = atoi(getenv("CX_CKPT_EVERY"));
+	if (getenv("CX_INIT")) { if (load_ckpt(getenv("CX_INIT"))) return 1; printf("run: weights, cg and embedding loaded from %s\n", getenv("CX_INIT")); }
 	printf("run: %ld tokens = %ld chunks of %d, lr %g (warm-up 50 chunks), b1 0.9 b2 0.95, bus %s, valid %ld tokens\n", run_ntok - 1, (run_ntok - 1) / C.L, C.L, run_lr,
 	       bus_on ? "on" : "off", run_nval - 1);
 	fflush(stdout);

@@ -172,3 +172,33 @@ static inline void cx_in_init(uint32_t *ids, int steps, float *ring, int k)
 }
 
 #endif
+
+/* ---- MoE stage 1: hashed suffix n-gram memory (PLAN-MOE.md). Order n keys the last n ids including the current input
+ * token; each order has CX_NG_ROWS rows of CX_DE floats in GDDR; the looked-up rows, gated per dimension, are added to
+ * the token embedding before the columns: e' = e + sum_n g_n * T_n[h_n]. Rows and gates are shared by all columns. The
+ * gate builds use -DCX_NG_ROWS=4096 so the host reference can hold the same tables in double. */
+#define CX_NG_ORDERS 2                 /* n = 2, 3 */
+#ifndef CX_NG_ROWS
+#define CX_NG_ROWS (1u << 21)          /* rows per order: 1 GiB per order in F32 */
+#endif
+#define CX_NG_PAD 4095u                /* stands in for ids before the start of the stream */
+#define CX_S_NG 0.02f                  /* init scale of the gate-build tables (training starts from zero rows) */
+
+/* row of order n (2 or 3) for the suffix (..., p2, p1, id): a splitmix-style mix of the ids, reduced mod the rows */
+static inline uint32_t cx_ng_hash(uint32_t id, uint32_t p1, uint32_t p2, int n)
+{
+	uint64_t x = 0x9E3779B97F4A7C15ull * (uint64_t)(n + 1) ^ ((uint64_t)id << 1);
+	x = (x ^ ((uint64_t)p1 << 13)) * 0xBF58476D1CE4E5B9ull;
+	x ^= x >> 31;
+	if (n >= 3) { x = (x ^ ((uint64_t)p2 << 7)) * 0x94D049BB133111EBull; x ^= x >> 29; }
+	x *= 0xBF58476D1CE4E5B9ull;
+	x ^= x >> 32;
+	return (uint32_t)(x % (uint64_t)CX_NG_ROWS);
+}
+
+/* gate-build tables: small deterministic values so the memory path is exercised; the gates start at 1 */
+static inline void cx_ng_init(float *T, int n)
+{
+	uint64_t s = 0x4E47ull + (uint64_t)n;
+	cx_fill(T, (long)CX_NG_ROWS * CX_DE, &s, CX_S_NG);
+}
