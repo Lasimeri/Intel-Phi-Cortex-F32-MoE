@@ -1,0 +1,19 @@
+╔═ desktop host: Ryzen 7 5800X, 62 GB RAM, AVX2 + FMA ════════════════════════════════════════════╗
+║ ┌─────────────────────────────┐ ┌─────────────────────────────┐ ┌─────────────────────────────┐ ║
+║ │data/mix (textprep +         │ │host/ngserve: 2 orders x     │ │host/cortex + orchestra.h:   │ ║
+║ │interleave): TinyStories     │ │2^21 rows x 128 F32, 2 GiB;  │ │AVX2 FMA log-softmax, trigram│ ║
+║ │+ BabyLM 100M words ->       │ │64 rows/chunk -> ring, grads │ │backoff, word filter, 4-gram │ ║
+║ │50M tok, 48.2 % / 51.8 %     │ │back, SGD lr 0.1 on rows     │ │block; 335-350 us/token      │ ║
+║ └──────────────┬──────────────┘ └──────────────┬──────────────┘ └─────────────▲───────────────┘ ║
+║                │ phi put 100 MB                │ part + 48 MiB ring           │ logits 16 KB    ║
+╚════════════════╪═══════════════════════════════╪══════════════════════════════╪═════════════════╝
+                 ▼ /tmp/cortex/mix               ▼ PCIe DMA ch 5: rows, grads   ▲ DMA ch 3         
+╔════════════════╤═══════════════════════════════╤══════════════════════════════╤═════════════════╗
+║ Xeon Phi 7120A: 60 cores x 2 threads = 120 heads, 1.238 GHz, 15 GiB GDDR5                       ║
+║ ┌─────────────────────────────────────────────────────────────────────────────────────────────┐ ║
+║ │cluster-gate run (CX_NG=1): e' = E[id] + g2*row2 + g3*row3 -> 120 columns -> vote -> loss    │ ║
+║ │ring: 64 rows in, 64 row grads out per chunk; gate 1e-7 vs double ref; fwd 337 / bwd 479 us  │ ║
+║ │mix valid 100k: Z 8.4101 -> A plain 7.6649 -> B n-gram 7.6237 bits/token; 1,219-1,228 tok/s  │ ║
+║ │cortexd (session grace 5 s, DMA ch 3): STEP -> logits -> host sampler; 1,397-1,455 tok/s     │ ║
+║ └─────────────────────────────────────────────────────────────────────────────────────────────┘ ║
+╚═════════════════════════════════════════════════════════════════════════════════════════════════╝
