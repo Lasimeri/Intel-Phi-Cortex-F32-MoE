@@ -1,18 +1,22 @@
 /*
  * cortex: the host side of the Intel Phi Cortex (Stage 5; MoE stage 1 adds the n-gram memory and the orchestrator).
  *
- *   cortex CKPT "prompt" NGEN [options]       cortex --stop
+ *   cortex CKPT "prompt" NGEN [options]            generation through the daemon on the card
+ *   cortex --replay LOGITS.f32 NSTEPS [options]    the host path alone: the dumped logits of a run (--dump-logits)
+ *                                                  fed through the orchestrator and the sampler, for timing it
+ *   cortex --stop                                  ends the daemon's session and the daemon
  *
  * Talks to card/cortexd through the mailbox in the shared host-memory region (lib/cx-proto.h): stages the checkpoint,
  * LOAD, BUS, RESET, then one STEP per token. The card answers each STEP with the 4096 raw logits by DMA; this program
  * samples them in llama.cpp's default order (repeat penalty over the last 64 tokens, top-k, top-p, min-p,
  * temperature, draw) with the user's settings (temp 0.5, top-k 75, top-p 0.95, min-p 0.05, rp 1.2) and streams the
- * detokenised text. --greedy takes the argmax instead (the card-side baseline, byte-identical ids).
+ * detokenised text. --greedy takes the argmax instead (the card-side baseline, byte-identical ids). The top-k are
+ * selected in one pass with a bounded insertion (a full sort of the 4096 cost as much as the card's step).
  *
  * options
  *   --greedy  --bus 0|1  --temp T  --topk K  --topp P  --minp M  --rp R  --seed S  --vocab FILE  --chat
  *   --ids FILE.u16          the prompt as token ids from a file (the prompt text is then ignored; gates replay it)
- *   --dump-logits FILE      every step's 4096 raw logits as received from the card, appended as F32 (gates)
+ *   --dump-logits FILE      every step's 4096 raw logits as received from the card, appended as F32 (gates, replay)
  *   --ngram TABLES GATES    the n-gram memory: TABLES = 2 orders x CX_NG_ROWS x 128 F32 (ngserve --save), GATES =
  *                           2 x 128 F32 (the run's ng-gates.f32). The gates are staged after the checkpoint (LOAD arg
  *                           1); before each STEP the two rows of the step's suffix (ids[s-2], ids[s-1], ids[s]) are
@@ -128,27 +132,41 @@ static void ng_rows(long n, uint32_t id, uint32_t p1, uint32_t p2)
 /* ---- the sampler: logits in, token out ---- */
 
 typedef struct { int id; float l; double p; } cand;
-static int cmp_l(const void *a, const void *b) { const float x = ((const cand *)a)->l, y = ((const cand *)b)->l; return (x < y) - (x > y); }
 
 static uint64_t rng;
 static double uni(void) { return (double)(cx_rng(&rng) >> 11) / 9007199254740992.0; }
 
+/* the k largest of the 4096 values, descending: one pass, a bounded insertion into the kept list */
+static int select_top(const float *l, int k, cand *c)
+{
+	int n = 0;
+	for (int v = 0; v < CX_VOCAB; v++) {
+		if (n == k && l[v] <= c[n - 1].l) continue;
+		int i = n < k ? n : k - 1;
+		for (; i > 0 && l[v] > c[i - 1].l; i--) c[i] = c[i - 1];
+		c[i].id = v;
+		c[i].l = l[v];
+		if (n < k) n++;
+	}
+	return n;
+}
+
 static int sample(const float *logits, const uint32_t *hist, int nhist, int greedy, float temp, int topk, float topp, float minp, float rp)
 {
+	static float l[CX_VOCAB];
 	static cand c[CX_VOCAB];
-	for (int i = 0; i < CX_VOCAB; i++) { c[i].id = i; c[i].l = logits[i]; }
+	memcpy(l, logits, sizeof l);
 	if (greedy) {
 		int best = 0;
-		for (int i = 1; i < CX_VOCAB; i++) if (c[i].l > c[best].l) best = i;
+		for (int v = 1; v < CX_VOCAB; v++) if (l[v] > l[best]) best = v;
 		return best;
 	}
 	/* repeat penalty over the last 64 tokens (llama.cpp: positive logits divided, negative multiplied) */
 	for (int i = nhist > 64 ? nhist - 64 : 0; i < nhist; i++) {
-		cand *x = &c[hist[i]];
-		x->l = x->l > 0 ? x->l / rp : x->l * rp;
+		float *x = &l[hist[i]];
+		*x = *x > 0 ? *x / rp : *x * rp;
 	}
-	qsort(c, CX_VOCAB, sizeof *c, cmp_l);
-	int n = topk < CX_VOCAB ? topk : CX_VOCAB;
+	int n = select_top(l, topk < CX_VOCAB ? topk : CX_VOCAB, c);
 	/* softmax over the kept candidates, then top-p, min-p */
 	double sum = 0;
 	for (int i = 0; i < n; i++) { c[i].p = exp((double)c[i].l - c[0].l); sum += c[i].p; }
@@ -202,6 +220,52 @@ static long read_ids(const char *path, uint32_t **out)
 	return n;
 }
 
+/* ---- the host side of one step: orchestrator, sampler, print; shared by the card loop and the replay ---- */
+
+typedef struct {
+	orch *O;
+	int greedy, chat;
+	float temp, topp, minp, rp;
+	int topk;
+	uint64_t orch_ns, sample_ns, print_ns;
+	char tail[64];
+	int tl;
+} host_side;
+
+/* the next token from the step's logits; -1 when the chat turn ended */
+static int host_step(host_side *h, float *logits, uint32_t *ids, int s)
+{
+	uint64_t a = ns();
+	if (h->O) orch_adjust(h->O, logits, ids, s + 1, tok_s, tok_len, EOT);
+	const uint64_t b = ns();
+	const int id = sample(logits, ids, s + 1, h->greedy, h->temp, h->topk, h->topp, h->minp, h->rp);
+	const uint64_t c = ns();
+	h->orch_ns += b - a;
+	h->sample_ns += c - b;
+	if (h->chat && id == EOT) return -1;
+	ids[s + 1] = (uint32_t)id;
+	if (h->chat) {
+		const int add = tok_len[id] < 63 ? tok_len[id] : 63;
+		if (h->tl + add > 63) { memmove(h->tail, h->tail + h->tl + add - 63, (size_t)(63 - add)); h->tl = 63 - add; }
+		memcpy(h->tail + h->tl, tok_s[id], (size_t)add);
+		h->tl += add;
+		h->tail[h->tl] = 0;
+		if (strstr(h->tail, "\n\nHuman:") || strstr(h->tail, "\nHuman:")) return -1;
+	}
+	fwrite(tok_s[id], 1, (size_t)tok_len[id], stdout);
+	fflush(stdout);
+	h->print_ns += ns() - c;
+	return id;
+}
+
+static void host_report(const host_side *h, int ngen)
+{
+	if (h->O) fprintf(stderr, "cortex: orchestra: %ld steps, trigram context %ld, bigram %ld, candidates %ld, word-filtered %ld, rescued %ld (full scans %ld), repeat-blocked %ld\n",
+	                  h->O->adjusted, h->O->ng3, h->O->ng2, h->O->cand, h->O->penalised, h->O->rescued, h->O->scans, h->O->repeated);
+	if (ngen) fprintf(stderr, "cortex: host per generated token %.1f us: orchestra %.1f, sampler %.1f, print %.1f\n",
+	                  (h->orch_ns + h->sample_ns + h->print_ns) / 1e3 / ngen, h->orch_ns / 1e3 / ngen, h->sample_ns / 1e3 / ngen, h->print_ns / 1e3 / ngen);
+}
+
 /* ---- main ---- */
 
 static int stop_daemon(void)
@@ -212,32 +276,37 @@ static int stop_daemon(void)
 	return 0;
 }
 
+static void usage(void)
+{
+	fprintf(stderr, "usage: cortex CKPT \"prompt\" NGEN [options] | cortex --replay LOGITS.f32 NSTEPS [options] | cortex --stop\n"
+	                "options: [--greedy] [--bus 0|1] [--temp T] [--topk K] [--topp P] [--minp M] [--rp R] [--seed S] [--vocab FILE] [--chat]\n"
+	                "         [--ids FILE.u16] [--dump-logits FILE] [--ngram TABLES GATES]\n"
+	                "         [--orchestra NGC [--words LIST] [--word-min N] [--lambda X] [--no-filter] [--repeat-ok]]\n");
+}
+
 int main(int argc, char **argv)
 {
 	if (argc >= 2 && !strcmp(argv[1], "--stop")) return stop_daemon();
-	if (argc < 4) {
-		fprintf(stderr, "usage: cortex --stop | cortex CKPT \"prompt\" NGEN [--greedy] [--bus 0|1] [--temp T] [--topk K] [--topp P] [--minp M] [--rp R] [--seed S] [--vocab FILE] [--chat]\n"
-		                "              [--ids FILE.u16] [--dump-logits FILE] [--ngram TABLES GATES] [--orchestra NGC [--words LIST] [--word-min N] [--lambda X] [--no-filter] [--repeat-ok]]\n");
-		return 2;
-	}
+	if (argc < 4) { usage(); return 2; }
+	const int replay = !strcmp(argv[1], "--replay");
 	const char *ckpt = argv[1], *vocab = "data/bpe/vocab4096.txt", *ids_path = NULL, *dump_path = NULL, *ng_tables = NULL, *ng_gates = NULL;
-	char *prompt = argv[2];
+	char *prompt = replay ? "" : argv[2];
 	int ngen = atoi(argv[3]);
-	int greedy = 0, bus = 1, topk = 75, chat = 0, orch_filter = 1, orch_norepeat = 1, orch_wmin = ORCH_WORD_MIN;
+	int bus = 1, orch_filter = 1, orch_norepeat = 1, orch_wmin = ORCH_WORD_MIN;
 	const char *orch_ngc = NULL, *orch_words = "data/wordlist-stories.txt";
 	float orch_lambda = 0.3f;
 	static orch O;
-	float temp = 0.5f, topp = 0.95f, minp = 0.05f, rp = 1.2f;
+	host_side H = { .greedy = 0, .chat = 0, .temp = 0.5f, .topp = 0.95f, .minp = 0.05f, .rp = 1.2f, .topk = 75 };
 	rng = 0x5EED0000C0A7E8ull;
 	for (int i = 4; i < argc; i++) {
-		if (!strcmp(argv[i], "--greedy")) greedy = 1;
-		else if (!strcmp(argv[i], "--chat")) chat = 1;
+		if (!strcmp(argv[i], "--greedy")) H.greedy = 1;
+		else if (!strcmp(argv[i], "--chat")) H.chat = 1;
 		else if (!strcmp(argv[i], "--bus") && i + 1 < argc) bus = atoi(argv[++i]);
-		else if (!strcmp(argv[i], "--temp") && i + 1 < argc) temp = (float)atof(argv[++i]);
-		else if (!strcmp(argv[i], "--topk") && i + 1 < argc) topk = atoi(argv[++i]);
-		else if (!strcmp(argv[i], "--topp") && i + 1 < argc) topp = (float)atof(argv[++i]);
-		else if (!strcmp(argv[i], "--minp") && i + 1 < argc) minp = (float)atof(argv[++i]);
-		else if (!strcmp(argv[i], "--rp") && i + 1 < argc) rp = (float)atof(argv[++i]);
+		else if (!strcmp(argv[i], "--temp") && i + 1 < argc) H.temp = (float)atof(argv[++i]);
+		else if (!strcmp(argv[i], "--topk") && i + 1 < argc) H.topk = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--topp") && i + 1 < argc) H.topp = (float)atof(argv[++i]);
+		else if (!strcmp(argv[i], "--minp") && i + 1 < argc) H.minp = (float)atof(argv[++i]);
+		else if (!strcmp(argv[i], "--rp") && i + 1 < argc) H.rp = (float)atof(argv[++i]);
 		else if (!strcmp(argv[i], "--seed") && i + 1 < argc) rng = strtoull(argv[++i], NULL, 10);
 		else if (!strcmp(argv[i], "--vocab") && i + 1 < argc) vocab = argv[++i];
 		else if (!strcmp(argv[i], "--ids") && i + 1 < argc) ids_path = argv[++i];
@@ -251,17 +320,16 @@ int main(int argc, char **argv)
 		else if (!strcmp(argv[i], "--word-min") && i + 1 < argc) orch_wmin = atoi(argv[++i]);
 		else { fprintf(stderr, "cortex: unknown option %s\n", argv[i]); return 2; }
 	}
-	if (chat) { char *w = malloc(strlen(prompt) + 40); sprintf(w, "\n\nHuman: %s\n\nAssistant:", prompt); prompt = w; }
+	if (H.chat) { char *w = malloc(strlen(prompt) + 40); sprintf(w, "\n\nHuman: %s\n\nAssistant:", prompt); prompt = w; }
 	if (load_vocab(vocab)) return 1;
 	for (int id = 0; id < 256 + nmerges; id++) expand(id);
 	expand(EOT);
 	if (orch_ngc && orch_load(&O, orch_ngc, orch_words, orch_lambda, orch_filter, orch_norepeat, orch_wmin)) return 1;
-	if (orch_ngc) fprintf(stderr, "cortex: orchestra on: %s, lambda %.2f, word filter %s (%s, count >= %d), repeat block %s\n", orch_ngc, orch_lambda, orch_filter ? "on" : "off", orch_words, orch_wmin, orch_norepeat ? "on" : "off");
-	if (ng_tables && ng_load(ng_tables, ng_gates)) return 1;
+	if (orch_ngc) { H.O = &O; fprintf(stderr, "cortex: orchestra on: %s, lambda %.2f, word filter %s (%s, count >= %d), repeat block %s\n", orch_ngc, orch_lambda, orch_filter ? "on" : "off", orch_words, orch_wmin, orch_norepeat ? "on" : "off"); }
 
 	/* the prompt's tokens: from the ids file, or tokenised */
 	uint32_t *ids;
-	int nprompt;
+	int nprompt = 0;
 	if (ids_path) {
 		uint32_t *given;
 		const long n = read_ids(ids_path, &given);
@@ -274,10 +342,37 @@ int main(int argc, char **argv)
 		ids = malloc((size_t)(strlen(prompt) + ngen + 16) * 4);
 		nprompt = tokenise(prompt, ids);
 	}
+	float *logits = malloc(CX_VOCAB * sizeof *logits);
+
+	/* ---- replay: the dumped logits through the host path, no card ---- */
+	if (replay) {
+		FILE *f = fopen(argv[2], "rb");
+		if (!f) { perror(argv[2]); return 1; }
+		const int nsteps = ngen;
+		float *dump = malloc((size_t)nsteps * CX_VOCAB * sizeof *dump);
+		if (fread(dump, sizeof *dump, (size_t)nsteps * CX_VOCAB, f) != (size_t)nsteps * CX_VOCAB) { fprintf(stderr, "cortex: %s holds fewer than %d steps\n", argv[2], nsteps); return 1; }
+		fclose(f);
+		if (nprompt > nsteps) nprompt = nsteps;
+		if (nprompt < 1) { ids[0] = EOT; nprompt = 1; }
+		ids = realloc(ids, (size_t)(nsteps + 16) * 4);
+		const uint64_t g0 = ns();
+		int gen = 0;
+		for (int s = 0; s < nsteps; s++) {
+			memcpy(logits, dump + (size_t)s * CX_VOCAB, CX_VOCAB * sizeof *logits);
+			if (s + 1 < nprompt) continue;
+			if (host_step(&H, logits, ids, s) < 0) break;
+			gen++;
+		}
+		printf("\n");
+		host_report(&H, gen);
+		fprintf(stderr, "cortex: replay of %d steps (%d prompt, %d generated) in %.3f s\n", nsteps, nprompt, gen, (ns() - g0) / 1e9);
+		return 0;
+	}
+
+	/* ---- the card: session, checkpoint (and gates) staged and loaded ---- */
+	if (ng_tables && ng_load(ng_tables, ng_gates)) return 1;
 	FILE *dump = NULL;
 	if (dump_path && !(dump = fopen(dump_path, "wb"))) { perror(dump_path); return 1; }
-
-	/* the mailbox session, the checkpoint (and the gates) staged and loaded */
 	if (open_part() || open_session(30)) return 1;
 	FILE *f = fopen(ckpt, "rb");
 	if (!f) { perror(ckpt); return 1; }
@@ -287,50 +382,35 @@ int main(int argc, char **argv)
 	__atomic_thread_fence(__ATOMIC_SEQ_CST);
 	uint64_t t0 = ns();
 	if (command(CX_OP_LOAD, ng_tables ? 1 : 0, 30)) return 1;
-	fprintf(stderr, "cortex: checkpoint loaded by DMA in %.1f ms; prompt %d tokens; %s; n-gram memory %s\n", (ns() - t0) / 1e6, nprompt, greedy ? "greedy" : "sampling", ng_tables ? "on" : "off");
+	fprintf(stderr, "cortex: checkpoint loaded by DMA in %.1f ms; prompt %d tokens; %s; n-gram memory %s\n", (ns() - t0) / 1e6, nprompt, H.greedy ? "greedy" : "sampling", ng_tables ? "on" : "off");
 	if (command(CX_OP_BUS, (uint32_t)bus, 5) || command(CX_OP_RESET, 0, 5)) return 1;
 
-	/* the loop: STEP per token, the logits sampled on the host */
+	/* the loop: STEP per token, the logits handled on the host */
 	if (ids_path) { for (int i = 0; i < nprompt; i++) fwrite(tok_s[ids[i]], 1, (size_t)tok_len[ids[i]], stdout); }
 	else fwrite(prompt, 1, strlen(prompt), stdout);
 	fflush(stdout);
-	float *logits = malloc(CX_VOCAB * sizeof *logits);
 	const uint64_t g0 = ns();
-	uint64_t card_ns = 0, host_ns = 0, rows_ns = 0;
+	uint64_t card_ns = 0, rows_ns = 0;
+	int steps = 0;
 	for (int s = 0; s < nprompt + ngen - 1; s++) {
 		const uint64_t a = ns();
 		if (ng_tables) ng_rows(s, ids[s], s >= 1 ? ids[s - 1] : CX_NG_PAD, s >= 2 ? ids[s - 2] : CX_NG_PAD);
 		const uint64_t a2 = ns();
 		rows_ns += a2 - a;
 		if (command(CX_OP_STEP, ids[s], 5)) return 1;
-		const uint64_t b = ns();
-		card_ns += b - a2;
+		card_ns += ns() - a2;
+		steps++;
 		if (dump) fwrite(part + CX_LOGITS, sizeof *logits, CX_VOCAB, dump);
 		if (s + 1 < nprompt) continue;
 		memcpy(logits, part + CX_LOGITS, CX_VOCAB * sizeof *logits);
-		if (orch_ngc) orch_adjust(&O, logits, ids, s + 1, tok_s, tok_len, EOT);
-		const int id = sample(logits, ids, s + 1, greedy, temp, topk, topp, minp, rp);
-		if (chat && id == EOT) { ngen = s + 1 - nprompt; break; }
-		ids[s + 1] = (uint32_t)id;
-		if (chat) {
-			static char tail[64]; static int tl;
-			const int add = tok_len[id] < 63 ? tok_len[id] : 63;
-			if (tl + add > 63) { memmove(tail, tail + tl + add - 63, (size_t)(63 - add)); tl = 63 - add; }
-			memcpy(tail + tl, tok_s[id], (size_t)add); tl += add; tail[tl] = 0;
-			if (strstr(tail, "\n\nHuman:") || strstr(tail, "\nHuman:")) { ngen = s + 1 - nprompt; break; }
-		}
-		fwrite(tok_s[id], 1, (size_t)tok_len[id], stdout);
-		fflush(stdout);
-		host_ns += ns() - b;
+		if (host_step(&H, logits, ids, s) < 0) { ngen = s + 1 - nprompt; break; }
 	}
 	const uint64_t g1 = ns();
 	printf("\n");
 	if (dump) fclose(dump);
-	if (orch_ngc) fprintf(stderr, "cortex: orchestra: %ld steps, trigram context %ld, bigram %ld, candidates %ld, word-filtered %ld, rescued %ld (full scans %ld), repeat-blocked %ld\n",
-	                     O.adjusted, O.ng3, O.ng2, O.cand, O.penalised, O.rescued, O.scans, O.repeated);
-	const int steps = nprompt + ngen - 1;
-	fprintf(stderr, "cortex: %d prompt + %d generated tokens in %.3f s: %.1f tok/s overall; per token card %.1f us (mailbox + forward + DMA), host %.1f us (sampling + print)%s\n",
-	        nprompt, ngen, (g1 - g0) / 1e9, steps / ((g1 - g0) / 1e9), card_ns / 1e3 / steps, ngen ? host_ns / 1e3 / ngen : 0.0, "");
+	host_report(&H, ngen);
+	fprintf(stderr, "cortex: %d prompt + %d generated tokens in %.3f s: %.1f tok/s overall; per token card %.1f us (mailbox + forward + DMA), host %.1f us (orchestra + sampling + print)\n",
+	        nprompt, ngen, (g1 - g0) / 1e9, steps / ((g1 - g0) / 1e9), card_ns / 1e3 / steps, ngen ? (H.orch_ns + H.sample_ns + H.print_ns) / 1e3 / ngen : 0.0);
 	if (ng_tables) fprintf(stderr, "cortex: n-gram rows gathered on the host: %.2f us per step\n", rows_ns / 1e3 / steps);
 	ST64(CX_H_CMD, CX_CMD(CX_CMD_QUIT, 0));
 	f = fopen("data/cortex-last.u16", "wb");   /* the ids of the last run, for cmp against a baseline */
