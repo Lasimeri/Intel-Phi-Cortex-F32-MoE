@@ -117,3 +117,56 @@ step at L3 bandwidth, computed, not measured); W = 4,096 is 126 MB from DRAM (ab
 window past 1,024 needs an index (sign-bit hashing of k into 65,536 buckets, probing a few). Measured when built.
 
 The n-gram tables keep their own host RAM (2^21 rows x 2 orders x 128 F32 = 2 GiB, or 2^22 rows = 4 GiB).
+
+## The second dataset (07:00, user: "Get a second dataset to train alongside this one")
+
+BabyLM 2024 text-only 100M-word training set (osf.io/ad7qg, text_data/train_100M.zip, 180,012,897 B, sha256
+37a92db2...dc826; dev.zip 19,264,893 B). Chosen because it is plain text with document structure, built for small
+models, and close in register to TinyStories: CHILDES child-directed speech, children's books from Project
+Gutenberg, OpenSubtitles, Simple English Wikipedia, the spoken part of the British National Corpus, Switchboard
+(Choshen et al., arXiv 2404.06214, table 1). Files, tools and numbers:
+
+| source | raw bytes | lines | kind (tools/textprep.c) | documents | tokens (TinyStories BPE) | bytes/token |
+|---|---|---|---|---|---|---|
+| simple_wiki | 85,323,360 | 646,969 | wiki: article headings | 116,028 | 32,765,939 | 2.547 |
+| gutenberg | 145,494,856 | 676,014 | book: cut at 1,500 words | 1,485 | 46,376,148 | 3.135 |
+| childes | 157,062,843 | 5,790,000 | talk: speaker tags removed | 125,278 | 54,030,279 | 2.346 |
+| switchboard | 6,586,033 | 161,740 | talk | 3,370 | 2,246,802 | 2.736 |
+| bnc_spoken | 40,356,693 | 818,961 | lines | 20,673 | 14,053,892 | 2.891 |
+| open_subtitles | 106,149,427 | 3,495,000 | lines | 84,826 | 41,411,395 | 2.591 |
+| total | 540,973,212 | | | 351,660 | 190,884,455 | |
+
+TinyStories runs at 3.961 bytes per token with this vocabulary; the BabyLM text at 2.3 to 3.1, so a third of its
+words are spelled from pieces. The vocabulary is kept (the trained model's embedding is tied to it).
+
+Mixed stream (tools/interleave.c): blocks of whole documents holding at least 2,048 tokens, alternating TinyStories
+with one BabyLM source in turn, documents cut at 2,048 tokens. data/mix/train.u16: 50,000,000 tokens = TinyStories
+24,089,488 (48.2 %) + simple_wiki 4,324,462 + gutenberg 3,883,246 + childes 4,211,210 + switchboard 4,447,220 (one
+wrap of its 2.2M) + bnc_spoken 4,688,279 + open_subtitles 4,356,095. data/mix/valid.u16: 200,000 tokens from the
+validation and dev files in the same way (TinyStories 95,519). The orchestrator's count model over the mix:
+data/mix/mix-50m.ngc (4,024 bigram, 937,714 trigram contexts); the word list over both corpora: data/wordlist-mix.txt.
+
+Runs (tools/mix-runs.sh, results/mix-{z,a,b}.log): Z the run4off model's validation on the mix before any training;
+A 320,000 mixed tokens plain; B the same with the n-gram memory (2^21-row tables per order on the host, zero init,
+SGD lr 0.1 on the rows, Adam on the gates). The validation pass takes part in the ring (cl_ng_begin per validation
+chunk, cl_ng_done publishes the chunk), the gates are saved as ng-gates.f32 beside the checkpoint and the tables by
+ngserve --save. Results are appended below when the runs end.
+
+### Results of the three runs (07:23, results/mix-z.log, mix-a.log, mix-b.log, mix-b-ngserve.log)
+
+| run | train loss at 320k, bits/token | validation on the mix (100,000 tokens), bits/token | bits/byte | tok/s | us/step fwd / bwd+Adam |
+|---|---|---|---|---|---|
+| Z: run4off before any mixed training | | 8.4101 | 2.1232 | | |
+| A: plain, 320,000 mixed tokens | 7.1814 | 7.6649 | 1.9351 | 1,225 to 1,228 | 329 / 487 |
+| B: n-gram memory, 320,000 mixed tokens | 6.9761 | 7.6237 | 1.9247 | 1,219 to 1,225 | 337 / 479 |
+
+Reading: the run4off model (TinyStories only, 6.1825 bits/token on its own validation) pays 2.23 bits/token on the
+mixed validation stream before training on it; 320,000 mixed tokens recover 0.745 of that. The n-gram memory lowers
+the training loss by 0.205 bits/token and the validation loss by 0.041 bits/token at the same token count, at the
+same speed (the ring costs 8 us of forward per step and saves 8 us of backward, within the run-to-run spread). The
+gates grew from 1.0 to a mean of 4.88 (order 2) and 5.59 (order 3) (data/mix/b-ng-gates.f32): Adam on the gates
+amplifies rows that plain SGD at lr 0.1 moves slowly, so the row learning rate is the first knob to search. Both
+runs are deterministic (same initial weights, same stream), so the 0.041 is not sampling noise, but it is one pair
+on one stream order; the spread over stream orders is not measured. The tables after B are in data/mix/b-ngtables.f32
+(2,147,483,648 B), the checkpoints in data/mix/{a,b}-ckpt.bin; cortexd does not yet read the tables, so the B
+checkpoint cannot generate with its memory until the daemon gets the ring (next in stage 1).

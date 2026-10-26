@@ -3,7 +3,7 @@
  * orders x CX_NG_ROWS rows x 128 F32) and the token stream; per chunk of L steps it gathers the 2 L rows the card needs
  * into the ring in the part (lib/cx-proto.h), and applies the row gradients the card DMAs back.
  *
- *   ngserve TOKENS.u16 L NCHUNKS [--init gate|zero] [--lr X] [--dump DIR] [--valid VALID.u16 NVCHUNKS]
+ *   ngserve TOKENS.u16 L NCHUNKS [--init gate|zero] [--lr X] [--dump DIR] [--valid VALID.u16 NVCHUNKS] [--save TABLES.f32]
  *
  * --init gate: the deterministic small tables of lib/cx-col.h (the gate builds), zero: training from scratch.
  * --lr X: the rows' SGD step (0 = gradients only). --dump DIR: the last chunk's rows and gradients as DIR/cl-ngrows.f32
@@ -79,17 +79,19 @@ static uint16_t *load_tokens(const char *path, long *n)
 
 int main(int argc, char **argv)
 {
-	if (argc < 4) { fprintf(stderr, "usage: ngserve TOKENS.u16 L NCHUNKS [--init gate|zero] [--lr X] [--dump DIR] [--valid VALID.u16 NVCHUNKS]\n"); return 2; }
+	if (argc < 4) { fprintf(stderr, "usage: ngserve TOKENS.u16 L NCHUNKS [--init gate|zero] [--lr X] [--dump DIR] [--valid VALID.u16 NVCHUNKS] [--save TABLES.f32]\n"); return 2; }
 	L = atoi(argv[2]);
 	const long nchunks = atol(argv[3]);
 	const char *init = "zero", *dump = NULL, *vpath = NULL;
 	float lr = 0;
+	const char *savepath = NULL;   /* --save: the tables after the run, order 2 then order 3, CX_NG_ROWS x 128 F32 each */
 	long nvchunks = 0;
 	for (int i = 4; i < argc; i++) {
 		if (!strcmp(argv[i], "--init") && i + 1 < argc) init = argv[++i];
 		else if (!strcmp(argv[i], "--lr") && i + 1 < argc) lr = (float)atof(argv[++i]);
 		else if (!strcmp(argv[i], "--dump") && i + 1 < argc) dump = argv[++i];
 		else if (!strcmp(argv[i], "--valid") && i + 2 < argc) { vpath = argv[++i]; nvchunks = atol(argv[++i]); }
+		else if (!strcmp(argv[i], "--save") && i + 1 < argc) savepath = argv[++i];
 		else { fprintf(stderr, "ngserve: unknown option %s\n", argv[i]); return 2; }
 	}
 	if (L != (int)(CX_NGR_BYTES / (CX_NG_ORDERS * CX_DE * 4))) { fprintf(stderr, "ngserve: the ring is laid out for L = %u\n", CX_NGR_BYTES / (CX_NG_ORDERS * CX_DE * 4)); return 2; }
@@ -124,6 +126,12 @@ int main(int argc, char **argv)
 		if (c + 2 < total) { gather(c + 2, STREAM(c + 2)); ST64(CX_NGR_H_SEQ, (uint64_t)c + 3); }
 	}
 	if (dump && (save(dump, "cl-ngrows.f32", last_rows, CX_NGR_BYTES) || save(dump, "cl-ngrad.f32", last_grad, CX_NGR_BYTES))) return 1;
+	if (savepath) {
+		FILE *sf = fopen(savepath, "wb");
+		for (int o = 0; sf && o < CX_NG_ORDERS; o++) if (fwrite(T[o], 4, (size_t)CX_NG_ROWS * CX_DE, sf) != (size_t)CX_NG_ROWS * CX_DE) { perror(savepath); return 1; }
+		if (!sf || fclose(sf)) { perror(savepath); return 1; }
+		printf("ngserve: tables saved to %s\n", savepath);
+	}
 	printf("ngserve: %ld chunks served\n", total);
 	return 0;
 }

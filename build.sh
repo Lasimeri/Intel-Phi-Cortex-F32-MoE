@@ -75,3 +75,8 @@ cc "${flags[@]}" -O2 -DCX_NG_ROWS=4096 -o "$out/host/ctrain-check-ng4k" "$here/t
 
 # diagnostics
 knc partpoll tools/partpoll.c
+
+# the second dataset (BabyLM): text preparation and the mixed stream
+cc "${flags[@]}" -O2 -o "$out/host/textprep" "$here/tools/textprep.c"
+cc "${flags[@]}" -O2 -o "$out/host/interleave" "$here/tools/interleave.c"
+cc "${flags[@]}" -O2 -o "$out/host/ngcount" "$here/tools/ngcount.c"

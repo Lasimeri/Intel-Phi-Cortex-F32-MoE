@@ -1,0 +1,17 @@
+n-gram memory: on, 2097152 rows per order on the host, ring at part + 48 MiB, DMA channel 5
+cluster-gate run: 120 columns, L 32, warm 0, pin failures 0, thread 0 cpu 1, thread 119 cpu 240
+run: weights, cg and embedding loaded from /tmp/cortex/run4off/ckpt.bin
+run: 320000 tokens = 10000 chunks of 32, lr 0.003 (warm-up 50 chunks), b1 0.9 b2 0.95, bus off, valid 100000 tokens
+chunk   1000  tokens     32000  loss 5.1809 nats = 7.4745 bits/token  lr 3.00e-03  1225 tok/s  (us/step: fwd+vote+head 340, bwd+grads+adam 472)
+chunk   2000  tokens     64000  loss 5.0284 nats = 7.2544 bits/token  lr 3.00e-03  1221 tok/s  (us/step: fwd+vote+head 336, bwd+grads+adam 478)
+chunk   3000  tokens     96000  loss 4.8422 nats = 6.9858 bits/token  lr 3.00e-03  1220 tok/s  (us/step: fwd+vote+head 337, bwd+grads+adam 479)
+chunk   4000  tokens    128000  loss 4.8432 nats = 6.9873 bits/token  lr 3.00e-03  1226 tok/s  (us/step: fwd+vote+head 336, bwd+grads+adam 476)
+chunk   5000  tokens    160000  loss 4.9000 nats = 7.0692 bits/token  lr 3.00e-03  1220 tok/s  (us/step: fwd+vote+head 337, bwd+grads+adam 479)
+chunk   6000  tokens    192000  loss 4.7425 nats = 6.8419 bits/token  lr 3.00e-03  1219 tok/s  (us/step: fwd+vote+head 337, bwd+grads+adam 479)
+chunk   7000  tokens    224000  loss 4.9109 nats = 7.0849 bits/token  lr 3.00e-03  1219 tok/s  (us/step: fwd+vote+head 337, bwd+grads+adam 479)
+chunk   8000  tokens    256000  loss 4.7869 nats = 6.9061 bits/token  lr 3.00e-03  1220 tok/s  (us/step: fwd+vote+head 337, bwd+grads+adam 479)
+chunk   9000  tokens    288000  loss 4.7356 nats = 6.8320 bits/token  lr 3.00e-03  1218 tok/s  (us/step: fwd+vote+head 337, bwd+grads+adam 480)
+chunk  10000  tokens    320000  loss 4.8354 nats = 6.9761 bits/token  lr 3.00e-03  1219 tok/s  (us/step: fwd+vote+head 337, bwd+grads+adam 479)
+valid: 100000 tokens, loss 5.2844 nats = 7.6237 bits/token = 1.9247 bits/byte (3.961 B/token); train 262.1 s, valid 33.5 s
+checkpoint /tmp/cortex/mix/b/ckpt.bin: 23463424 bytes
+rc=0

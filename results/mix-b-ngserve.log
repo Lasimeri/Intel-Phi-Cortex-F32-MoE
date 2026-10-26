@@ -1,0 +1,3 @@
+ngserve: 2 orders x 2097152 rows (zero), 10000 train + 3125 valid chunks of 32, lr 0.1, ring at part + 48 MiB
+ngserve: tables saved to data/mix/b-ngtables.f32
+ngserve: 13125 chunks served

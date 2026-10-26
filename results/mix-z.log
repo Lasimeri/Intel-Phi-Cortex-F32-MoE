@@ -1,0 +1,7 @@
+cluster-gate run: 120 columns, L 32, warm 0, pin failures 0, thread 0 cpu 1, thread 119 cpu 240
+run: weights, cg and embedding loaded from /tmp/cortex/run4off/ckpt.bin
+run: 32 tokens = 1 chunks of 32, lr 0 (warm-up 50 chunks), b1 0.9 b2 0.95, bus off, valid 100000 tokens
+chunk      1  tokens        32  loss 4.3005 nats = 6.2044 bits/token  lr 0.00e+00  1204 tok/s  (us/step: fwd+vote+head 359, bwd+grads+adam 470)
+valid: 100000 tokens, loss 5.8295 nats = 8.4101 bits/token = 2.1232 bits/byte (3.961 B/token); train 0.0 s, valid 32.3 s
+checkpoint /tmp/cortex/mix/z/ckpt.bin: 23463424 bytes
+rc=0

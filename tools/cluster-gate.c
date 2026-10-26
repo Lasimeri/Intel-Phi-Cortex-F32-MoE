@@ -233,9 +233,14 @@ static void run_train(void *arg, int k)
 	double vsum = 0;
 	for (long ch = 0; ch < vchunks; ch++) {
 		const uint32_t *id = vids + ch * L;
+		cl_ng_begin(&C, k, run_ntok / L + ch);   /* the rows of this validation chunk; nothing without the memory */
 		for (int t = 0; t < L; t++) cl_fwd_step(&C, k, t, id[t], id[t + 1], id[t + 1]);
 		cl_wait(&C, k);
-		if (!k) { for (int t = 0; t < L; t++) vsum += C.loss[t]; cx_copy(C.bus, C.bus + (long)L * CL_BUS, CL_BUS); }
+		if (!k) {
+			for (int t = 0; t < L; t++) vsum += C.loss[t];
+			cx_copy(C.bus, C.bus + (long)L * CL_BUS, CL_BUS);
+			if (C.ng) cl_ng_done(&C);
+		}
 		cl_wait(&C, k);
 	}
 	if (!k) {
@@ -286,6 +291,7 @@ static int run_mode(int argc, char **argv)
 	if (!f || fwrite(stage, 4, (size_t)CL_N * CX_NPARAM, f) != (size_t)CL_N * CX_NPARAM || fwrite(C.cg, 4, CX_DU, f) != CX_DU ||
 	    fwrite(C.ETB, 4, (size_t)CX_VOCAB * CX_DE, f) != (size_t)CX_VOCAB * CX_DE || fclose(f)) { perror(path); return 1; }
 	printf("checkpoint %s: %ld bytes\n", path, (long)((size_t)CL_N * CX_NPARAM + CX_DU + (size_t)CX_VOCAB * CX_DE) * 4);
+	if (C.ng && dump("ng-gates", -1, C.ng, CX_NG_ORDERS * CX_DE * 4)) return 1;   /* the n-gram gates beside the checkpoint (the tables are the host server's) */
 	return 0;
 }
 

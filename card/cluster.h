@@ -80,6 +80,13 @@ static inline void cl_wait(cluster *C, int k) { cx_barrier_wait(&C->bar, k, ++C-
 /* one cluster step for thread k: token id, next token (prefetch), target tgt; writes bus[t+1] */
 /* n-gram ring, chunk start: thread 0 waits until the host has published chunk ch, DMAs its 32 KiB row slot into GDDR
  * (card-owned channel, measured ~10 us), then the team proceeds. No-op without the memory. */
+/* a forward-only chunk (validation) sends no gradient DMA, so thread 0 publishes it as consumed directly */
+static inline void cl_ng_done(cluster *C)
+{
+	cx_fence();
+	*(volatile uint64_t *)(C->part + CX_NGR_C_SEQ) = (uint64_t)C->chunk + 1;
+}
+
 static inline void cl_ng_begin(cluster *C, int k, long ch)
 {
 	if (!C->ng) return;

@@ -1,3 +1,23 @@
+# Phi-Cortex-F32-MoE
+
+The F32 Cortex (below) turned into a mixture-of-experts model, one head per VPU thread, with the inactive weights in
+the card's GDDR, an n-gram memory in host RAM reached over DMA, and a host orchestrator over the generated tokens.
+PLAN-MOE.md holds the plan, the sizing and the measurements; docs/ORCHESTRA.md the orchestrator.
+
+| stage | state | where |
+|---|---|---|
+| 1a n-gram memory: host tables, rows and gradients over the card-owned DMA ring, gated against the double reference | passed (loss equal to 9.1e-7, gradients within 6.4e-7 relative) | host/ngserve.c, card/cluster.h, tools/ctrain-check.c, results/moe-1a-gate.log |
+| orchestrator: AVX2 FMA log-softmax, trigram backoff from human counts, word filter, 4-gram repeat block | measured (hit5, big, rep4 inside the human bands at lambda 0.15) | host/orchestra.h, tools/ngcount.c, tools/orch-eval.sh, results/orchestra-2.log |
+| second dataset: BabyLM 2024 text-only 100M words, tokenised with the TinyStories BPE, mixed in 2,048-token blocks | on disk, runs in progress | tools/textprep.c, tools/interleave.c, tools/mix-runs.sh, data/mix |
+| 2 experts in GDDR (61,440 x 17,472 F32 in 4 GiB, one pool for all heads, product-key routing) | sized, not built | PLAN-MOE.md |
+| 3 context in host RAM over DMA (sparse attention) | sized, not built | PLAN-MOE.md |
+
+Card tools added on the way: tools/cdma-test.c (both DMA directions on a channel), tools/partpoll.c (the part as the
+daemon maps it). cortexd abandons a session with no first command within 5 s; the DMA channel is chosen with
+CX_DMA_CHAN (a channel left enabled by a killed owner stays unusable until the card reboots).
+
+---
+
 # Intel Phi Cortex
 
 120 small F32 neural networks ("columns"), one per hardware thread of an Intel Xeon Phi 7120A (Knights Corner), two
