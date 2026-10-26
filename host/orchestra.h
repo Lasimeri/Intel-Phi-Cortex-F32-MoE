@@ -10,7 +10,8 @@
  *   2. log p_ng(v | p2, p1): trigram -> bigram -> unigram backoff with Dirichlet smoothing (prior mass ORCH_ALPHA
  *      towards the next lower order); the entries outside the two top-8 lists share one closed form (a vector add on
  *      the log unigram), the listed entries are computed exactly.
- *   3. mixed(v) = (1 - lambda) log p_phi(v) + lambda log p_ng(v)                   (one fmadd per lane)
+ *   3. mixed(v) = (1 - lambda) log p_phi(v) + lambda log p_ng(v) + logsumexp(logits)   (one fmadd per lane; the
+ *      offset keeps the sampler's sign-dependent repetition penalty acting as on the raw logits; lambda 0 = identity)
  *   4. candidates = entries within ORCH_WINDOW nats of the best mixed value (one AVX2 compare pass); for each:
  *      a. lingual filter: a piece that ends the current word on a string outside the word list, or extends it past
  *         every listed prefix, loses ORCH_PENALTY nats
@@ -311,11 +312,12 @@ static inline void orch_adjust(orch *o, float *logits, const uint32_t *hist, int
 	const float lse = mx + logf(orch_hsum8(sum));
 	/* 2. the n-gram distribution */
 	orch_ngram(o, nhist >= 1 ? hist[nhist - 1] : 0, nhist >= 2 ? hist[nhist - 2] : 0, nhist >= 1, nhist >= 2);
-	/* 3. the mixture, one fused multiply-add per lane */
+	/* 3. the mixture, one fused multiply-add per lane; the log-sum-exp is added back so the result keeps the offset of
+	 * the card's logits (the sampler's repetition penalty is sign-dependent): at lambda 0 the logits are unchanged */
 	const __m256 a = _mm256_set1_ps(1.0f - o->lambda), b = _mm256_set1_ps(o->lambda), L = _mm256_set1_ps(lse);
 	for (int v = 0; v < NGC_VOCAB; v += 8) {
 		const __m256 lp = _mm256_sub_ps(_mm256_loadu_ps(logits + v), L);
-		_mm256_storeu_ps(logits + v, _mm256_fmadd_ps(b, _mm256_load_ps(o->lpng + v), _mm256_mul_ps(a, lp)));
+		_mm256_storeu_ps(logits + v, _mm256_add_ps(_mm256_fmadd_ps(b, _mm256_load_ps(o->lpng + v), _mm256_mul_ps(a, lp)), L));
 	}
 	/* 4. the constraints on the candidates */
 	if (o->filter || o->norepeat) {

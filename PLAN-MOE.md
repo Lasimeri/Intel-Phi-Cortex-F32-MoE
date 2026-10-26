@@ -170,3 +170,9 @@ runs are deterministic (same initial weights, same stream), so the 0.041 is not 
 on one stream order; the spread over stream orders is not measured. The tables after B are in data/mix/b-ngtables.f32
 (2,147,483,648 B), the checkpoints in data/mix/{a,b}-ckpt.bin; cortexd does not yet read the tables, so the B
 checkpoint cannot generate with its memory until the daemon gets the ring (next in stage 1).
+
+### The orchestrator on the mixed model (07:3x, docs/ORCHESTRA.md, results/orchestra-mix.log)
+
+With the mix count model and word list, lambda 0.30 plus both constraints takes the A checkpoint's samples from
+hit5 0.67 to 0.85, big 0.83 to 0.91 (plain) to hit5 0.97 to 1.00, big 0.97 to 0.98, rep4 0.021 to 0.026. The
+lambda 0 identity check passed on both models after the log-sum-exp offset was restored in the mixture.
