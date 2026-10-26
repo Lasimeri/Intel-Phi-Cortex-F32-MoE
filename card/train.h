@@ -446,8 +446,6 @@ static inline void cx_train_chunk_begin(cx_train *tr)
 	cx_zero(tr->gbg, 16);
 }
 
-#endif
-
 /* ---- optimizer and the single-column bus ---- */
 
 /* Adam over n floats (multiple of 16): m, v updated in place; p -= lr_t m / (sqrt(v) + eps_t), with the bias
@@ -484,3 +482,5 @@ static inline void cx_train_bwd_step(cx_train *tr, int t, const float *Bt)
 	cx_norm_bwd(tr->dhc + (long)t * CX_DU, A + CX_A_U, _mm512_load_ps(A + CX_A_XSU), tr->cg, tr->gcg, du, 8, 1.0f / CX_DU);
 	cx_col_bwd_step(tr, t, Bt, du, _mm512_setzero_ps());
 }
+
+#endif

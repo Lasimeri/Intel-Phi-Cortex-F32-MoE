@@ -1,0 +1,129 @@
+=== orchestra comparison: data/mix/a-ckpt.bin, n-gram model data/mix/mix-50m.ngc, word list data/wordlist-mix.txt, extra: (none)
+prompt 'Once upon a time', 512 tokens, default sampler (temp 0.5, top-k 75, top-p 0.95, min-p 0.05, rp 1.2), seeds 1-3
+human bands (TinyStories 256-word windows): hit5 1.000, big 0.995 (p10 0.986), rep4 0.022 (p90 0.036)
+
+--- plain: (no orchestra)
+cortex: 4 prompt + 512 generated tokens in 0.358 s: 1438.2 tok/s overall; per token card 370.5 us (mailbox + forward + DMA), host 326.7 us (sampling + print)
+seed 1 text (354 words): Once upon a time, there was a little girl named Lily. Tim loved to play with the bird. Yeah, I'm, it's in for you. Uh, that it's of very!" So they went up and said he would help?   "aper, I don't know." I think aThat at some. She saw an idea, uyently. He was very happy and had a good but she looked 
+seed 1 score: hit 0.963  hit5 0.850  big 0.910  rep4 0.009  sent 11.1 (0.97 in 3..40)  wlen 3.4  words 356 
+cortex: 4 prompt + 512 generated tokens in 0.359 s: 1434.1 tok/s overall; per token card 374.1 us (mailbox + forward + DMA), host 325.1 us (sampling + print)
+seed 2 text (343 words): Once upon a time, there was a little girl named Lily. Uh, I know that it's. Yeah, udeah, the bird was very happy. They were a bigand of the house in<|endoftext|> Once upon a time, there was a boy named Tim found to his mom and said they had fun together and said she knew it't think I know what is th
+seed 2 score: hit 0.951  hit5 0.831  big 0.862  rep4 0.027  sent 12.8 (0.78 in 3..40)  wlen 3.4  words 345 
+cortex: 4 prompt + 512 generated tokens in 0.357 s: 1442.8 tok/s overall; per token card 369.5 us (mailbox + forward + DMA), host 325.4 us (sampling + print)
+seed 3 text (330 words): Once upon a time, there was a little girl namedAfter. Tim loved to play with his new friends. Yeah, uh, I'llty the boy!" Ues they were happy. They said for "Yea is it isn't know, you do?" and that have some more fun to  So a cent. The bird was very happy to think that day on theilicid to help. But, 
+seed 3 score: hit 0.924  hit5 0.673  big 0.831  rep4 0.009  sent 9.7 (0.88 in 3..40)  wlen 3.5  words 329 
+
+--- identity: --orchestra data/mix/mix-50m.ngc --lambda 0.0 --no-filter --repeat-ok
+cortex: orchestra: 512 steps, trigram context 487, bigram 512, candidates 0, word-filtered 0, rescued 0 (full scans 0), repeat-blocked 0
+cortex: 4 prompt + 512 generated tokens in 0.360 s: 1429.4 tok/s overall; per token card 369.3 us (mailbox + forward + DMA), host 332.2 us (sampling + print)
+seed 1 text (354 words): Once upon a time, there was a little girl named Lily. Tim loved to play with the bird. Yeah, I'm, it's in for you. Uh, that it's of very!" So they went up and said he would help?   "aper, I don't know." I think aThat at some. She saw an idea, uyently. He was very happy and had a good but she looked 
+seed 1 score: hit 0.963  hit5 0.850  big 0.910  rep4 0.009  sent 11.1 (0.97 in 3..40)  wlen 3.4  words 356 
+cortex: orchestra: 512 steps, trigram context 483, bigram 512, candidates 0, word-filtered 0, rescued 0 (full scans 0), repeat-blocked 0
+cortex: 4 prompt + 512 generated tokens in 0.363 s: 1417.7 tok/s overall; per token card 378.0 us (mailbox + forward + DMA), host 329.2 us (sampling + print)
+seed 2 text (343 words): Once upon a time, there was a little girl named Lily. Uh, I know that it's. Yeah, udeah, the bird was very happy. They were a bigand of the house in<|endoftext|> Once upon a time, there was a boy named Tim found to his mom and said they had fun together and said she knew it't think I know what is th
+seed 2 score: hit 0.951  hit5 0.831  big 0.862  rep4 0.027  sent 12.8 (0.78 in 3..40)  wlen 3.4  words 345 
+cortex: orchestra: 512 steps, trigram context 478, bigram 512, candidates 0, word-filtered 0, rescued 0 (full scans 0), repeat-blocked 0
+cortex: 4 prompt + 512 generated tokens in 0.359 s: 1434.4 tok/s overall; per token card 370.1 us (mailbox + forward + DMA), host 328.9 us (sampling + print)
+seed 3 text (330 words): Once upon a time, there was a little girl namedAfter. Tim loved to play with his new friends. Yeah, uh, I'llty the boy!" Ues they were happy. They said for "Yea is it isn't know, you do?" and that have some more fun to  So a cent. The bird was very happy to think that day on theilicid to help. But, 
+seed 3 score: hit 0.924  hit5 0.673  big 0.831  rep4 0.009  sent 9.7 (0.88 in 3..40)  wlen 3.5  words 329 
+identity seed 1: text identical to plain
+identity seed 2: text identical to plain
+identity seed 3: text identical to plain
+
+--- filter-only: --orchestra data/mix/mix-50m.ngc --lambda 0.0 --repeat-ok
+cortex: orchestra: 512 steps, trigram context 482, bigram 512, candidates 121388, word-filtered 30543, rescued 0 (full scans 29), repeat-blocked 0
+cortex: 4 prompt + 512 generated tokens in 0.368 s: 1398.2 tok/s overall; per token card 373.1 us (mailbox + forward + DMA), host 344.1 us (sampling + print)
+seed 1 text (323 words): Once upon a time, there was a little girl named Lily. Tim loved to play with the bird. Yeah, I'm, it's in for you. Uh, that it's of very!" So they went up and said he would help?   "aper." That is a great day, udainilate as I do at more, uputing toser it. The girl was very happy, so she loved to pla
+seed 1 score: hit 0.932  hit5 0.755  big 0.836  rep4 0.035  sent 10.4 (0.81 in 3..40)  wlen 3.5  words 323 
+cortex: orchestra: 512 steps, trigram context 493, bigram 512, candidates 121543, word-filtered 28287, rescued 0 (full scans 15), repeat-blocked 0
+cortex: 4 prompt + 512 generated tokens in 0.368 s: 1398.3 tok/s overall; per token card 372.4 us (mailbox + forward + DMA), host 344.8 us (sampling + print)
+seed 2 text (332 words): Once upon a time, there was a little girl named Lily. Uh, I know that it's. Yeah, udhid the one of all the other  So they're not like to get are to think what is on and started to used in you. They fun and have a great day, um. The boy had been can't do it. Uy are that I meaning,no I know, uh, It wa
+seed 2 score: hit 0.958  hit5 0.817  big 0.868  rep4 0.015  sent 11.5 (0.90 in 3..40)  wlen 3.4  words 333 
+cortex: orchestra: 512 steps, trigram context 490, bigram 512, candidates 122077, word-filtered 28306, rescued 0 (full scans 19), repeat-blocked 0
+cortex: 4 prompt + 512 generated tokens in 0.369 s: 1394.1 tok/s overall; per token card 371.8 us (mailbox + forward + DMA), host 347.5 us (sampling + print)
+seed 3 text (335 words): Once upon a time, there was a little girl named she loved to play with the big box. Uh, uh, I'llion at it is for what I'm that in of some. Yeah. I think that day you, uy and said they were very happy. The bird and had a pretty then they all of fun and played with my friends." Well the boy and there 
+seed 3 score: hit 0.953  hit5 0.823  big 0.843  rep4 0.021  sent 10.5 (0.84 in 3..40)  wlen 3.5  words 337 
+
+--- block-only: --orchestra data/mix/mix-50m.ngc --lambda 0.0 --no-filter
+cortex: orchestra: 512 steps, trigram context 478, bigram 512, candidates 121356, word-filtered 0, rescued 0 (full scans 0), repeat-blocked 49
+cortex: 4 prompt + 512 generated tokens in 0.360 s: 1429.0 tok/s overall; per token card 367.8 us (mailbox + forward + DMA), host 333.9 us (sampling + print)
+seed 1 text (347 words): Once upon a time, there was a little girl named Lily. Tim loved to play with the bird. Yeah, I'm, it's in for you. Uh, that it's of very!" So they went up and said he would help?   "aper, I don't know." I think aThat at some. She saw an idea, uyently. He was very happy and had a good but she looked 
+seed 1 score: hit 0.926  hit5 0.695  big 0.858  rep4 0.012  sent 10.6 (0.97 in 3..40)  wlen 3.4  words 349 
+cortex: orchestra: 512 steps, trigram context 474, bigram 512, candidates 119769, word-filtered 0, rescued 0 (full scans 0), repeat-blocked 49
+cortex: 4 prompt + 512 generated tokens in 0.369 s: 1396.5 tok/s overall; per token card 384.4 us (mailbox + forward + DMA), host 333.6 us (sampling + print)
+seed 2 text (330 words): Once upon a time, there was a little girl named Lily. Uh, I know that it's. Yeah, udeah. So to do the ES cut in for they were been on all had a fun day. They played with and had fun again.? and you, um, what is aThat at there's to go  Uh that it't think that I get the way to know." Yewah, I have abo
+seed 2 score: hit 0.927  hit5 0.667  big 0.837  rep4 0.012  sent 11.0 (0.80 in 3..40)  wlen 3.4  words 331 
+cortex: orchestra: 512 steps, trigram context 477, bigram 512, candidates 122054, word-filtered 0, rescued 0 (full scans 0), repeat-blocked 36
+cortex: 4 prompt + 512 generated tokens in 0.362 s: 1422.6 tok/s overall; per token card 369.6 us (mailbox + forward + DMA), host 335.2 us (sampling + print)
+seed 3 text (328 words): Once upon a time, there was a little girl namedAfter. Tim loved to play with his new friends. Yeah, uh, I'llty the boy!" Ues they were happy. They said for "Yea is it isn't know, you do?" and that have some more fun to  So a cent. The bird was very happy to think that day on theilicid to help. But, 
+seed 3 score: hit 0.902  hit5 0.678  big 0.824  rep4 0.012  sent 9.9 (0.94 in 3..40)  wlen 3.5  words 328 
+
+--- filter-block: --orchestra data/mix/mix-50m.ngc --lambda 0.0
+cortex: orchestra: 512 steps, trigram context 482, bigram 512, candidates 120871, word-filtered 30738, rescued 1 (full scans 20), repeat-blocked 46
+cortex: 4 prompt + 512 generated tokens in 0.372 s: 1384.5 tok/s overall; per token card 370.9 us (mailbox + forward + DMA), host 353.3 us (sampling + print)
+seed 1 text (340 words): Once upon a time, there was a little girl named Lily. Tim loved to play with the bird. Yeah, I'm, it's in for you. Uh, that it's of very!" So they went up and said he would help?   "aper." That is a great day, udainilate as I do at more, uputing toser it. The girl was very happy, so she loved to pla
+seed 1 score: hit 0.944  hit5 0.774  big 0.879  rep4 0.009  sent 9.2 (0.92 in 3..40)  wlen 3.5  words 342 
+cortex: orchestra: 512 steps, trigram context 484, bigram 512, candidates 121042, word-filtered 28764, rescued 0 (full scans 13), repeat-blocked 60
+cortex: 4 prompt + 512 generated tokens in 0.367 s: 1401.9 tok/s overall; per token card 370.9 us (mailbox + forward + DMA), host 344.3 us (sampling + print)
+seed 2 text (344 words): Once upon a time, there was a little girl named Lily. Uh, I know that it's. Yeah, udhid the one of all the other  So they're not like to get are to think what is on and started to used in you. They fun and have a great day, um. The boy had been can't do it. Uy are that I meaning,no I know, uh, It wa
+seed 2 score: hit 0.945  hit5 0.778  big 0.840  rep4 0.012  sent 12.0 (0.86 in 3..40)  wlen 3.2  words 347 
+cortex: orchestra: 512 steps, trigram context 480, bigram 512, candidates 121134, word-filtered 26188, rescued 0 (full scans 12), repeat-blocked 53
+cortex: 4 prompt + 512 generated tokens in 0.371 s: 1387.9 tok/s overall; per token card 373.9 us (mailbox + forward + DMA), host 348.6 us (sampling + print)
+seed 3 text (366 words): Once upon a time, there was a little girl named she loved to play with the big box. Uh, uh, I'llion at it is for what I'm that in of some. Yeah. I think that day you, uy and said they were very happy. The bird and had a pretty then they all of fun and played with my friends." Well the boy and there 
+seed 3 score: hit 0.959  hit5 0.847  big 0.884  rep4 0.014  sent 11.8 (0.81 in 3..40)  wlen 3.3  words 367 
+
+--- ng15: --orchestra data/mix/mix-50m.ngc --lambda 0.15
+cortex: orchestra: 512 steps, trigram context 510, bigram 512, candidates 105440, word-filtered 24394, rescued 0 (full scans 2), repeat-blocked 108
+cortex: 4 prompt + 512 generated tokens in 0.370 s: 1393.5 tok/s overall; per token card 375.5 us (mailbox + forward + DMA), host 344.1 us (sampling + print)
+seed 1 text (381 words): Once upon a time, there was a little girl named Lily. <|endoftext|> Once upon a time, in a small house, there was the best of all, so it's mom. The bird said he had to be just the idea. She did not know what they were the "Uh, you know, I'm not, uh, I don't like that." They played with his friends. 
+seed 1 score: hit 0.995  hit5 0.968  big 0.969  rep4 0.005  sent 12.4 (1.00 in 3..40)  wlen 3.5  words 383 
+cortex: orchestra: 512 steps, trigram context 509, bigram 512, candidates 105405, word-filtered 23398, rescued 0 (full scans 1), repeat-blocked 82
+cortex: 4 prompt + 512 generated tokens in 0.370 s: 1392.6 tok/s overall; per token card 373.6 us (mailbox + forward + DMA), host 346.5 us (sampling + print)
+seed 2 text (382 words): Once upon a time, there was a little girl named Lily. The boy and the dog was very happy. <|endoftext|> Once upon a time, in a small house, there's mom saw what had to get it for me. He liked to play with his new friends and had fun. They played together in the water and said, "I don't like that?  I
+seed 2 score: hit 0.997  hit5 0.982  big 0.975  rep4 0.027  sent 12.8 (0.97 in 3..40)  wlen 3.4  words 383 
+cortex: orchestra: 512 steps, trigram context 510, bigram 512, candidates 101169, word-filtered 23044, rescued 0 (full scans 0), repeat-blocked 84
+cortex: 4 prompt + 512 generated tokens in 0.373 s: 1381.3 tok/s overall; per token card 379.0 us (mailbox + forward + DMA), host 346.9 us (sampling + print)
+seed 3 text (390 words): Once upon a time, there was a little girl named Lily. She loved to play with his friends. <|endoftext|> Once upon a time, in a small house in the park, there's mom said it was a very good to help the boy and said, "I don't like that you know what I have just one of my new friend. They had fun day, t
+seed 3 score: hit 1.000  hit5 1.000  big 0.972  rep4 0.034  sent 12.6 (0.97 in 3..40)  wlen 3.5  words 391 
+
+--- ng30: --orchestra data/mix/mix-50m.ngc --lambda 0.3
+cortex: orchestra: 512 steps, trigram context 511, bigram 512, candidates 59190, word-filtered 10755, rescued 0 (full scans 0), repeat-blocked 98
+cortex: 4 prompt + 512 generated tokens in 0.368 s: 1400.4 tok/s overall; per token card 378.4 us (mailbox + forward + DMA), host 337.6 us (sampling + print)
+seed 1 text (394 words): Once upon a time, there was a little girl named Lily. She loved to play with the ball and the cat and said, "I don't like it when I see it is. The boy and said she had an idea. He did not know that they were very happy. <|endoftext|> One day, Tim's mom saw what was in a big box on her. The bird look
+seed 1 score: hit 0.997  hit5 1.000  big 0.978  rep4 0.021  sent 12.0 (1.00 in 3..40)  wlen 3.5  words 395 
+cortex: orchestra: 512 steps, trigram context 510, bigram 512, candidates 58619, word-filtered 18599, rescued 2 (full scans 2), repeat-blocked 84
+cortex: 4 prompt + 512 generated tokens in 0.375 s: 1374.8 tok/s overall; per token card 391.6 us (mailbox + forward + DMA), host 337.8 us (sampling + print)
+seed 2 text (387 words): Once upon a time, there was a little girl named Lily. She loved to play with her. <|endoftext|> One day, the car and the cat were very happy and said, "I don't want to be a good friend." Tim was so happy that they had fun. They all played together and had fun playing with his mom went back to them. 
+seed 2 score: hit 1.000  hit5 1.000  big 0.980  rep4 0.016  sent 10.2 (1.00 in 3..40)  wlen 3.5  words 388 
+cortex: orchestra: 512 steps, trigram context 512, bigram 512, candidates 62110, word-filtered 10978, rescued 0 (full scans 0), repeat-blocked 102
+cortex: 4 prompt + 512 generated tokens in 0.365 s: 1411.1 tok/s overall; per token card 373.7 us (mailbox + forward + DMA), host 336.9 us (sampling + print)
+seed 3 text (389 words): Once upon a time, there was a little girl named Lily. She loved to play with his friends. <|endoftext|> Once upon a time, in the water and the dog went back to their mom said, "I don't go to your mom." The boy and I can't like it, you know that it isn't, uh, I mean xx right. The bird was very happy.
+seed 3 score: hit 1.000  hit5 1.000  big 0.977  rep4 0.026  sent 10.8 (1.00 in 3..40)  wlen 3.5  words 390 
+
+--- ng30-repeat-ok: --orchestra data/mix/mix-50m.ngc --lambda 0.3 --repeat-ok
+cortex: orchestra: 512 steps, trigram context 511, bigram 512, candidates 65673, word-filtered 11257, rescued 0 (full scans 0), repeat-blocked 0
+cortex: 4 prompt + 512 generated tokens in 0.374 s: 1377.2 tok/s overall; per token card 374.3 us (mailbox + forward + DMA), host 353.9 us (sampling + print)
+seed 1 text (411 words): Once upon a time, there was a little girl named Lily. She loved to play with the ball and the cat and said, "I don't like it when I see it is. The boy and said she had an idea. He did not know that they were very happy. <|endoftext|> One day, Tim's mom saw what was in a big box on her. The bird look
+seed 1 score: hit 1.000  hit5 1.000  big 0.992  rep4 0.030  sent 14.6 (1.00 in 3..40)  wlen 3.6  words 410 
+cortex: orchestra: 512 steps, trigram context 508, bigram 512, candidates 58705, word-filtered 9968, rescued 0 (full scans 0), repeat-blocked 0
+cortex: 4 prompt + 512 generated tokens in 0.363 s: 1417.1 tok/s overall; per token card 369.7 us (mailbox + forward + DMA), host 337.9 us (sampling + print)
+seed 2 text (416 words): Once upon a time, there was a little girl named Lily. She loved to play with her. <|endoftext|> One day, the car and the cat were very happy and said, "I don't want to be a good friend." Tim was so happy that they had fun. They all played together and had fun playing with his mom went back to them. 
+seed 2 score: hit 1.000  hit5 1.000  big 0.995  rep4 0.051  sent 12.6 (1.00 in 3..40)  wlen 3.5  words 416 
+cortex: orchestra: 512 steps, trigram context 512, bigram 512, candidates 55759, word-filtered 9435, rescued 0 (full scans 0), repeat-blocked 0
+cortex: 4 prompt + 512 generated tokens in 0.362 s: 1422.6 tok/s overall; per token card 368.7 us (mailbox + forward + DMA), host 336.2 us (sampling + print)
+seed 3 text (397 words): Once upon a time, there was a little girl named Lily. She loved to play with his friends. <|endoftext|> Once upon a time, in the water and the dog went back to their mom said, "I don't go to your mom." The boy and I can't like it, you know that it isn't, uh, I mean xx right. The bird was very happy.
+seed 3 score: hit 1.000  hit5 1.000  big 0.978  rep4 0.043  sent 12.1 (0.97 in 3..40)  wlen 3.5  words 398 
+
+--- ng15-no-filter: --orchestra data/mix/mix-50m.ngc --lambda 0.15 --no-filter
+cortex: orchestra: 512 steps, trigram context 508, bigram 512, candidates 106730, word-filtered 0, rescued 0 (full scans 0), repeat-blocked 95
+cortex: 4 prompt + 512 generated tokens in 0.361 s: 1425.8 tok/s overall; per token card 373.6 us (mailbox + forward + DMA), host 329.7 us (sampling + print)
+seed 1 text (374 words): Once upon a time, there was a little girl named Lily. <|endoftext|> Once upon a time, in a small house, there was the best of all, so it's mom. The bird said he had to be just the idea. She did not know what they were the "Uh, you know, I'm not, uh, I don't like that." They played with his friends. 
+seed 1 score: hit 0.981  hit5 0.911  big 0.954  rep4 0.014  sent 13.4 (1.00 in 3..40)  wlen 3.4  words 375 
+cortex: orchestra: 512 steps, trigram context 507, bigram 512, candidates 105301, word-filtered 0, rescued 0 (full scans 0), repeat-blocked 91
+cortex: 4 prompt + 512 generated tokens in 0.366 s: 1408.8 tok/s overall; per token card 379.1 us (mailbox + forward + DMA), host 332.7 us (sampling + print)
+seed 2 text (403 words): Once upon a time, there was a little girl named Lily. The boy and the dog was very happy. <|endoftext|> Once upon a time, in a small house, there's mom saw what had to get it for me. He liked to play with his new friends and had fun. They played together in the water and said, "I don't like that?  I
+seed 2 score: hit 0.998  hit5 0.983  big 0.984  rep4 0.023  sent 13.0 (0.97 in 3..40)  wlen 3.4  words 404 
+cortex: orchestra: 512 steps, trigram context 510, bigram 512, candidates 100915, word-filtered 0, rescued 0 (full scans 0), repeat-blocked 87
+cortex: 4 prompt + 512 generated tokens in 0.361 s: 1427.3 tok/s overall; per token card 372.1 us (mailbox + forward + DMA), host 330.4 us (sampling + print)
+seed 3 text (389 words): Once upon a time, there was a little girl named Lily. She loved to play with his friends. <|endoftext|> Once upon a time, in a small house in the park, there's mom said it was a very good to help the boy and said, "I don't like that you know what I have just one of my new friend. They had fun day, t
+seed 3 score: hit 0.995  hit5 0.973  big 0.969  rep4 0.031  sent 12.6 (0.94 in 3..40)  wlen 3.5  words 390 

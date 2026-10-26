@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # build.sh: Intel Phi Cortex. Host programs with cc into build/host; card programs compiled by the Intel-Phi-LLVM S3
 # clang (-march=knc: the 512-bit vector unit) and linked static by the stack's knc-cc into build/card; phi-isa-audit
-# checks each card binary for instructions the 7120A lacks.
+# checks each card binary for instructions the 7120A lacks. One card program alone: tools/knc-one.sh NAME SOURCES...
 set -euo pipefail
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # the 16TB HDD is mounted by hand (not in fstab): without it /mnt is the near-full root fs
@@ -9,6 +9,7 @@ case "$here" in /mnt/*) [ "$(findmnt -no SOURCE /mnt)" = /dev/sda2 ] || { echo "
 out="$here/build"
 mkdir -p "$out/host" "$out/card" "$out/obj"
 flags=(-O2 -std=gnu11 -Wall -Wextra)
+hostq=(-Wno-format-truncation -Wno-stringop-truncation -Wno-unused-function)   # the host programs that include tools/bpe.c whole
 
 VCC="${PHI_LLVM_BIN:-$HOME/.cache/intel-phi-llvm-build/llvm/bin}/clang"
 SYS="${PHI_SYSROOT_7120A:-$HOME/.cache/intel-phi-7120a-build/toolchain/sysroot}"
@@ -61,9 +62,10 @@ cc "${flags[@]}" -O2 -o "$out/host/ctrain-check" "$here/tools/ctrain-check.c" -l
 defs="-DCX_NOSNAP" knc cluster-gate-nosnap tools/cluster-gate.c card/cdma.c
 defs="-DCX_NOCOLL" knc cluster-gate-nocoll tools/cluster-gate.c card/cdma.c
 
-# Stage 5: the generation daemon (card) and its host client
+# Stage 5: the generation daemon (card), its host client (with the orchestrator, AVX2 + FMA) and the daemon's gate
 knc cortexd card/cortexd.c card/cdma.c
-cc "${flags[@]}" -O2 -mavx2 -mfma -Wno-format-truncation -Wno-stringop-truncation -o "$out/host/cortex" "$here/host/cortex.c" -lm
+cc "${flags[@]}" -O2 -mavx2 -mfma "${hostq[@]}" -o "$out/host/cortex" "$here/host/cortex.c" -lm
+cc "${flags[@]}" -O2 -o "$out/host/gen-check" "$here/tools/gen-check.c" -lm
 
 # dataset conversion (oasst1 guanaco JSONL -> Human/Assistant text)
 cc "${flags[@]}" -O2 -o "$out/host/jsonl-text" "$here/tools/jsonl-text.c"
@@ -73,10 +75,18 @@ cc "${flags[@]}" -O2 -o "$out/host/ngserve" "$here/host/ngserve.c"
 cc "${flags[@]}" -O2 -DCX_NG_ROWS=4096 -o "$out/host/ngserve-ng4k" "$here/host/ngserve.c"
 cc "${flags[@]}" -O2 -DCX_NG_ROWS=4096 -o "$out/host/ctrain-check-ng4k" "$here/tools/ctrain-check.c" -lm
 
-# diagnostics
-knc partpoll tools/partpoll.c
+# MoE stages 2 and 3, readiness: the expert pool bench (card), the context round trip (card + host)
+knc expert-bench tools/expert-bench.c
+knc ctx-bench tools/ctx-bench.c card/cdma.c
+cc "${flags[@]}" -O2 -mavx2 -mfma -pthread -o "$out/host/ctxserve" "$here/host/ctxserve.c"
 
-# the second dataset (BabyLM): text preparation and the mixed stream
+# diagnostics: the card's view of the part, the DMA channels, DMA writes against L2 copies, a text's non-list words
+knc partpoll tools/partpoll.c
+knc cdma-test tools/cdma-test.c card/cdma.c
+knc dma-coh tools/dma-coh.c card/cdma.c
+cc "${flags[@]}" -O2 "${hostq[@]}" -o "$out/host/misses" "$here/tools/misses.c"
+
+# the second dataset (BabyLM): text preparation, the mixed stream, the orchestrator's count model
 cc "${flags[@]}" -O2 -o "$out/host/textprep" "$here/tools/textprep.c"
 cc "${flags[@]}" -O2 -o "$out/host/interleave" "$here/tools/interleave.c"
 cc "${flags[@]}" -O2 -o "$out/host/ngcount" "$here/tools/ngcount.c"

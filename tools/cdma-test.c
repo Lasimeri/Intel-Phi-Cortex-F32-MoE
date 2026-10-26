@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include "cdma.h"
+#include "../card/cdma.h"
 #include "../lib/cx-proto.h"
 
 #define BYTES 65536u

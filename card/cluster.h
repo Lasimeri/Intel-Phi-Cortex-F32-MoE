@@ -334,8 +334,6 @@ static inline void cl_bwd_chunk(cluster *C, int k, const uint32_t *ids, float b1
 	cl_wait(C, k);   /* G */
 }
 
-#endif
-
 /* gen mode: called right after cl_fwd_step; publishes the argmax token of step t (ties: the lowest thread wins by a
  * second pass over the pairs) and returns it after one more barrier */
 static inline uint32_t cl_argmax(cluster *C, int k, int t)
@@ -356,3 +354,5 @@ static inline uint32_t cl_argmax(cluster *C, int k, int t)
 	cl_wait(C, k);
 	return C->argmax[(t & 1) * 16];
 }
+
+#endif

@@ -166,6 +166,12 @@ uint64_t cdma_submit(cdma *d, uint64_t src, uint64_t dst, uint32_t bytes, uint64
 int cdma_wait(cdma *d, uint64_t seq, double timeout_s)
 {
     if (*d->status >= seq) return 0;
+    /* spin first: a completion arrives within tens of microseconds, and a 5 us nanosleep costs the kernel's 50 us timer
+     * slack on top of it (measured 2026-10-26: a 1 KiB host-to-card copy took 69 us with the nap first; see cdma.md) */
+    for (int i = 0; i < 200000; i++) {
+        if (*d->status >= seq) return 0;
+        __asm__ volatile("delay %0" : : "r"(32u));
+    }
     double t0 = now();
     struct timespec nap = { 0, 5000 };
     while (*d->status < seq) {

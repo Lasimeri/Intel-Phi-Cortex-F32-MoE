@@ -1,0 +1,62 @@
+=== daemon ring gate 2026-10-26 12:42:53: B checkpoint (data/mix/b-ckpt.bin, bus off), stream = first 97 tokens of data/mix/valid.u16, greedy, logits of every step dumped
+--- plain (memory off)
+cortex: checkpoint loaded by DMA in 12.2 ms; prompt 97 tokens; greedy; n-gram memory off
+u don't have to be scared of the loud dog, I'll protect you". The mole felt so safe with the little girl. She was very kind and the mole soon came to trust her. He leaned against her and she kept him safe. The mole had found his best friend.
+<|endoftext|>
+Once upon a time, in a warm and sunny place, there was a big pit. A little boy named Tom liked to play near the pit. One day,cortex: 97 prompt + 1 generated tokens in 0.046 s: 2123.1 tok/s overall; per token card 464.9 us (mailbox + forward + DMA), host
+ 46.3 us (sampling + print)
+  step   0  id  117  ref argmax  104  card argmax  104  max abs err 1.075e-05
+  step   1  id  856  ref argmax   39  card argmax   39  max abs err 7.597e-06
+  step   2  id   39  ref argmax  116  card argmax  116  max abs err 1.669e-05
+  step  31  id  378  ref argmax  375  card argmax  375  max abs err 5.369e-06
+  step  63  id   10  ref argmax  782  card argmax  782  max abs err 8.346e-06
+  step  95  id  326  ref argmax   44  card argmax   44  max abs err 1.520e-05
+  step  96  id   44  ref argmax   10  card argmax   10  max abs err 1.806e-05
+gen-check: 97 steps, bus zero, memory off: max |ref logit| 5.0966e+01, max abs err 3.292e-05, rel 6.460e-07 (step 69, v 1562: card -3.478620e+01 ref -3.478616e+01); argmax agree 97 of 97
+--- memory on (data/mix/b-ngtables.f32, data/mix/b-ng-gates.f32)
+cortex: n-gram memory: 2 orders x 2097152 rows loaded in 0.7 s (2147483648 bytes), gate means 4.881 5.590
+cortex: checkpoint loaded by DMA in 12.2 ms; prompt 97 tokens; greedy; n-gram memory on
+u don't have to be scared of the loud dog, I'll protect you". The mole felt so safe with the little girl. She was very kind and the mole soon came to trust her. He leaned against her and she kept him safe. The mole had found his best friend.
+<|endoftext|>
+Once upon a time, in a warm and sunny place, there was a big pit. A little boy named Tom liked to play near the pit. One day, theycortex: 97 prompt + 1 generated tokens in 0.053 s: 1843.0 tok/s overall; per token card 534.8 us (mailbox + forward + DMA), host 53.3 us (sampling + print)
+cortex: n-gram rows gathered on the host: 0.52 us per step
+  step   0  id  117  ref argmax  104  card argmax  104  max abs err 1.075e-05
+  step   1  id  856  ref argmax   39  card argmax   39  max abs err 6.604e-06
+  step   2  id   39  ref argmax  116  card argmax  116  max abs err 1.236e-05
+  step  31  id  378  ref argmax  375  card argmax  375  max abs err 4.105e-06
+  step  63  id   10  ref argmax   10  card argmax   10  max abs err 7.401e-06
+  step  95  id  326  ref argmax   44  card argmax   44  max abs err 1.980e-05
+  step  96  id   44  ref argmax  361  card argmax  361  max abs err 2.015e-05
+gen-check: 97 steps, bus zero, memory on: max |ref logit| 5.1156e+01, max abs err 3.006e-05, rel 5.876e-07 (step 67, v 803: card -3.367044e+01 ref -3.367041e+01); argmax agree 97 of 97
+--- memory on, repeated
+cortex: n-gram memory: 2 orders x 2097152 rows loaded in 0.7 s (2147483648 bytes), gate means 4.881 5.590
+cortex: checkpoint loaded by DMA in 12.3 ms; prompt 97 tokens; greedy; n-gram memory on
+u don't have to be scared of the loud dog, I'll protect you". The mole felt so safe with the little girl. She was very kind and the mole soon came to trust her. He leaned against her and she kept him safe. The mole had found his best friend.
+<|endoftext|>
+Once upon a time, in a warm and sunny place, there was a big pit. A little boy named Tom liked to play near the pit. One day, theycortex: 97 prompt + 1 generated tokens in 0.054 s: 1802.0 tok/s overall; per token card 547.4 us (mailbox + forward + DMA), host 43.9 us (sampling + print)
+cortex: n-gram rows gathered on the host: 0.55 us per step
+repeat: logits byte-identical (97 x 4096 F32)
+plain vs memory logits differ (as they must)
+--- daemon log
+cortexd: n-gram rows: 97 steps, row DMA mean 69.0 us, max 92.4 us
+cortexd: session 50877270026999 ended; waiting for the next
+cortexd: n-gram rows: 97 steps, row DMA mean 70.8 us, max 119.5 us
+cortexd: session 50879406472086 ended; waiting for the next
+=== spin-first DMA wait 2026-10-26 12:45:07: same stream, plain then memory, twice each
+--- plain, run 1
+cortex: 97 prompt + 1 generated tokens in 0.036 s: 2686.1 tok/s overall; per token card 365.8 us (mailbox + forward + DMA), host 46.7 us (sampling + print)
+--- memory, run 1
+Once upon a time, in a warm and sunny place, there was a big pit. A little boy named Tom liked to play near the pit. One day, theycortex: 97 prompt + 1 generated tokens in 0.037 s: 2613.6 tok/s overall; per token card 375.7 us (mailbox + forward + DMA), host 47.5 us (sampling + print)
+cortex: n-gram rows gathered on the host: 0.54 us per step
+--- plain, run 2
+Once upon a time, in a warm and sunny place, there was a big pit. A little boy named Tom liked to play near the pit. One day,cortex: 97 prompt + 1 generated tokens in 0.035 s: 2733.5 tok/s overall; per token card 359.5 us (mailbox + forward + DMA), host 55.1 us (sampling + print)
+--- memory, run 2
+Once upon a time, in a warm and sunny place, there was a big pit. A little boy named Tom liked to play near the pit. One day,cortex: 97 prompt + 1 generated tokens in 0.037 s: 2618.4 tok/s overall; per token card 374.8 us (mailbox + forward + DMA), host 48.5 us (sampling + print)
+cortex: n-gram rows gathered on the host: 0.51 us per step
+plain logits byte-identical to the pre-fix run
+memory logits byte-identical to the pre-fix run
+--- daemon log
+cortexd: 97 steps: logits DMA mean 9.4 us, max 10.5 us
+cortexd: 97 steps: logits DMA mean 10.4 us, max 76.1 us; n-gram rows 97 steps: row DMA mean 3.0 us, max 5.5 us
+cortexd: 97 steps: logits DMA mean 10.2 us, max 76.9 us
+cortexd: 97 steps: logits DMA mean 10.4 us, max 84.9 us; n-gram rows 97 steps: row DMA mean 4.4 us, max 78.4 us

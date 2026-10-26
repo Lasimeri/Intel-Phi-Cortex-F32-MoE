@@ -1,0 +1,44 @@
+=== ctx-bench 2026-10-26 13:05:39: 1,200 steps, window 1,024, channel 5; host ctxserve 8 threads (mode 0, 1) and 1 thread (mode 0)
+--- mode 0 8, ctxserve threads 
+ctx-bench: 1200 steps, channel 5, mode 0 (full round trip per step), k, v out 61440 B, answers in 130560 B, window 1024
+ctx-bench mode 0: per step (1172 timed): k, v DMA out 18.4 us (max 45.4), wait for the host 276.8 us (max 1364.5), answers DMA in 37.7 us (max 60.4), whole 333.0 us (max 1420.4)
+ctx-bench checks: 2160 head-steps checked, top-1 score mismatches 0, top-1 value mismatches 0
+rc=0
+ctxserve: 1200 steps, 8 threads, window 1024: keys 31457280 B + values 31457280 B in host RAM; waiting for the card
+ctxserve: 1190 timed steps: scan + answers 275.4 us per step (max 1370.1); 2621 steps/s end to end from the host's view
+--- mode 1 8, ctxserve threads 
+ctx-bench: 1200 steps, channel 5, mode 1 (answer of step n pulled at step n + 1), k, v out 61440 B, answers in 130560 B, window 1024
+ctx-bench mode 1: per step (1172 timed): k, v DMA out 0.7 us (max 28.1), wait for the host 136.6 us (max 729.9), answers DMA in 38.6 us (max 77.9), whole 175.9 us (max 768.2)
+ctx-bench checks: 2160 head-steps checked, top-1 score mismatches 0, top-1 value mismatches 0
+rc=0
+ctxserve: 1200 steps, 8 threads, window 1024: keys 31457280 B + values 31457280 B in host RAM; waiting for the card
+ctxserve: 1190 timed steps: scan + answers 216.5 us per step (max 797.1); 4483 steps/s end to end from the host's view
+--- mode 0 1, ctxserve threads 
+ctx-bench: 1200 steps, channel 5, mode 0 (full round trip per step), k, v out 61440 B, answers in 130560 B, window 1024
+ctx-bench mode 0: per step (1172 timed): k, v DMA out 18.5 us (max 59.9), wait for the host 256.9 us (max 813.3), answers DMA in 37.8 us (max 58.5), whole 313.2 us (max 869.2)
+ctx-bench checks: 2160 head-steps checked, top-1 score mismatches 0, top-1 value mismatches 0
+rc=0
+ctxserve: 1200 steps, 8 threads, window 1024: keys 31457280 B + values 31457280 B in host RAM; waiting for the card
+ctxserve: 1190 timed steps: scan + answers 256.0 us per step (max 800.7); 2759 steps/s end to end from the host's view
+=== ctx-bench 2026-10-26 13:06:45: mode 0 with ctxserve 1 thread (window 1,024); mode 1 with 8 threads and window 256; mode 0 8 threads window 256
+--- mode 0, 1 thread, window 1024
+ctx-bench: 1200 steps, channel 5, mode 0 (full round trip per step), k, v out 61440 B, answers in 130560 B, window 1024
+ctx-bench mode 0: per step (1172 timed): k, v DMA out 18.5 us (max 41.6), wait for the host 1257.7 us (max 2438.6), answers DMA in 38.0 us (max 60.9), whole 1314.3 us (max 2494.5)
+ctx-bench checks: 2160 head-steps checked, top-1 score mismatches 0, top-1 value mismatches 0
+rc=0
+ctxserve: 1200 steps, 1 threads, window 1024: keys 31457280 B + values 31457280 B in host RAM; waiting for the card
+ctxserve: 1190 timed steps: scan + answers 1260.8 us per step (max 2449.6); 731 steps/s end to end from the host's view
+--- mode 1, 8 threads, window 256
+ctx-bench: 1200 steps, channel 5, mode 1 (answer of step n pulled at step n + 1), k, v out 61440 B, answers in 130560 B, window 256
+ctx-bench mode 1: per step (1172 timed): k, v DMA out 0.9 us (max 22.6), wait for the host 2.0 us (max 121.4), answers DMA in 52.8 us (max 86.4), whole 55.7 us (max 160.2)
+ctx-bench checks: 2160 head-steps checked, top-1 score mismatches 0, top-1 value mismatches 0
+rc=0
+ctxserve: 1200 steps, 8 threads, window 256: keys 7864320 B + values 7864320 B in host RAM; waiting for the card
+ctxserve: 1190 timed steps: scan + answers 36.2 us per step (max 206.1); 10035 steps/s end to end from the host's view
+--- mode 0, 8 threads, window 256
+ctx-bench: 1200 steps, channel 5, mode 0 (full round trip per step), k, v out 61440 B, answers in 130560 B, window 256
+ctx-bench mode 0: per step (1172 timed): k, v DMA out 18.6 us (max 43.6), wait for the host 40.9 us (max 249.1), answers DMA in 37.7 us (max 64.5), whole 97.3 us (max 305.1)
+ctx-bench checks: 2160 head-steps checked, top-1 score mismatches 0, top-1 value mismatches 0
+rc=0
+ctxserve: 1200 steps, 8 threads, window 256: keys 7864320 B + values 7864320 B in host RAM; waiting for the card
+ctxserve: 1190 timed steps: scan + answers 39.0 us per step (max 195.6); 7120 steps/s end to end from the host's view

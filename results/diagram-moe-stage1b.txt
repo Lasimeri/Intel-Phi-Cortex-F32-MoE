@@ -1,0 +1,19 @@
+╔═ desktop host: Ryzen 7 5800X, 62 GB RAM, AVX2 + FMA; /dev/shm/phi-hostmem, part 1344 MiB ═══════╗
+║ ┌─────────────────────────────┐ ┌─────────────────────────────┐ ┌─────────────────────────────┐ ║
+║ │host/cortex --ngram TABLES   │ │orchestra.h v3: every piece  │ │ctxserve (stage 3): AVX2 FMA │ ║
+║ │GATES: 2 GiB tables in RAM   │ │judged per step, bad <= best │ │scan of W past keys x 120    │ ║
+║ │(0.7 s), 2 rows/step 0.5 us; │ │valid - 16; hit 1.000 on 9/9 │ │heads, top-4 back; W 256: 36 │ ║
+║ │--ids, --dump-logits (gate)  │ │samples; +50 to 80 us/token  │ │to 39 us/step, W 1,024: 256+ │ ║
+║ └──────────────┬──────────────┘ └──────────────▲──────────────┘ └──────────────┬──────────────┘ ║
+║                │rows 1 KiB, CX_NGS_ROWS(n)     │logits 16 KB, CX_LOGITS        │k,v 60 KB/128 KB║
+╚════════════════╪═══════════════════════════════╪═══════════════════════════════╪════════════════╝
+                 ▼DMA ch 3: 3.0 to 4.4 us/step   ▲DMA ch 3: 9.4 to 10.4 us/step  ▼ch 5: 18 + 38 us 
+╔════════════════╤═══════════════════════════════╤═══════════════════════════════╤════════════════╗
+║ ┌──────────────▼───────────────────────────────▲───────────────────────────────▼──────────────┐ ║
+║ │cortexd (DMA ch 3): STEP n -> slot n % 64 -> e' = E[id] + g2 row2 + g3 row3 -> 120 columns   │ ║
+║ │-> logits. Gate: 5.9e-7 of the double reference over 97 steps, argmax 97/97; 360-366 us/token│ ║
+║ │plain, 375-376 with the memory. Stage 2 ready: pool 61,440 x 69,888 B = 4 GiB; expert read   │ ║
+║ │per head per step 94-96 us (118-120 in lockstep, 70-74 GB/s), routing 248 x 248 keys 9 us.   │ ║
+║ │Stage 3 ready: round trip 97-333 us/step, lag mode 56 us (W 256). cdma_wait spins first      │ ║
+║ └─────────────────────────────────────────────────────────────────────────────────────────────┘ ║
+╚═ Xeon Phi 7120A: 60 cores x 2 threads = 120 heads, 1.238 GHz, 15 GiB GDDR5, 2,700 huge pages ═══╝

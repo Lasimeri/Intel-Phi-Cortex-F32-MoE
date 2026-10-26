@@ -51,3 +51,13 @@ too many. At most 63 lines are in flight.
 | 64 KiB pulled from the shared region | 0 of 8,192 words differ |
 | 64 KiB pushed into it, with a host status word | 0 differ; the host read the same words and the status from `/dev/shm/phi-hostmem` |
 | 64 MiB, as 128 copies of 512 KiB | 3,622.8 MB/s into the card, 3,637.4 MB/s out |
+
+## Cortex changes (2026-10-26)
+
+- **`cdma_wait` spins first.** The original napped 5 µs (`nanosleep`) between looks at the status word; the card
+  kernel's default timer slack of 50 µs made every completion cost 60 to 70 µs. Measured with `card/cortexd.c` on the
+  7120A (`results/moe-1-daemon-gate.log`): a 1 KiB host-to-card copy took 69 to 71 µs with the nap first and 3.0 to
+  4.4 µs with 200,000 spin polls (`delay 32`) before the first nap; the 16 KiB card-to-host logits copy went from about
+  70 µs to 9.4 to 10.4 µs. The nap remains for the timeout path.
+- A DMA write into GDDR invalidates every core's L2 copy of the lines (`tools/dma-coh.c`: 0 stale words of 1,966,080 on
+  120 threads, demand-read or prefetched), so a DMA-refilled buffer is re-read without eviction.

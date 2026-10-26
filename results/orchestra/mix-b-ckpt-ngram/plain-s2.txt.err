@@ -1,0 +1,4 @@
+cortex: n-gram memory: 2 orders x 2097152 rows loaded in 0.7 s (2147483648 bytes), gate means 4.881 5.590
+cortex: checkpoint loaded by DMA in 12.2 ms; prompt 4 tokens; sampling; n-gram memory on
+cortex: 4 prompt + 512 generated tokens in 0.365 s: 1409.3 tok/s overall; per token card 384.8 us (mailbox + forward + DMA), host 326.3 us (sampling + print)
+cortex: n-gram rows gathered on the host: 0.31 us per step

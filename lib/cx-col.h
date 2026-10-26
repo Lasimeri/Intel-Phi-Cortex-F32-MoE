@@ -171,8 +171,6 @@ static inline void cx_in_init(uint32_t *ids, int steps, float *ring, int k)
 			for (int j = 0; j < CX_NBUS; j++) ring[((long)r * CX_DB + d) * CX_NBUS + j] = j < CX_NCOL ? cx_unif(&s, s23) : 0.0f;
 }
 
-#endif
-
 /* ---- MoE stage 1: hashed suffix n-gram memory (PLAN-MOE.md). Order n keys the last n ids including the current input
  * token; each order has CX_NG_ROWS rows of CX_DE floats in GDDR; the looked-up rows, gated per dimension, are added to
  * the token embedding before the columns: e' = e + sum_n g_n * T_n[h_n]. Rows and gates are shared by all columns. The
@@ -202,3 +200,5 @@ static inline void cx_ng_init(float *T, int n)
 	uint64_t s = 0x4E47ull + (uint64_t)n;
 	cx_fill(T, (long)CX_NG_ROWS * CX_DE, &s, CX_S_NG);
 }
+
+#endif

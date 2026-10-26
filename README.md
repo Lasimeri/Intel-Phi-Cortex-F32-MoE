@@ -7,14 +7,18 @@ PLAN-MOE.md holds the plan, the sizing and the measurements; docs/ORCHESTRA.md t
 | stage | state | where |
 |---|---|---|
 | 1a n-gram memory: host tables, rows and gradients over the card-owned DMA ring, gated against the double reference | passed (loss equal to 9.1e-7, gradients within 6.4e-7 relative) | host/ngserve.c, card/cluster.h, tools/ctrain-check.c, results/moe-1a-gate.log |
-| orchestrator: AVX2 FMA log-softmax, trigram backoff from human counts, word filter, 4-gram repeat block | measured (hit5, big, rep4 inside the human bands at lambda 0.15) | host/orchestra.h, tools/ngcount.c, tools/orch-eval.sh, results/orchestra-2.log |
-| second dataset: BabyLM 2024 text-only 100M words, tokenised with the TinyStories BPE, mixed in 2,048-token blocks | on disk, runs in progress | tools/textprep.c, tools/interleave.c, tools/mix-runs.sh, data/mix |
-| 2 experts in GDDR (61,440 x 17,472 F32 in 4 GiB, one pool for all heads, product-key routing) | sized, not built | PLAN-MOE.md |
-| 3 context in host RAM over DMA (sparse attention) | sized, not built | PLAN-MOE.md |
+| 1b the daemon's ring: a memory-trained checkpoint generates with its 2 GiB tables (the host writes each step's two rows, the card pulls them by DMA before the forward) | gated (every step's logits within 5.9e-7 of the double reference over 97 steps, argmax 97 of 97); the memory costs 10 to 15 us per token | card/cortexd.c, host/cortex.c, tools/gen-check.c, results/moe-1-daemon-gate.log |
+| orchestrator: AVX2 FMA log-softmax, trigram backoff from human counts, the word filter over every piece, 4-gram repeat block | measured on three models: hit 1.000 and hit5 1.000 on all nine samples with the repaired filter; big and rep4 inside the human bands with lambda 0.30 and the block; +50 to 80 us per token | host/orchestra.h, tools/ngcount.c, tools/orch-eval.sh, tools/misses.c, results/orchestra-6-*.log |
+| second dataset: BabyLM 2024 text-only 100M words, tokenised with the TinyStories BPE, mixed in 2,048-token blocks | three runs measured: the run4off model 8.4101 bits/token on the mix, plain training 7.6649, with the memory 7.6237 (320,000 tokens each) | tools/textprep.c, tools/interleave.c, tools/mix-runs.sh, data/mix, results/mix-*.log |
+| 2 experts in GDDR (61,440 x 17,472 F32 in 4 GiB, one pool for all heads, product-key routing) | sized; the budget measured on the card: one 69,888 B expert per head per step costs 94 to 96 us of thread time (118 to 120 us in lockstep, 70 to 74 GB/s), the routing kernel 9 us | lib/cx-moe.h, tools/expert-bench.c, results/moe-2-expert-bench.log |
+| 3 context in host RAM over DMA (sparse attention) | sized; the round trip measured: with a 256-step window the host answers in 36 to 39 us per step and the card spends 56 us per step with one step of lag; a 1,024-step window costs the host 256 to 275 us | lib/cx-moe.h, tools/ctx-bench.c, host/ctxserve.c, results/moe-3-ctx-bench.log |
 
 Card tools added on the way: tools/cdma-test.c (both DMA directions on a channel), tools/partpoll.c (the part as the
-daemon maps it). cortexd abandons a session with no first command within 5 s; the DMA channel is chosen with
-CX_DMA_CHAN (a channel left enabled by a killed owner stays unusable until the card reboots).
+daemon maps it), tools/dma-coh.c (a DMA write into GDDR invalidates every core's L2 copy: 0 stale words on 120
+threads), tools/knc-one.sh (one card program built the way build.sh does it). cortexd abandons a session with no first
+command within 5 s; the DMA channel is chosen with CX_DMA_CHAN (a channel left enabled by a killed owner stays
+unusable until the card reboots); card/cdma.c's wait spins before it naps (the nap cost the card kernel's 50 us timer
+slack on every completion: the row DMA went from 69 to 3 us, the logits DMA from about 70 to 10 us per step).
 
 ---
 

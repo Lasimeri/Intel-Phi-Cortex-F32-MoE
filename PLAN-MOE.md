@@ -176,3 +176,107 @@ checkpoint cannot generate with its memory until the daemon gets the ring (next 
 With the mix count model and word list, lambda 0.30 plus both constraints takes the A checkpoint's samples from
 hit5 0.67 to 0.85, big 0.83 to 0.91 (plain) to hit5 0.97 to 1.00, big 0.97 to 0.98, rep4 0.021 to 0.026. The
 lambda 0 identity check passed on both models after the log-sum-exp offset was restored in the mixture.
+
+## The daemon's ring (12:4x, user: "Setup the ring for cortexd so the model can generate text")
+
+A generation step's token is known only when the host issues the STEP, so the training ring's chunk protocol does
+not apply. lib/cx-proto.h adds a 64-step ring of 1 KiB row slots at part + 48 MiB + 160 KiB (CX_NGS_ROWS(n), n the
+steps since RESET) and the gates staged after the checkpoint (CX_STAGE_GATES), announced by LOAD's arg bit 0.
+host/cortex.c `--ngram TABLES GATES` loads the 2 GiB tables into RAM (0.7 s) and writes the two rows of each step's
+suffix (ids[n-2], ids[n-1], ids[n], CX_NG_PAD before the start, as ngserve gathers them) before the STEP (0.5 us);
+card/cortexd.c thread 0 pulls the 1 KiB by DMA into ring slot n % 64, the GDDR layout the training chunks use (slot
+n % 64 = chunk (n / 32) % 2, step n % 32), so cl_fwd_step is unchanged. Proven first (tools/dma-coh.c): a DMA write
+into GDDR invalidates every core's L2 copy of the lines (0 stale words of 1,966,080 on 120 threads, demand-read or
+prefetched), so the slots are reused without eviction.
+
+Gate (tools/gen-check.c, results/moe-1-daemon-gate.log): the B checkpoint on the first 97 tokens of
+data/mix/valid.u16 (`cortex --ids --dump-logits`), every step's 4096 logits against the double reference holding the
+same checkpoint, tables and gates: plain rel 6.46e-7, memory rel 5.88e-7, argmax 97 of 97 in both, a repeated run
+byte-identical; the memory moves the argmax of step 63 (as it must).
+
+| per token, B checkpoint, greedy, 97 steps | card us | row DMA us | logits DMA us |
+|---|---|---|---|
+| plain, cdma_wait napping first | 465 | | (not timed) |
+| memory, napping first | 535 to 547 | 69.0 to 70.8 (max 92 to 120) | |
+| plain, cdma_wait spinning first | 360 to 366 | | 9.4 to 10.4 |
+| memory, spinning first | 375 to 376 | 3.0 to 4.4 (max 5.5 to 78) | 10.2 to 10.4 |
+
+The wait of card/cdma.c napped 5 us between polls, and the card kernel's default timer slack (50 us) made every
+completion cost 60 to 70 us; the spin-first wait (card/cdma.md) is what every per-step DMA needed. Greedy throughput
+through the host loop: 2,686 to 2,734 tokens/s plain, 2,614 to 2,618 with the memory (the host sampler itself is
+unchanged).
+
+## The word filter repaired (12:5x to 13:1x, user: "fix the word filter")
+
+The first filter judged only the candidates within 10 nats of the top and penalised the bad ones uniformly (7 nats):
+a window whose candidates were all bad sent the broken word out, and the word committed as a valid prefix could not
+be completed. Measured on the way (results/orchestra-4-*.log, results/orchestra-5-*.log, tools/misses.c):
+
+1. the repair's first form (a 2-nat clamp below the best valid continuation) leaked through the sampler's repetition
+   penalty: a valid top logit of 15 in the last 64 tokens becomes 12.5, a bad piece not in the history keeps 13;
+2. the mix word list (every word with corpus count >= 3) holds transcript junk ("ap" 32, "ud" 39, "ser" 20) whose
+   prefixes open junk paths ("udainilate" = u + d + ain + il + ate, every step on a listed prefix);
+3. the end-of-text piece, exempt from the filter, closed 4 of the 4 residual broken words.
+
+host/orchestra.h now judges every piece every step (the window cannot bound what the repetition penalty lets through):
+a piece is valid when the letters it adds keep the word on a listed word or a proper prefix of one and every word it
+closes is listed; every bad piece goes to min(value - 7, best valid - 16); words count from corpus count 50 on
+(`--word-min`, 11,396 words in the mix list, 11,244 in the stories list; the scorer keeps the full list); a piece that
+closes the word (3,039 of the 4,096, EOT among them) has a constant verdict computed once, a letter-led piece is
+screened by whether its first letter can follow the partial word, so the per-step cost is 50 to 80 us (the naive
+per-piece scan cost 223 us). results/orchestra-6-*.log, 512 tokens x seeds 1 to 3, the identity configuration
+byte-identical to plain on all nine samples:
+
+| model | configuration | hit | hit5 | big | rep4 | host us/token |
+|---|---|---|---|---|---|---|
+| stories (run4off) | plain | 0.993 to 0.998 | 0.964 to 0.988 | 0.974 to 0.995 | 0.043 to 0.046 | 323 to 326 |
+| stories | filter only | 1.000 x3 | 1.000 x3 | 0.990 to 0.997 | 0.019 to 0.061 | 392 to 399 |
+| stories | lambda 0.30, filter, block | 1.000 x3 | 1.000 x3 | 0.997 to 1.000 | 0.007 to 0.012 | 395 to 401 |
+| mixed (A) | plain | 0.924 to 0.963 | 0.673 to 0.850 | 0.831 to 0.910 | 0.009 to 0.027 | 324 to 328 |
+| mixed (A) | filter only | 1.000 x3 | 1.000 x3 | 0.917 to 0.946 | 0.012 to 0.021 | 377 to 386 |
+| mixed (A) | lambda 0.30, filter, block | 1.000 x3 | 1.000 x3 | 0.976 to 0.992 | 0.014 to 0.026 | 399 to 402 |
+| memory (B + tables) | plain | 0.902 to 0.954 | 0.633 to 0.803 | 0.822 to 0.872 | 0.000 to 0.015 | 325 to 328 |
+| memory (B + tables) | filter only | 1.000 x3 | 1.000 x3 | 0.898 to 0.948 | 0.006 to 0.021 | 378 to 384 |
+| memory (B + tables) | lambda 0.30, filter, block | 1.000 x3 | 1.000 x3 | 0.973 to 0.986 | 0.008 to 0.029 | 398 to 404 |
+
+Human bands (TinyStories 256-word windows): hit5 1.000, big 0.995 (p10 0.986), rep4 0.022 (p90 0.036). The filter
+alone makes every word a listed word; the mixture is what makes the pairs human (big), the block what keeps rep4 down
+(filter alone on the stories model: rep4 up to 0.061). These metrics are lexical; meaning is not scored.
+
+## Readiness for stages 2 and 3 (13:0x, user: "get ready for stages 2 & 3")
+
+lib/cx-moe.h fixes the layout both stages share: the expert pool (61,440 experts x 17,472 F32, product keys 248 x
+248 over the two 40-wide halves of x, transposed to 80 KiB, a home-expert bias so the converted model computes the
+trained model at step 0) and the context ring in the part at 52 MiB (k, v of every head out: 61,440 B per step; the
+top-4 values, scores and step indices back: 130,560 B; two slots each, CX_CTX_C_SEQ as the DMA status word,
+CX_CTX_H_SEQ from the host). The budgets the plan computed are now measured on the card (nr_hugepages 2,700):
+
+| stage 2, tools/expert-bench.c (results/moe-2-expert-bench.log): 120 heads in lockstep, 200 steps | own work per thread | lockstep wall per step | aggregate |
+|---|---|---|---|
+| A: one random expert of the 4 GiB pool copied into the head's L2 slot (prefetch 8 or 32 lines ahead: no difference) | 93.9 to 95.6 us (slowest 98.0 to 99.7) | 118.2 to 120.1 us | 69.8 to 70.9 GB/s |
+| B: the same, the next step's expert prefetched into L2 during the previous step | 78.7 to 91.5 us | 99.8 to 113.6 us | 74 to 84 GB/s |
+| C: the routing kernel (2 x 40 x 16 FMAs, the key row two ahead prefetched: the core is in-order) | 8.6 to 8.8 us | 18.4 us | |
+
+So an expert read costs about a third of today's 324 us forward if it sits on the critical path; the pool filled
+4,293,918,720 B in 2.71 s and every copy was verified (0 bad words). The per-core L2 holds the two slots (2 x 68 KB)
+beside the heads.
+
+| stage 3, tools/ctx-bench.c + host/ctxserve.c (results/moe-3-ctx-bench.log), 1,200 steps, channel 5 | host scan + answers per step | card per step |
+|---|---|---|
+| window 1,024, host 8 threads, full round trip (mode 0) | 256 to 275 us (max 1,370) | 313 to 333 us = out 18.4 + host 257 to 277 + in 37.7 |
+| window 1,024, host 1 thread, mode 0 | 1,261 us | 1,314 us |
+| window 1,024, host 8 threads, one step of lag (mode 1) | 216 us | 176 us = submit 0.7 + wait 137 + in 38.6 |
+| window 256, host 8 threads, mode 0 | 39.0 us | 97.3 us = 18.6 + 40.9 + 37.7 |
+| window 256, host 8 threads, mode 1 | 36.2 us | 55.7 us = 0.9 + 2.0 + 52.8 |
+
+Every run checked 2,160 head-steps (each head's own top-1 score over its key history against the host's, and the
+returned values): 0 mismatches. The 1,024-step scan is bandwidth-bound in the host's L3 (31.5 MB of keys per step:
+8 threads are 4.6 times faster than 1); it fits a training step (about 800 us) but not a generation step (360 us)
+without an index, while a 256-step window costs the host 36 to 39 us and the card 56 us per step with the lag, and
+the 38 to 53 us answer DMA can overlap the fast-weight pass. Decided: stage 3 starts with W = 256 exact, the answer
+of step n consumed at step n + 1; stage 2 with one staging slot per head and the expert read issued right after the
+router (mode A's cost), the L2 prefetch of mode B as the first optimisation.
+
+Next, in order: stage 2 (heads without their MLP, the pool loaded from the trained MLPs with the home bias, gate =
+bit-identical logits at step 0 then gradients against the reference), stage 3 (ctxserve in the training loop, the
+attention read-out added to the fast-weight output), the row learning rate of the n-gram memory, stage 4 (the coach).

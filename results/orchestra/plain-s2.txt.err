@@ -1,2 +1,4 @@
-cortex: checkpoint loaded by DMA in 12.3 ms; prompt 4 tokens; sampling
-cortex: 4 prompt + 512 generated tokens in 0.355 s: 1452.2 tok/s overall; per token card 365.9 us (mailbox + forward + DMA), host 324.6 us (sampling + print)
+cortex: n-gram memory: 2 orders x 2097152 rows loaded in 0.7 s (2147483648 bytes), gate means 4.881 5.590
+cortex: checkpoint loaded by DMA in 12.2 ms; prompt 4 tokens; sampling; n-gram memory on
+cortex: 4 prompt + 512 generated tokens in 0.367 s: 1403.7 tok/s overall; per token card 387.3 us (mailbox + forward + DMA), host 326.7 us (sampling + print)
+cortex: n-gram rows gathered on the host: 0.32 us per step

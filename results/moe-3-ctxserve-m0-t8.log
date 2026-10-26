@@ -1,0 +1,2 @@
+ctxserve: 1200 steps, 8 threads, window 1024: keys 31457280 B + values 31457280 B in host RAM; waiting for the card
+ctxserve: 1190 timed steps: scan + answers 275.4 us per step (max 1370.1); 2621 steps/s end to end from the host's view

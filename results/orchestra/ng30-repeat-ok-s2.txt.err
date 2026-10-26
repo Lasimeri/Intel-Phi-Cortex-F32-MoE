@@ -1,4 +1,6 @@
 cortex: orchestra on: data/mix/mix-50m.ngc, lambda 0.30, word filter on (data/wordlist-mix.txt), repeat block off
-cortex: checkpoint loaded by DMA in 12.2 ms; prompt 4 tokens; sampling
-cortex: orchestra: 512 steps, trigram context 508, bigram 512, candidates 58705, word-filtered 9963, repeat-blocked 0
-cortex: 4 prompt + 512 generated tokens in 0.360 s: 1431.4 tok/s overall; per token card 367.0 us (mailbox + forward + DMA), host 333.6 us (sampling + print)
+cortex: n-gram memory: 2 orders x 2097152 rows loaded in 0.7 s (2147483648 bytes), gate means 4.881 5.590
+cortex: checkpoint loaded by DMA in 12.3 ms; prompt 4 tokens; sampling; n-gram memory on
+cortex: orchestra: 512 steps, trigram context 511, bigram 512, candidates 55028, word-filtered 8531, rescued 0 (full scans 0), repeat-blocked 0
+cortex: 4 prompt + 512 generated tokens in 0.369 s: 1393.9 tok/s overall; per token card 384.5 us (mailbox + forward + DMA), host 334.5 us (sampling + print)
+cortex: n-gram rows gathered on the host: 0.33 us per step

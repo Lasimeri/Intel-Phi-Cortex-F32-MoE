@@ -1,0 +1,19 @@
+=== expert-bench 2026-10-26 13:04:19: 61,440 experts x 69,888 B, 200 steps, 120 threads
+expert-bench: pool 61440 experts x 69888 B = 4293918720 B in huge pages, keys 20480 F32, filled by 120 threads in 2.71 s
+mode A copy: 118.2 us per step (wall, barriers included); own work per thread mean 94.4 us, slowest 98.0 us; 120 x 69888 B per step = 70.93 GB/s; copy check 0 bad words
+mode B copy + next expert prefetched to L2: 99.8 us per step (wall, barriers included); own work per thread mean 78.7 us, slowest 85.5 us; 120 x 69888 B per step = 84.02 GB/s; copy check 0 bad words
+mode C routing kernel only: 36.4 us per step (wall, barriers included); own work per thread mean 25.6 us, slowest 26.3 us
+rc=0
+=== expert-bench 2026-10-26 13:05:33: routing rows prefetched, copy prefetch distance 8 then 32 lines
+--- PFDIST 8
+expert-bench: pool 61440 experts x 69888 B = 4293918720 B in huge pages, keys 20480 F32, filled by 120 threads in 2.71 s
+mode A copy: 120.0 us per step (wall, barriers included); own work per thread mean 95.6 us, slowest 99.7 us; 120 x 69888 B per step = 69.88 GB/s; copy check 0 bad words
+mode B copy + next expert prefetched to L2: 113.4 us per step (wall, barriers included); own work per thread mean 91.5 us, slowest 98.4 us; 120 x 69888 B per step = 73.96 GB/s; copy check 0 bad words
+mode C routing kernel only: 18.4 us per step (wall, barriers included); own work per thread mean 8.8 us, slowest 9.6 us
+rc=0
+--- PFDIST 32
+expert-bench: pool 61440 experts x 69888 B = 4293918720 B in huge pages, keys 20480 F32, filled by 120 threads in 2.74 s
+mode A copy: 120.1 us per step (wall, barriers included); own work per thread mean 93.9 us, slowest 99.2 us; 120 x 69888 B per step = 69.81 GB/s; copy check 0 bad words
+mode B copy + next expert prefetched to L2: 113.6 us per step (wall, barriers included); own work per thread mean 89.9 us, slowest 97.1 us; 120 x 69888 B per step = 73.83 GB/s; copy check 0 bad words
+mode C routing kernel only: 18.5 us per step (wall, barriers included); own work per thread mean 8.6 us, slowest 9.3 us
+rc=0
