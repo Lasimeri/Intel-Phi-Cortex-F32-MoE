@@ -2,6 +2,9 @@
  * cortex: the host side of the Intel Phi Cortex (Stage 5; MoE stage 1 adds the n-gram memory and the orchestrator).
  *
  *   cortex CKPT "prompt" NGEN [options]            generation through the daemon on the card
+ *   cortex --live "prompt" NGEN [options]          the same on the daemon's LIVE weights (no checkpoint staged;
+ *                                                  the bus defaults to off, the trained configuration)
+ *   cortex --load CKPT [--bus B] [--ngram T G]     load a checkpoint into the daemon and leave (live training)
  *   cortex --replay LOGITS.f32 NSTEPS [options]    the host path alone: the dumped logits of a run (--dump-logits)
  *                                                  fed through the orchestrator and the sampler, for timing it
  *   cortex --stop                                  ends the daemon's session and the daemon
@@ -287,18 +290,18 @@ static void usage(void)
 int main(int argc, char **argv)
 {
 	if (argc >= 2 && !strcmp(argv[1], "--stop")) return stop_daemon();
-	if (argc < 4) { usage(); return 2; }
-	const int replay = !strcmp(argv[1], "--replay");
-	const char *ckpt = argv[1], *vocab = "data/bpe/vocab4096.txt", *ids_path = NULL, *dump_path = NULL, *ng_tables = NULL, *ng_gates = NULL;
-	char *prompt = replay ? "" : argv[2];
-	int ngen = atoi(argv[3]);
-	int bus = 1, orch_filter = 1, orch_norepeat = 1, orch_wmin = ORCH_WORD_MIN;
+	const int replay = argc >= 2 && !strcmp(argv[1], "--replay"), live = argc >= 2 && !strcmp(argv[1], "--live"), load_only = argc >= 2 && !strcmp(argv[1], "--load");
+	if (argc < (load_only ? 3 : 4)) { usage(); return 2; }
+	const char *ckpt = live ? NULL : load_only ? argv[2] : argv[1], *vocab = "data/bpe/vocab4096.txt", *ids_path = NULL, *dump_path = NULL, *ng_tables = NULL, *ng_gates = NULL;
+	char *prompt = replay || load_only ? "" : argv[2];
+	int ngen = load_only ? 0 : atoi(argv[3]);
+	int bus = live ? 0 : 1, orch_filter = 1, orch_norepeat = 1, orch_wmin = ORCH_WORD_MIN;
 	const char *orch_ngc = NULL, *orch_words = "data/wordlist-stories.txt";
 	float orch_lambda = 0.3f;
 	static orch O;
 	host_side H = { .greedy = 0, .chat = 0, .temp = 0.5f, .topp = 0.95f, .minp = 0.05f, .rp = 1.2f, .topk = 75 };
 	rng = 0x5EED0000C0A7E8ull;
-	for (int i = 4; i < argc; i++) {
+	for (int i = load_only ? 3 : 4; i < argc; i++) {
 		if (!strcmp(argv[i], "--greedy")) H.greedy = 1;
 		else if (!strcmp(argv[i], "--chat")) H.chat = 1;
 		else if (!strcmp(argv[i], "--bus") && i + 1 < argc) bus = atoi(argv[++i]);
@@ -369,21 +372,30 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	/* ---- the card: session, checkpoint (and gates) staged and loaded ---- */
+	/* ---- the card: session, then the checkpoint (and gates) staged and loaded, or the live weights as they are ---- */
 	if (ng_tables && ng_load(ng_tables, ng_gates)) return 1;
-	FILE *dump = NULL;
+	FILE *dump = NULL, *f = NULL;
 	if (dump_path && !(dump = fopen(dump_path, "wb"))) { perror(dump_path); return 1; }
 	if (open_part() || open_session(30)) return 1;
-	FILE *f = fopen(ckpt, "rb");
-	if (!f) { perror(ckpt); return 1; }
-	if (fread(part + CX_STAGE, 1, CX_STAGE_CKPT, f) != CX_STAGE_CKPT) { fprintf(stderr, "cortex: short checkpoint %s\n", ckpt); return 1; }
-	fclose(f);
-	if (ng_tables) memcpy(part + CX_STAGE_GATES, nggates, sizeof nggates);
-	__atomic_thread_fence(__ATOMIC_SEQ_CST);
-	uint64_t t0 = ns();
-	if (command(CX_OP_LOAD, ng_tables ? 1 : 0, 30)) return 1;
-	fprintf(stderr, "cortex: checkpoint loaded by DMA in %.1f ms; prompt %d tokens; %s; n-gram memory %s\n", (ns() - t0) / 1e6, nprompt, H.greedy ? "greedy" : "sampling", ng_tables ? "on" : "off");
+	if (ckpt) {
+		f = fopen(ckpt, "rb");
+		if (!f) { perror(ckpt); return 1; }
+		if (fread(part + CX_STAGE, 1, CX_STAGE_CKPT, f) != CX_STAGE_CKPT) { fprintf(stderr, "cortex: short checkpoint %s\n", ckpt); return 1; }
+		fclose(f);
+		if (ng_tables) memcpy(part + CX_STAGE_GATES, nggates, sizeof nggates);
+		__atomic_thread_fence(__ATOMIC_SEQ_CST);
+		const uint64_t t0 = ns();
+		if (command(CX_OP_LOAD, ng_tables ? 1 : 0, 30)) return 1;
+		fprintf(stderr, "cortex: checkpoint loaded by DMA in %.1f ms; prompt %d tokens; %s; n-gram memory %s\n", (ns() - t0) / 1e6, nprompt, H.greedy ? "greedy" : "sampling", ng_tables ? "on" : "off");
+	} else {
+		fprintf(stderr, "cortex: the daemon's live weights; prompt %d tokens; %s; bus %s\n", nprompt, H.greedy ? "greedy" : "sampling", bus ? "on" : "off");
+	}
 	if (command(CX_OP_BUS, (uint32_t)bus, 5) || command(CX_OP_RESET, 0, 5)) return 1;
+	if (load_only) {
+		ST64(CX_H_CMD, CX_CMD(CX_CMD_QUIT, 0));
+		fprintf(stderr, "cortex: %s is now the daemon's live model (bus %s)\n", ckpt, bus ? "on" : "off");
+		return 0;
+	}
 
 	/* the loop: STEP per token, the logits handled on the host */
 	if (ids_path) { for (int i = 0; i < nprompt; i++) fwrite(tok_s[ids[i]], 1, (size_t)tok_len[ids[i]], stdout); }

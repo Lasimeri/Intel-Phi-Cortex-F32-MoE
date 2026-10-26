@@ -66,6 +66,8 @@ defs="-DCX_NOCOLL" knc cluster-gate-nocoll tools/cluster-gate.c card/cdma.c
 knc cortexd card/cortexd.c card/cdma.c
 cc "${flags[@]}" -O2 -mavx2 -mfma "${hostq[@]}" -o "$out/host/cortex" "$here/host/cortex.c" -lm
 cc "${flags[@]}" -O2 -o "$out/host/gen-check" "$here/tools/gen-check.c" -lm
+# live training: the host coach (feeder, reports, policy, samples through the client, commands)
+cc "${flags[@]}" -O2 "${hostq[@]}" -o "$out/host/coach" "$here/host/coach.c"
 
 # dataset conversion (oasst1 guanaco JSONL -> Human/Assistant text)
 cc "${flags[@]}" -O2 -o "$out/host/jsonl-text" "$here/tools/jsonl-text.c"

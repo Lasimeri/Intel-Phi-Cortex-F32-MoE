@@ -69,4 +69,34 @@
 #define CX_NGS_BASE (CX_NGR_BASE + 5u * CX_NGR_BYTES)
 #define CX_NGS_ROWS(n) (CX_NGS_BASE + (uint32_t)((n) % CX_NGS_STEPS) * CX_NGS_BYTES)
 
+
+/* ---- Live training (card/cortexd.c, host/coach.c): the daemon trains between the clients' bursts of commands. The
+ * coach publishes CX_T_MAGIC and feeds chunks of CX_LMAX + 1 token ids (the chunk's inputs and the next token) into
+ * a ring of CX_T_SLOTS slots; the card trains chunk c from slot c % CX_T_SLOTS while CX_T_H_CHUNKS > CX_T_C_CHUNKS,
+ * reads the knobs once per chunk and reports every CX_T_EVERY chunks. Clients open sessions as always; `cortex --live`
+ * skips LOAD and generates from the live weights on the daemon's inference context. Host fields and card fields sit
+ * on separate 64-byte lines. */
+#define CX_T_BASE (55u << 20)
+#define CX_T_MAGIC (CX_T_BASE + 0u)         /* u32 "TRNR" while the coach feeds; cleared by the coach to end training (host) */
+#define CX_T_H_CHUNKS (CX_T_BASE + 64u)     /* u64 chunks published into the ring (host) */
+#define CX_T_LR (CX_T_BASE + 128u)          /* f64 base learning rate (host) */
+#define CX_T_SCALE (CX_T_BASE + 192u)       /* f64 learning-rate multiplier, default 1.0 (host) */
+#define CX_T_FLAGS (CX_T_BASE + 256u)       /* u64 bit 0 save a checkpoint now, bit 1 stop after this chunk, bit 2 pause (host) */
+#define CX_T_EVERY (CX_T_BASE + 320u)       /* u32 report every this many chunks (host) */
+#define CX_T_C_CHUNKS (CX_T_BASE + 1024u)   /* u64 chunks trained (card) */
+#define CX_T_REPORT (CX_T_BASE + 1088u)     /* u64 reports written (card) */
+#define CX_T_LOSS (CX_T_BASE + 1152u)       /* f64 mean training loss of the last report window, nats per token (card) */
+#define CX_T_LR_EFF (CX_T_BASE + 1216u)     /* f64 learning rate in effect at the last report (card) */
+#define CX_T_TOKPS (CX_T_BASE + 1280u)      /* f64 tokens per second over the last report window, idle time included (card) */
+#define CX_T_ACK (CX_T_BASE + 1344u)        /* u64 the flags word as last acted on (card) */
+#define CX_T_CKPT (CX_T_BASE + 1408u)       /* u64 the chunk count of the last checkpoint written to /tmp/cortex/live (card) */
+#define CX_T_STATE (CX_T_BASE + 1472u)      /* u32 0 off, 1 training, 2 paused, 3 waiting for chunks, 4 stopped (card) */
+#define CX_T_MAGIC_VAL 0x524e5254u          /* "TRNR" little-endian */
+#define CX_T_L 32                           /* tokens per chunk (the card's CX_LMAX); a slot holds CX_T_L + 1 ids */
+#define CX_T_SLOTS 1024u
+#define CX_T_SLOT_BYTES 128u
+#define CX_T_RING (56u << 20)
+#define CX_T_SLOT(c) (CX_T_RING + (uint32_t)((c) % CX_T_SLOTS) * CX_T_SLOT_BYTES)
+#define CX_T_WARMUP 50                      /* chunks of learning-rate ramp at the start of a live run (as cluster-gate run) */
+
 #endif
