@@ -77,6 +77,25 @@ static inline int cl_owns(const cluster *C, int k, int g)
 
 static inline void cl_wait(cluster *C, int k) { cx_barrier_wait(&C->bar, k, ++C->epoch[k]); }
 
+#include <math.h>
+
+#define CL_WARMUP 50   /* chunks of learning-rate ramp at the start of a run */
+
+/* the Adam schedule of chunk `step` (1-based), identical in every trainer: the bias powers from the step count in
+ * double, the rate and epsilon of the step forced through volatile floats. Cumulative float products kept in locals
+ * (the batch trainer) and the same products stored to globals every chunk (the daemon) differed by an ULP from the
+ * third chunk on, KNC's scalar unit keeping excess precision in registers (measured 2026-10-26: identical checkpoints
+ * after chunks 1 and 2, different after 3), so the schedule is a function of the step count alone. */
+static inline void cl_adam_schedule(long step, double lr, float *lr_k, float *lr_t, float *eps_t)
+{
+	const double b1k = pow(0.9, (double)step), b2k = pow(0.95, (double)step), bc2 = sqrt(1.0 - b2k);
+	const double k = lr * (step <= CL_WARMUP ? (double)step / CL_WARMUP : 1.0);
+	volatile float vk = (float)k, vt = (float)(k * bc2 / (1.0 - b1k)), ve = (float)(1e-8 * bc2);
+	*lr_k = vk;
+	*lr_t = vt;
+	*eps_t = ve;
+}
+
 /* one cluster step for thread k: token id, next token (prefetch), target tgt; writes bus[t+1] */
 /* n-gram ring, chunk start: thread 0 waits until the host has published chunk ch, DMAs its 32 KiB row slot into GDDR
  * (card-owned channel, measured ~10 us), then the team proceeds. No-op without the memory. */

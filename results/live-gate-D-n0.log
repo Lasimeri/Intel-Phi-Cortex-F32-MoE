@@ -1,0 +1,8 @@
+16:46:17 coach: data/tinystories/gateA-4m.u16 chunks 0..4 (5 chunks = 160 tokens), lr 3.000e-03, report every 1, window 10, min gain 0.010, halvings 3, sample every 0 x 128 tokens, cmd /tmp/claude-1000/-home-lasimeri/fa371527-28d7-4393-aaa6-ea22d2b1b983/scratchpad/live-gate-D.cmd, checkpoints results/live-gate-D/n0/
+16:46:18 coach: data/ts10m/ckpt-312500.bin loaded into the daemon
+16:46:18 coach: live (magic set, 5 chunks in the ring)
+16:46:19 command: save requested
+16:46:19 checkpoint (requested): results/live-gate-D/n0/ckpt-0.bin, 23463424 bytes, chunk 0, push 7, copied in 21 ms
+16:46:21 command: stop requested
+16:46:21 checkpoint (final): results/live-gate-D/n0/ckpt-0.bin, 23463424 bytes, chunk 0, push 8, copied in 10 ms
+16:46:21 coach: run ended at chunk 0 (0 tokens), 0 halvings, final scale 1.0000

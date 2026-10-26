@@ -1,0 +1,17 @@
+17:29:48 coach: data/tinystories/gateA-4m.u16 chunks 0..9 (10 chunks = 320 tokens), lr 3.000e-03, report every 1, window 1000000, min gain 0.010, halvings 3, sample every 0 x 128 tokens, cmd /tmp/claude-1000/-home-lasimeri/fa371527-28d7-4393-aaa6-ea22d2b1b983/scratchpad/live-gate-K.cmd, checkpoints results/live-gate-K/h10/
+17:29:48 coach: data/ts10m/ckpt-312500.bin loaded into the daemon
+17:29:48 coach: live (magic set, 10 chunks in the ring)
+17:30:02 command: resume
+17:30:04 report chunk 1  tokens 32  loss 4.5175 nats = 6.5173 bits/token  lr 6.000e-05  scale 1.0000  29 tok/s  ring 9 ahead
+17:30:05 report chunk 2  tokens 64  loss 3.9878 nats = 5.7532 bits/token  lr 1.200e-04  scale 1.0000  33 tok/s  ring 8 ahead
+17:30:06 report chunk 3  tokens 96  loss 4.9833 nats = 7.1893 bits/token  lr 1.800e-04  scale 1.0000  23 tok/s  ring 7 ahead
+17:30:07 report chunk 4  tokens 128  loss 3.7783 nats = 5.4510 bits/token  lr 2.400e-04  scale 1.0000  27 tok/s  ring 6 ahead
+17:30:08 report chunk 5  tokens 160  loss 3.7535 nats = 5.4152 bits/token  lr 3.000e-04  scale 1.0000  35 tok/s  ring 5 ahead
+17:30:09 report chunk 6  tokens 192  loss 3.3248 nats = 4.7967 bits/token  lr 3.600e-04  scale 1.0000  27 tok/s  ring 4 ahead
+17:30:10 report chunk 7  tokens 224  loss 4.1219 nats = 5.9467 bits/token  lr 4.200e-04  scale 1.0000  32 tok/s  ring 3 ahead
+17:30:11 report chunk 8  tokens 256  loss 5.1600 nats = 7.4443 bits/token  lr 4.800e-04  scale 1.0000  30 tok/s  ring 2 ahead
+17:30:12 report chunk 9  tokens 288  loss 3.2825 nats = 4.7357 bits/token  lr 5.400e-04  scale 1.0000  30 tok/s  ring 1 ahead
+17:30:14 report chunk 10  tokens 320  loss 4.3114 nats = 6.2200 bits/token  lr 6.000e-04  scale 1.0000  26 tok/s  ring 0 ahead
+17:30:14 coach: the stream is exhausted at chunk 10
+17:30:14 checkpoint (final): results/live-gate-K/h10/ckpt-10.bin, 23463424 bytes, chunk 10, push 2, copied in 22 ms
+17:30:14 coach: run ended at chunk 10 (320 tokens), 0 halvings, final scale 1.0000

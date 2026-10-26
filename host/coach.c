@@ -20,6 +20,10 @@
  *     --orchestra NGC      the sampling client's count model (with --words LIST, which also scores the samples)
  *     --words LIST         the word list (default data/wordlist-stories.txt)
  *     --cmd FILE           commands appended as lines: scale X | lr X | pause | resume | save | stop | sample | every N
+ *     --ckdir DIR          where the checkpoints land as ckpt-CHUNK.bin (default data/live): the card pushes each one
+ *                          into the part's stage by DMA and the coach copies it out; nothing touches the card's disk
+ *     --paused             start with the pause flag set (a `save` then yields the loaded weights at chunk 0; `resume`
+ *                          starts the training)
  *     --log FILE           the log (default results/live.log, appended)
  *     --cortex PATH        the client binary (default build/host/cortex)
  *     --vocab FILE         the BPE vocabulary (default data/bpe/vocab4096.txt)
@@ -35,6 +39,7 @@
 #include "../tools/coherence.h"
 #include "../lib/cx-proto.h"
 #include "../lib/cx-col.h"
+#include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
 #include <sys/mman.h>
@@ -54,10 +59,10 @@ static double kdbl(uint64_t u) { double d; memcpy(&d, &u, 8); return d; }
 static uint64_t kbits(double d) { uint64_t u; memcpy(&u, &d, 8); return u; }
 
 /* ---- settings ---- */
-static const char *tokens_path, *ckpt, *cmd_path, *log_path = "results/live.log", *cortex_bin = "build/host/cortex", *vocab = "data/bpe/vocab4096.txt";
+static const char *tokens_path, *ckpt, *cmd_path, *ckdir = "data/live", *log_path = "results/live.log", *cortex_bin = "build/host/cortex", *vocab = "data/bpe/vocab4096.txt";
 static const char *prompt = "Once upon a time", *orchestra, *words = "data/wordlist-stories.txt";
 static long start_chunk, max_chunks = -1, sample_every = 2000;
-static int sample_tokens = 128, every = 100, window = 10, max_halvings = 3;
+static int sample_tokens = 128, every = 100, window = 10, max_halvings = 3, start_paused;
 static double lr = 3e-3, min_gain = 0.01, rep4_rise = 0.1;
 
 /* ---- the log ---- */
@@ -103,6 +108,7 @@ static double scale = 1.0;
 static uint64_t flags;
 
 static void set_flags(uint64_t f) { flags = f; ST64(CX_T_FLAGS, flags); }
+static void request_save(void);   /* below, with the checkpoint collector */
 
 static void sample(long chunk, int seed)
 {
@@ -156,7 +162,7 @@ static void commands(void)
 		else if (sscanf(s, "every %ld", &n) == 1 && n > 0) { every = (int)n; ST32(CX_T_EVERY, (uint32_t)every); logline("command: report every %d chunks", every); }
 		else if (!strcmp(s, "pause")) { set_flags(flags | 4); logline("command: pause"); }
 		else if (!strcmp(s, "resume")) { set_flags(flags & ~4ull); logline("command: resume"); }
-		else if (!strcmp(s, "save")) { set_flags(flags | 1); logline("command: save requested"); }
+		else if (!strcmp(s, "save")) { request_save(); logline("command: save requested"); }
 		else if (!strcmp(s, "stop")) { stop_requested = 1; logline("command: stop requested"); }
 		else if (!strcmp(s, "sample")) { sample_requested = 1; logline("command: sample requested"); }
 		else logline("command: unknown line '%s'", s);
@@ -164,26 +170,54 @@ static void commands(void)
 	fclose(f);
 }
 
-/* ---- the save handshake: the card acknowledges bit 0, the coach clears it ---- */
-static int save_pending;
+/* ---- the checkpoints: on flag bit 0 the card pushes the live weights into the stage (CX_STAGE_CKPT bytes, the LOAD
+ * layout) and the push's last DMA line counts CX_T_SAVES up once the bytes are in host memory; the coach copies the
+ * stage to CKDIR/ckpt-CHUNK.bin, clears the flag, and lets the card drop its acknowledgement before the next request
+ * (a request made while the previous one is still being acknowledged is kept and sent then) ---- */
+static uint64_t saves_seen;   /* CX_T_SAVES as last collected */
+static int save_wanted;
+
+static double now_s(void) { struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts); return ts.tv_sec + ts.tv_nsec * 1e-9; }
+
+static int collect_ckpt(const char *why)
+{
+	const uint64_t saves = LD64(CX_T_SAVES), chunk = LD64(CX_T_CKPT);
+	if (saves == saves_seen) { logline("checkpoint (%s): the card acknowledged without a push (CX_T_SAVES %lu): FAILED", why, (unsigned long)saves); return -1; }
+	saves_seen = saves;
+	char path[1024];
+	snprintf(path, sizeof path, "%s/ckpt-%lu.bin", ckdir, (unsigned long)chunk);
+	const double t0 = now_s();
+	FILE *f = fopen(path, "wb");
+	if (!f || fwrite(part + CX_STAGE, 1, CX_STAGE_CKPT, f) != CX_STAGE_CKPT || fclose(f)) { logline("checkpoint (%s): cannot write %s: %s", why, path, strerror(errno)); return -1; }
+	logline("checkpoint (%s): %s, %u bytes, chunk %lu, push %lu, copied in %.0f ms", why, path, (unsigned)CX_STAGE_CKPT, (unsigned long)chunk, (unsigned long)saves, (now_s() - t0) * 1e3);
+	return 0;
+}
+
+static void request_save(void)
+{
+	if ((flags & 1) || (LD64(CX_T_ACK) & 1)) save_wanted = 1;
+	else set_flags(flags | 1);
+}
 
 static void save_handshake(void)
 {
 	const uint64_t ack = LD64(CX_T_ACK);
-	if ((flags & 1) && (ack & 1)) { logline("checkpoint written on the card: /tmp/cortex/live/ckpt-%lu.bin", (unsigned long)LD64(CX_T_CKPT)); set_flags(flags & ~1ull); save_pending = 0; }
+	if ((flags & 1) && (ack & 1)) { collect_ckpt("requested"); set_flags(flags & ~1ull); return; }
+	if (save_wanted && !(flags & 1) && !(ack & 1)) { save_wanted = 0; set_flags(flags | 1); }
 }
 
-static int wait_ack_bit(uint64_t bit, double timeout_s)
+/* wait for an acknowledgement bit to be set (set 1) or dropped (set 0) */
+static int wait_ack_bit(uint64_t bit, int set, double timeout_s)
 {
-	const time_t t0 = time(NULL);
-	while (!(LD64(CX_T_ACK) & bit)) { if (difftime(time(NULL), t0) > timeout_s) return -1; usleep(5000); }
+	const double t0 = now_s();
+	while (((LD64(CX_T_ACK) & bit) != 0) != set) { if (now_s() - t0 > timeout_s) return -1; usleep(5000); }
 	return 0;
 }
 
 /* ---- main ---- */
 int main(int argc, char **argv)
 {
-	if (argc < 2) { fprintf(stderr, "usage: coach TOKENS.u16 [--ckpt CKPT] [--start CHUNK] [--chunks N] [--lr X] [--every N] [--window W] [--min-gain B] [--halvings H] [--sample-every N] [--sample-tokens N] [--prompt TEXT] [--orchestra NGC] [--words LIST] [--cmd FILE] [--log FILE] [--cortex PATH] [--vocab FILE]\n"); return 2; }
+	if (argc < 2) { fprintf(stderr, "usage: coach TOKENS.u16 [--ckpt CKPT] [--start CHUNK] [--chunks N] [--lr X] [--every N] [--window W] [--min-gain B] [--halvings H] [--sample-every N] [--sample-tokens N] [--prompt TEXT] [--orchestra NGC] [--words LIST] [--cmd FILE] [--ckdir DIR] [--paused] [--log FILE] [--cortex PATH] [--vocab FILE]\n"); return 2; }
 	tokens_path = argv[1];
 	for (int i = 2; i < argc; i++) {
 		if (!strcmp(argv[i], "--ckpt") && i + 1 < argc) ckpt = argv[++i];
@@ -200,6 +234,8 @@ int main(int argc, char **argv)
 		else if (!strcmp(argv[i], "--orchestra") && i + 1 < argc) orchestra = argv[++i];
 		else if (!strcmp(argv[i], "--words") && i + 1 < argc) words = argv[++i];
 		else if (!strcmp(argv[i], "--cmd") && i + 1 < argc) cmd_path = argv[++i];
+		else if (!strcmp(argv[i], "--ckdir") && i + 1 < argc) ckdir = argv[++i];
+		else if (!strcmp(argv[i], "--paused")) start_paused = 1;
 		else if (!strcmp(argv[i], "--log") && i + 1 < argc) log_path = argv[++i];
 		else if (!strcmp(argv[i], "--cortex") && i + 1 < argc) cortex_bin = argv[++i];
 		else if (!strcmp(argv[i], "--vocab") && i + 1 < argc) vocab = argv[++i];
@@ -229,10 +265,12 @@ int main(int argc, char **argv)
 	part = mmap(NULL, CX_PART_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, (off_t)CX_PART_MIB << 20);
 	close(fd);
 	if (part == MAP_FAILED) { perror("mmap"); return 1; }
+	if (mkdir(ckdir, 0755) && errno != EEXIST) { perror(ckdir); return 1; }
+	saves_seen = LD64(CX_T_SAVES);
 	if (cmd_path) { struct stat st; if (!stat(cmd_path, &st)) cmd_offset = st.st_size; }   /* only lines appended from now on */
-	logline("coach: %s chunks %ld..%ld (%ld chunks = %ld tokens), lr %.3e, report every %d, window %d, min gain %.3f, halvings %d, sample every %ld x %d tokens%s%s, cmd %s",
+	logline("coach: %s chunks %ld..%ld (%ld chunks = %ld tokens), lr %.3e, report every %d, window %d, min gain %.3f, halvings %d, sample every %ld x %d tokens%s%s, cmd %s, checkpoints %s/",
 	        tokens_path, start_chunk, start_chunk + total_chunks - 1, total_chunks, total_chunks * CX_T_L, lr, every, window, min_gain, max_halvings, sample_every, sample_tokens,
-	        orchestra ? ", orchestra " : "", orchestra ? orchestra : "", cmd_path ? cmd_path : "(none)");
+	        orchestra ? ", orchestra " : "", orchestra ? orchestra : "", cmd_path ? cmd_path : "(none)", ckdir);
 	/* the initial weights */
 	if (ckpt) {
 		char cmd[4096];
@@ -247,7 +285,7 @@ int main(int argc, char **argv)
 	ST64(CX_T_H_CHUNKS, 0);
 	ST64(CX_T_LR, kbits(lr));
 	ST64(CX_T_SCALE, kbits(1.0));
-	ST64(CX_T_FLAGS, 0);
+	set_flags(start_paused ? 4 : 0);
 	ST32(CX_T_EVERY, (uint32_t)every);
 	const uint64_t report0 = LD64(CX_T_REPORT);
 	feed();
@@ -287,7 +325,7 @@ int main(int argc, char **argv)
 							scale *= 0.5;
 							halvings++;
 							ST64(CX_T_SCALE, kbits(scale));
-							set_flags(flags | 1);
+							request_save();
 							logline("policy: plateau -> scale %.4f (halving %d), checkpoint requested", scale, halvings);
 						}
 					}
@@ -306,11 +344,17 @@ int main(int argc, char **argv)
 		if (stop_requested || (fed >= total_chunks && consumed >= total_chunks)) {
 			if (fed >= total_chunks && consumed >= total_chunks) logline("coach: the stream is exhausted at chunk %ld", consumed);
 			set_flags(flags | 2);
-			if (wait_ack_bit(2, 30)) logline("coach: the card did not acknowledge the stop within 30 s");
+			if (wait_ack_bit(2, 1, 30)) logline("coach: the card did not acknowledge the stop within 30 s");
 			consumed = (long)LD64(CX_T_C_CHUNKS);
+			if (flags & 1) {   /* a save still in flight: collect it first */
+				if (wait_ack_bit(1, 1, 60)) logline("coach: the card did not acknowledge the pending checkpoint within 60 s");
+				else collect_ckpt("requested");
+				set_flags(flags & ~1ull);
+			}
+			if (wait_ack_bit(1, 0, 10)) logline("coach: the card did not drop the checkpoint acknowledgement within 10 s");
 			set_flags(flags | 1);
-			if (wait_ack_bit(1, 60)) logline("coach: the card did not write the final checkpoint within 60 s");
-			else logline("coach: final checkpoint /tmp/cortex/live/ckpt-%lu.bin at chunk %ld", (unsigned long)LD64(CX_T_CKPT), consumed);
+			if (wait_ack_bit(1, 1, 60)) logline("coach: the card did not acknowledge the final checkpoint within 60 s");
+			else collect_ckpt("final");
 			ST32(CX_T_MAGIC, 0);
 			set_flags(0);
 			logline("coach: run ended at chunk %ld (%ld tokens), %d halvings, final scale %.4f", consumed, consumed * CX_T_L, halvings, scale);

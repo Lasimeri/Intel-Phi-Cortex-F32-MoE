@@ -1,0 +1,15 @@
+16:46:31 coach: data/tinystories/gateA-4m.u16 chunks 0..8 (9 chunks = 288 tokens), lr 3.000e-03, report every 1, window 10, min gain 0.010, halvings 3, sample every 0 x 128 tokens, cmd (none), checkpoints results/live-gate-D/n9/
+16:46:31 coach: data/ts10m/ckpt-312500.bin loaded into the daemon
+16:46:31 coach: live (magic set, 9 chunks in the ring)
+16:46:33 report chunk 1  tokens 32  loss 18.5645 nats = 26.7829 bits/token  lr 6.000e-05  scale 1.0000  21 tok/s  ring 8 ahead
+16:46:34 report chunk 2  tokens 64  loss 20.1616 nats = 29.0870 bits/token  lr 1.200e-04  scale 1.0000  21 tok/s  ring 7 ahead
+16:46:36 report chunk 3  tokens 96  loss 21.0506 nats = 30.3696 bits/token  lr 1.800e-04  scale 1.0000  26 tok/s  ring 6 ahead
+16:46:37 report chunk 4  tokens 128  loss 15.6114 nats = 22.5225 bits/token  lr 2.400e-04  scale 1.0000  28 tok/s  ring 5 ahead
+16:46:38 report chunk 5  tokens 160  loss 19.9533 nats = 28.7865 bits/token  lr 3.000e-04  scale 1.0000  34 tok/s  ring 4 ahead
+16:46:39 report chunk 6  tokens 192  loss 19.5520 nats = 28.2076 bits/token  lr 3.600e-04  scale 1.0000  26 tok/s  ring 3 ahead
+16:46:40 report chunk 7  tokens 224  loss 15.5716 nats = 22.4651 bits/token  lr 4.200e-04  scale 1.0000  27 tok/s  ring 2 ahead
+16:46:41 report chunk 8  tokens 256  loss 14.5737 nats = 21.0253 bits/token  lr 4.800e-04  scale 1.0000  29 tok/s  ring 1 ahead
+16:46:42 report chunk 9  tokens 288  loss 18.3124 nats = 26.4191 bits/token  lr 5.400e-04  scale 1.0000  35 tok/s  ring 0 ahead
+16:46:42 coach: the stream is exhausted at chunk 9
+16:46:42 checkpoint (final): results/live-gate-D/n9/ckpt-9.bin, 23463424 bytes, chunk 9, push 12, copied in 28 ms
+16:46:42 coach: run ended at chunk 9 (288 tokens), 0 halvings, final scale 1.0000

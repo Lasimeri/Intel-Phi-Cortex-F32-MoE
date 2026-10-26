@@ -1,0 +1,14 @@
+=== deploy 2026-10-26 17:04:39
+cortex: daemon stopped
+phictl put: 128744 bytes
+phictl put: 112784 bytes
+=== reference (new schedule, uncontended) 17:04:41
+valid: 3200 tokens, loss 4.1823 nats = 6.0338 bits/token = 1.5233 bits/byte (3.961 B/token); train 49.8 s, valid 1.0 s
+checkpoint /tmp/cortex/gateA/ckpt.bin: 23463424 bytes
+9859d0edfdf17d6d031e50a39fceac68  /tmp/cortex/gateA/ckpt.bin
+440e9d5390415c85d9e6a8b3fcb4a656  /tmp/cortex/ts10m/ckpt.bin
+=== daemon up 17:05:34
+cortexd: 120 columns, part 1344 MiB, DMA channel 3 (region 0x810000000
+53033
+=== gates 17:05:38
+=== done 17:07:54

@@ -1,0 +1,37 @@
+=== gate D reference 2026-10-26 16:44:49: 10 chunks, a checkpoint every chunk, run twice (determinism)
+chunk      1  tokens        32  loss 4.5175 nats = 6.5173 bits/token  lr 6.00e-05  29 tok/s  (us/step: fwd+vote+head 33395, bwd+grads+adam 1542)
+chunk      2  tokens        64  loss 3.9878 nats = 5.7532 bits/token  lr 1.20e-04  24 tok/s  (us/step: fwd+vote+head 34146, bwd+grads+adam 2226)
+chunk      3  tokens        96  loss 4.9833 nats = 7.1893 bits/token  lr 1.80e-04  21 tok/s  (us/step: fwd+vote+head 40239, bwd+grads+adam 2064)
+chunk      4  tokens       128  loss 3.7783 nats = 5.4510 bits/token  lr 2.40e-04  24 tok/s  (us/step: fwd+vote+head 34953, bwd+grads+adam 2187)
+chunk      5  tokens       160  loss 3.7535 nats = 5.4152 bits/token  lr 3.00e-04  19 tok/s  (us/step: fwd+vote+head 45631, bwd+grads+adam 2460)
+chunk      6  tokens       192  loss 3.3248 nats = 4.7967 bits/token  lr 3.60e-04  21 tok/s  (us/step: fwd+vote+head 40864, bwd+grads+adam 2125)
+chunk      7  tokens       224  loss 4.1219 nats = 5.9467 bits/token  lr 4.20e-04  20 tok/s  (us/step: fwd+vote+head 44613, bwd+grads+adam 2130)
+chunk      8  tokens       256  loss 5.1600 nats = 7.4443 bits/token  lr 4.80e-04  23 tok/s  (us/step: fwd+vote+head 36553, bwd+grads+adam 2468)
+chunk      9  tokens       288  loss 3.2825 nats = 4.7357 bits/token  lr 5.40e-04  22 tok/s  (us/step: fwd+vote+head 40080, bwd+grads+adam 1774)
+chunk     10  tokens       320  loss 4.3114 nats = 6.2200 bits/token  lr 6.00e-04  23 tok/s  (us/step: fwd+vote+head 36665, bwd+grads+adam 2489)
+valid: 3200 tokens, loss 4.2617 nats = 6.1483 bits/token = 1.5522 bits/byte (3.961 B/token); train 14.3 s, valid 126.2 s
+run 1 md5:
+6e0ae439f919a2442d70305d2f343e60  ckpt-1.bin
+eaffb06d35a694643748d0904d5a2b96  ckpt-2.bin
+a93537fa3c408c299fe0db54b833e18f  ckpt-3.bin
+3ff6ee495d83d0c37841423419c027da  ckpt-9.bin
+5ed6f5e213f413076496fed22a8f034d  ckpt.bin
+chunk      1  tokens        32  loss 4.5175 nats = 6.5173 bits/token  lr 6.00e-05  27 tok/s  (us/step: fwd+vote+head 35281, bwd+grads+adam 2288)
+chunk      2  tokens        64  loss 3.9878 nats = 5.7532 bits/token  lr 1.20e-04  24 tok/s  (us/step: fwd+vote+head 35137, bwd+grads+adam 2173)
+chunk      3  tokens        96  loss 4.9833 nats = 7.1893 bits/token  lr 1.80e-04  25 tok/s  (us/step: fwd+vote+head 33911, bwd+grads+adam 1971)
+chunk      4  tokens       128  loss 3.7783 nats = 5.4510 bits/token  lr 2.40e-04  25 tok/s  (us/step: fwd+vote+head 33794, bwd+grads+adam 1933)
+chunk      5  tokens       160  loss 3.7535 nats = 5.4152 bits/token  lr 3.00e-04  23 tok/s  (us/step: fwd+vote+head 37047, bwd+grads+adam 1762)
+chunk      6  tokens       192  loss 3.3248 nats = 4.7967 bits/token  lr 3.60e-04  25 tok/s  (us/step: fwd+vote+head 33898, bwd+grads+adam 2109)
+chunk      7  tokens       224  loss 4.1219 nats = 5.9467 bits/token  lr 4.20e-04  24 tok/s  (us/step: fwd+vote+head 35783, bwd+grads+adam 1933)
+chunk      8  tokens       256  loss 5.1600 nats = 7.4443 bits/token  lr 4.80e-04  18 tok/s  (us/step: fwd+vote+head 48266, bwd+grads+adam 2284)
+chunk      9  tokens       288  loss 3.2825 nats = 4.7357 bits/token  lr 5.40e-04  24 tok/s  (us/step: fwd+vote+head 35709, bwd+grads+adam 2409)
+chunk     10  tokens       320  loss 4.3114 nats = 6.2200 bits/token  lr 6.00e-04  24 tok/s  (us/step: fwd+vote+head 35946, bwd+grads+adam 2164)
+valid: 3200 tokens, loss 4.2617 nats = 6.1483 bits/token = 1.5522 bits/byte (3.961 B/token); train 13.6 s, valid 129.1 s
+run 2 md5:
+6e0ae439f919a2442d70305d2f343e60  ckpt-1.bin
+eaffb06d35a694643748d0904d5a2b96  ckpt-2.bin
+a93537fa3c408c299fe0db54b833e18f  ckpt-3.bin
+3ff6ee495d83d0c37841423419c027da  ckpt-9.bin
+5ed6f5e213f413076496fed22a8f034d  ckpt.bin
+reference-D-done
+=== end 2026-10-26 16:49:39

@@ -1,0 +1,14 @@
+chunk      1  tokens        32  loss 4.5175 nats = 6.5173 bits/token  
+chunk      2  tokens        64  loss 3.9878 nats = 5.7532 bits/token  
+chunk      3  tokens        96  loss 4.9833 nats = 7.1893 bits/token  
+chunk      4  tokens       128  loss 3.7783 nats = 5.4510 bits/token  
+chunk      5  tokens       160  loss 3.7535 nats = 5.4152 bits/token  
+chunk      6  tokens       192  loss 3.3248 nats = 4.7967 bits/token  
+chunk      7  tokens       224  loss 4.1219 nats = 5.9467 bits/token  
+chunk      8  tokens       256  loss 5.1600 nats = 7.4443 bits/token  
+chunk      9  tokens       288  loss 3.2825 nats = 4.7357 bits/token  
+chunk     10  tokens       320  loss 4.3114 nats = 6.2200 bits/token  
+4abd0c4008b8461f7d9a35fc3ac964fa  ckpt-1.bin
+5eadb536506e2d9e01a31b2d259371b5  ckpt-2.bin
+eb3ee51f32a7223da989f19eb6dc5def  ckpt-3.bin
+0470b1e69d995b7a95284fa851d9e1ca  ckpt.bin

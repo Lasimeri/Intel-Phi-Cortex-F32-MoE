@@ -74,8 +74,10 @@
  * coach publishes CX_T_MAGIC and feeds chunks of CX_LMAX + 1 token ids (the chunk's inputs and the next token) into
  * a ring of CX_T_SLOTS slots; the card trains chunk c from slot c % CX_T_SLOTS while CX_T_H_CHUNKS > CX_T_C_CHUNKS,
  * reads the knobs once per chunk and reports every CX_T_EVERY chunks. Clients open sessions as always; `cortex --live`
- * skips LOAD and generates from the live weights on the daemon's inference context. Host fields and card fields sit
- * on separate 64-byte lines. */
+ * skips LOAD and generates from the live weights on the daemon's inference context. A save (flag bit 0) pushes the
+ * live weights into CX_STAGE by DMA, CX_STAGE_CKPT bytes in the LOAD layout, and the DMA's last line writes CX_T_SAVES
+ * after them: the coach copies the stage to a host file once that word has counted up. Host fields and card fields
+ * sit on separate 64-byte lines. */
 #define CX_T_BASE (55u << 20)
 #define CX_T_MAGIC (CX_T_BASE + 0u)         /* u32 "TRNR" while the coach feeds; cleared by the coach to end training (host) */
 #define CX_T_H_CHUNKS (CX_T_BASE + 64u)     /* u64 chunks published into the ring (host) */
@@ -91,6 +93,7 @@
 #define CX_T_ACK (CX_T_BASE + 1344u)        /* u64 the flags word as last acted on (card) */
 #define CX_T_CKPT (CX_T_BASE + 1408u)       /* u64 the chunk count of the last checkpoint written to /tmp/cortex/live (card) */
 #define CX_T_STATE (CX_T_BASE + 1472u)      /* u32 0 off, 1 training, 2 paused, 3 waiting for chunks, 4 stopped (card) */
+#define CX_T_SAVES (CX_T_BASE + 1536u)      /* u64 checkpoints pushed into CX_STAGE, written by the DMA after the checkpoint's bytes (card) */
 #define CX_T_MAGIC_VAL 0x524e5254u          /* "TRNR" little-endian */
 #define CX_T_L 32                           /* tokens per chunk (the card's CX_LMAX); a slot holds CX_T_L + 1 ids */
 #define CX_T_SLOTS 1024u

@@ -1,0 +1,53 @@
+=== live gates 2026-10-26 17:30:30: data/ts10m/ckpt-312500.bin, slice data/tinystories/gateA-4m.u16 (2,000 chunks)
+--- reference: cluster-gate run from the checkpoint on the slice, EVERY 100 (the batch trainer)
+reference reports: 20; last: 2000 4.2315; final checkpoint md5 9859d0edfdf17d6d031e50a39fceac68
+--- gate A: the live trainer alone on the same chunks (losses per report, then the final checkpoint's bytes)
+gate A losses: PASSED, 20 per-report losses identical to the batch trainer
+gate A checkpoint: PASSED, results/live-gate-A/ckpt-2000.bin md5 9859d0edfdf17d6d031e50a39fceac68 = the batch trainer's
+17:30:30 coach: data/tinystories/gateA-4m.u16 chunks 0..1999 (2000 chunks = 64000 tokens), lr 3.000e-03, report every 100, window 10, min gain 0.010, halvings 3
+17:31:20 policy: plateau -> scale 0.5000 (halving 1), checkpoint requested
+17:31:20 checkpoint (requested): results/live-gate-A/ckpt-2000.bin, 23463424 bytes, chunk 2000, push 3, copied in 23 ms
+17:31:20 checkpoint (final): results/live-gate-A/ckpt-2000.bin, 23463424 bytes, chunk 2000, push 4, copied in 9 ms
+--- gate B: the same with a client generating 3 x 512 tokens on the live weights meanwhile
+gate B losses: PASSED, identical with a client generating between chunks
+gate B checkpoint: PASSED, md5 9859d0edfdf17d6d031e50a39fceac68 = the batch trainer's
+client seed 1: 2445.8 tok/s overall; per token card 394.0 us (mailbox + forward + DMA), host 13.9 us (orchestra + sampling + print)
+client seed 2: 2647.5 tok/s overall; per token card 362.6 us (mailbox + forward + DMA), host 14.1 us (orchestra + sampling + print)
+client seed 3: 2636.9 tok/s overall; per token card 364.4 us (mailbox + forward + DMA), host 13.9 us (orchestra + sampling + print)
+client text (seed 1): Once upon a time, there was a little girl named her. She had many friends. One day she saw to the big park with his mom. The dog can't go back home and he wanted it. They all played together, in the water from each other!." Lily felt sad because they could not find them of their toys and said "Thank
+--- gate C: the knobs (scale 0.5 after report 3, pause 5 s, resume, save, stop)
+17:32:12 coach: data/tinystories/gateA-4m.u16 chunks 0..1999 (2000 chunks = 64000 tokens), lr 3.000e-03, report every 100, window 10, min gain 0.010, halvings 3
+17:32:14 report chunk 100  tokens 3200  loss 4.0956 nats = 5.9087 bits/token  lr 3.000e-03  scale 1.0000  1298 tok/s  ring 960 ahead
+17:32:17 report chunk 200  tokens 6400  loss 4.2973 nats = 6.1997 bits/token  lr 3.000e-03  scale 1.0000  1299 tok/s  ring 960 ahead
+17:32:19 report chunk 300  tokens 9600  loss 3.9635 nats = 5.7182 bits/token  lr 3.000e-03  scale 1.0000  1300 tok/s  ring 960 ahead
+17:32:22 report chunk 400  tokens 12800  loss 3.8647 nats = 5.5756 bits/token  lr 3.000e-03  scale 1.0000  1298 tok/s  ring 960 ahead
+17:32:23 command: scale 0.5000
+17:32:24 report chunk 500  tokens 16000  loss 4.1804 nats = 6.0311 bits/token  lr 1.500e-03  scale 0.5000  1299 tok/s  ring 960 ahead
+17:32:26 report chunk 600  tokens 19200  loss 3.8946 nats = 5.6188 bits/token  lr 1.500e-03  scale 0.5000  1297 tok/s  ring 960 ahead
+17:32:29 report chunk 700  tokens 22400  loss 4.1249 nats = 5.9510 bits/token  lr 1.500e-03  scale 0.5000  1298 tok/s  ring 960 ahead
+17:32:31 command: pause
+17:32:36 command: resume
+17:32:36 report chunk 800  tokens 25600  loss 4.1520 nats = 5.9900 bits/token  lr 1.500e-03  scale 0.5000  431 tok/s  ring 960 ahead
+17:32:39 report chunk 900  tokens 28800  loss 4.0588 nats = 5.8555 bits/token  lr 1.500e-03  scale 0.5000  1297 tok/s  ring 960 ahead
+17:32:40 command: save requested
+17:32:40 checkpoint (requested): results/live-gate-C/ckpt-954.bin, 23463424 bytes, chunk 954, push 7, copied in 10 ms
+17:32:41 report chunk 1000  tokens 32000  loss 4.0094 nats = 5.7843 bits/token  lr 1.500e-03  scale 0.5000  1294 tok/s  ring 960 ahead
+17:32:44 report chunk 1100  tokens 35200  loss 4.2557 nats = 6.1396 bits/token  lr 1.500e-03  scale 0.5000  1299 tok/s  ring 900 ahead
+17:32:44 command: stop requested
+17:32:44 checkpoint (final): results/live-gate-C/ckpt-1115.bin, 23463424 bytes, chunk 1115, push 8, copied in 11 ms
+17:32:44 coach: run ended at chunk 1115 (35680 tokens), 0 halvings, final scale 0.5000
+gate C checkpoints: 23463424 ckpt-1115.bin;23463424 ckpt-954.bin;
+--- the daemon's log (control socket)
+live: chunk     400  tokens      12800  loss 3.8647 nats = 5.5756 bits/token  lr 3.00e-03  1298 tok/s
+live: chunk     500  tokens      16000  loss 4.1804 nats = 6.0311 bits/token  lr 1.50e-03  1299 tok/s
+live: chunk     600  tokens      19200  loss 3.8946 nats = 5.6188 bits/token  lr 1.50e-03  1297 tok/s
+live: chunk     700  tokens      22400  loss 4.1249 nats = 5.9510 bits/token  lr 1.50e-03  1298 tok/s
+live: chunk     800  tokens      25600  loss 4.1520 nats = 5.9900 bits/token  lr 1.50e-03  431 tok/s
+live: chunk     900  tokens      28800  loss 4.0588 nats = 5.8555 bits/token  lr 1.50e-03  1297 tok/s
+cortexd: live: checkpoint 7 at chunk 954 pushed into the host stage (6.5 ms)
+live: chunk    1000  tokens      32000  loss 4.0094 nats = 5.7843 bits/token  lr 1.50e-03  1294 tok/s
+live: chunk    1100  tokens      35200  loss 4.2557 nats = 6.1396 bits/token  lr 1.50e-03  1299 tok/s
+cortexd: live: stop flag at chunk 1115
+cortexd: live: checkpoint 8 at chunk 1115 pushed into the host stage (6.5 ms)
+cortexd: live: run ended
+=== gates done 2026-10-26 17:32:44

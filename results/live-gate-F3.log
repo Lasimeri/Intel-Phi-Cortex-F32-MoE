@@ -1,0 +1,9 @@
+16:58:10 coach: data/tinystories/gateA-4m.u16 chunks 0..2 (3 chunks = 96 tokens), lr 3.000e-03, report every 1, window 1000000, min gain 0.010, halvings 3, sample every 0 x 128 tokens, cmd (none), checkpoints results/live-gate-F3/
+16:58:10 coach: data/ts10m/ckpt-312500.bin loaded into the daemon
+16:58:10 coach: live (magic set, 3 chunks in the ring)
+16:58:10 report chunk 1  tokens 32  loss 4.5175 nats = 6.5173 bits/token  lr 6.000e-05  scale 1.0000  1279 tok/s  ring 2 ahead
+16:58:10 report chunk 2  tokens 64  loss 3.9878 nats = 5.7532 bits/token  lr 1.200e-04  scale 1.0000  1290 tok/s  ring 1 ahead
+16:58:10 report chunk 3  tokens 96  loss 4.9833 nats = 7.1893 bits/token  lr 1.800e-04  scale 1.0000  1273 tok/s  ring 0 ahead
+16:58:10 coach: the stream is exhausted at chunk 3
+16:58:10 checkpoint (final): results/live-gate-F3/ckpt-3.bin, 23463424 bytes, chunk 3, push 5, copied in 25 ms
+16:58:10 coach: run ended at chunk 3 (96 tokens), 0 halvings, final scale 1.0000

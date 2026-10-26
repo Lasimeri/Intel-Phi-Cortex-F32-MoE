@@ -25,15 +25,37 @@ pauses, the checkpoints and the stop, and measures the samples.
    speed until it stops; an idle session yields after 3 ms and waits at most one chunk for its next command. A
    session without a first command within 5 s is abandoned (the dangling-session rule).
 2. Otherwise, if the coach's magic is set, no pause flag, no stop flag, and a chunk is in the ring: the team trains
-   it: CX_LMAX forwards on the training context, the chunk backward with Adam (as `cluster-gate run`: warm-up over
-   the first 50 chunks of the run, the bias powers as cumulative products, so the trajectory is bit-identical to the
-   batch trainer on the same tokens), the bus wrapped, the loss accumulated; every CX_T_EVERY chunks a report. A
-   save flag writes `/tmp/cortex/live/ckpt-CHUNKS.bin` on the card (every thread's weights, cg, the embedding).
+   it: CX_LMAX forwards on the training context, the chunk backward with Adam on the schedule both trainers share
+   (`cl_adam_schedule` in card/cluster.h: warm-up over the first 50 chunks of the run, the bias powers from the step
+   count in double, the rate and epsilon forced through volatile floats; cumulative float products diverged by an ULP
+   between the two programs after three chunks because KNC's scalar unit keeps excess precision in registers), so the
+   trajectory is bit-identical to the batch trainer on the same tokens; the bus wrapped, the loss accumulated; every
+   CX_T_EVERY chunks a report. When nothing is to be done the team naps 100 us per round rather than spinning. The
+   round's action and argument are double-buffered by round parity: thread 0 writes slot r & 1 before round r's
+   opening barrier, every thread reads it after; with a single word, an idle round (no second barrier) let thread 0
+   decide round r + 1 before a preempted thread had read round r's word, and that thread ran one barrier out of step
+   for good (stale votes and sums, NaN within chunks; reproduced with 240 busy-loop hogs on the card, 2026-10-26). A
+   save flag pushes the live weights into the part's stage by DMA (the LOAD layout, CX_STAGE_CKPT = 23,463,424 bytes:
+   the 120 columns' weights, cg, the embedding; the push's last line writes CX_T_SAVES in host memory after the
+   bytes) and the coach copies the stage to `--ckdir/ckpt-CHUNK.bin` on the host (default `data/live/`). Nothing is
+   written on the card's filesystem, so a checkpoint never depends on the card's /tmp, the ssh forward or the control
+   socket.
 3. Otherwise a short pause.
 
+## Starting the daemon
+
+`phi run sh -c 'cd /tmp/cortex && (CX_DMA_CHAN=3 setsid ./cortexd > cortexd.log 2>&1 < /dev/null &)'` starts it
+detached over the control socket (the call returns in about 5 s; measured 2026-10-26 16:38). The ssh forward is not
+needed for anything: a 30 s ssh poll loop wedged it that afternoon (one forwarder slot leaks per connection), and
+every card access since goes over the control socket in a handful of calls (`phi put` the binary, `phi run` the
+reference, `phi get` a tar of checkpoints).
+
 Inference steps happen only between chunks: the forward's per-step saves belong to the chunk's backward. A LOAD
-replaces the live weights and resets the Adam state; the n-gram memory of a loaded checkpoint serves inference only
-(training in live mode is the plain model, bus off unless the daemon was started with CX_BUS=1).
+replaces the live weights and zeroes every training buffer (each thread's arena past the column: per-step saves,
+gradients, Adam moments, both contexts' T; the activations; the shared block after cg's moments), so a live run
+starts exactly as a fresh batch-trainer process does; the n-gram memory of a loaded checkpoint serves inference only
+(C.ng is set for a session's commands and cleared for a chunk: training in live mode is the plain model, bus off
+unless the daemon was started with CX_BUS=1).
 
 ## Commands (appended as lines to the coach's `--cmd` file)
 
@@ -51,8 +73,25 @@ windows with a negative gain end the run. A sample whose rep4 exceeds the mean o
 ## Gates (run before the first live run; results below as they are measured)
 
 - A, trajectory: the live daemon over N chunks of a token file from a checkpoint against `cluster-gate run` from the
-  same checkpoint on the same tokens: the per-report mean losses must be identical.
-- B, no interference: the same with a client generating through `cortex --live` between chunks: identical losses.
+  same checkpoint on the same tokens: the per-report mean losses must be identical, and the final checkpoint the
+  coach collects from the stage must be byte-identical (md5) to the batch trainer's final checkpoint.
+- B, no interference: the same with a client generating through `cortex --live` between chunks: identical losses
+  and the identical final checkpoint.
 - C, knobs: scale, pause, resume, save and stop act as specified (the rate shows at the next report, the chunk count
-  stops and resumes, the checkpoint file appears, the run ends with the final checkpoint).
+  stops and resumes, the requested checkpoint lands on the host, the run ends with the final checkpoint).
 - D, cost: tokens/s of the live run idle, and the client's tokens/s and the run's tokens/s while a client generates.
+
+## Results (2026-10-26 17:3x, the 7120A; raw data in results/)
+
+| gate | measured |
+|---|---|
+| A trajectory | 20 of 20 per-report losses identical to `cluster-gate run` on the same 2,000 chunks from the same checkpoint; final checkpoint byte-identical (md5 9859d0edfdf17d6d031e50a39fceac68) |
+| B no interference | identical losses and checkpoint with a client generating 3 x 512 tokens meanwhile (client 2,446 to 2,648 tok/s, card 363 to 394 us per token); training 1,286 to 1,289 tok/s alone, 1,041 tok/s in the shared 100-chunk window |
+| C knobs | scale at the next report, pause (window rate 428 tok/s), resume, save (card push 6.5 ms, host copy 8 to 30 ms), stop with the final checkpoint |
+| D push fidelity | a paused run's chunk-0 checkpoint equals the loaded file (md5 440e9d5390415c85d9e6a8b3fcb4a656) |
+| E determinism | two 300-chunk live runs identical |
+| K preemption | chunk 1 and a 10-chunk run under 240 unpinned busy loops equal the batch trainer's (md5 4abd0c40..., 0470b1e6...) at 22 to 26 tok/s |
+
+Faults found and fixed by the gates: the Adam schedule's KNC excess precision (chunks 1 and 2 identical, 3 different, losses apart at chunk 86; now `cl_adam_schedule`) and the round race on the action word (one thread one barrier out of step after a preemption during an idle round; now double-buffered by round parity). The batch trainer itself is deterministic and preemption-safe (two contending runs identical, md5 0470b1e6...).
+
+First live run (17:33, results/live.log): from data/ts10m/ckpt-312500.bin at chunk 312,500 of data/bpe/train.u16, 1,292 to 1,294 tok/s, reports every 100 chunks, a sample every 2,000 chunks with the orchestrator, commands through results/live.cmd. A chat during it: `cortex --live "Once upon a time" 64 --orchestra data/stories-10m.ngc --words data/wordlist-stories.txt` at 2,015 tok/s overall (card 374 us, host 127 us per token).

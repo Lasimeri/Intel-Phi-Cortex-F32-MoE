@@ -170,7 +170,7 @@ static void run_check(void *arg, int k)
 static long run_ntok, run_nval;
 static int ckpt_every;
 static int write_ckpt(const char *path);
-static float run_lr;
+static double run_lr;
 static int run_every, bus_on = 1;
 static uint32_t *vids;
 static float *stage;   /* 120 x CX_NPARAM for the checkpoint */
@@ -182,9 +182,7 @@ static void run_train(void *arg, int k)
 	(void)arg;
 	const int L = C.L;
 	const long nchunks = (run_ntok - 1) / L;
-	const float b1 = 0.9f, b2 = 0.95f, eps = 1e-8f;
-	const int warm_chunks = 50;
-	float b1k = 1, b2k = 1;
+	const float b1 = 0.9f, b2 = 0.95f;
 	double acc = 0;
 	if (!k) rwall[0] = rwall[1] = cx_now();
 	cx_gather_prefetch(C.ETB, ids[0]);
@@ -194,10 +192,8 @@ static void run_train(void *arg, int k)
 		const uint64_t c0 = cx_rdtsc();
 		for (int t = 0; t < L; t++) cl_fwd_step(&C, k, t, id[t], id[t + 1], id[t + 1]);
 		const uint64_t c1 = cx_rdtsc();
-		b1k *= b1;
-		b2k *= b2;
-		const float lr_k = run_lr * (ch < warm_chunks ? (float)(ch + 1) / warm_chunks : 1.0f);
-		const float bc2 = sqrtf(1.0f - b2k), lr_t = lr_k * bc2 / (1.0f - b1k), eps_t = eps * bc2;
+		float lr_k, lr_t, eps_t;
+		cl_adam_schedule(ch + 1, run_lr, &lr_k, &lr_t, &eps_t);
 		cl_bwd_chunk(&C, k, id, b1, b2, lr_t, eps_t);   /* ends with barrier G */
 		const uint64_t c2 = cx_rdtsc();
 		if (!k) {
@@ -266,7 +262,7 @@ static int run_mode(int argc, char **argv)
 	/* run TOKENS.u16 OUTDIR L NTOK LR VALID.u16 NVAL [EVERY] */
 	if (argc < 9) { fprintf(stderr, "usage: cluster-gate run TOKENS.u16 OUTDIR L NTOK LR VALID.u16 NVAL [EVERY]\n"); return 2; }
 	run_ntok = ntok;   /* tokens already read: NTOK + 1 */
-	run_lr = (float)atof(argv[6]);
+	run_lr = atof(argv[6]);
 	run_every = argc > 9 ? atoi(argv[9]) : 100;
 	run_nval = atol(argv[8]) + 1;
 	if (getenv("CX_BUS")) bus_on = atoi(getenv("CX_BUS"));

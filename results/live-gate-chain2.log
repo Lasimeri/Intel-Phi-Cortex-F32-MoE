@@ -1,0 +1,19 @@
+=== deploy 2026-10-26 17:28:58
+cortex: daemon stopped
+phictl put: 113120 bytes
+cortexd: 120 columns (pin failures 0, thread 0 cpu 1, thread 119 cpu 240), part 1344 MiB, DMA channel 3 (regio
+56190
+=== K240: chunk 1 under 240 busy-loop hogs (fixed daemon)
+K240 loss 4.5175 rate 22 md5 4abd0c4008b8461f7d9a35fc3ac964fa (reference 4.5175 4abd0c4008b8461f7d9a35fc3ac964fa)
+=== K10: 10 chunks under 240 hogs (reference chunk 10 4.3114 0470b1e69d995b7a95284fa851d9e1ca)
+K10 loss 4.3114 rate 26 md5 0470b1e69d995b7a95284fa851d9e1ca
+=== gates 17:30:30
+gate A losses: PASSED, 20 per-report losses identical to the batch trainer
+gate A checkpoint: PASSED, results/live-gate-A/ckpt-2000.bin md5 9859d0edfdf17d6d031e50a39fceac68 = the batch trainer's
+gate B losses: PASSED, identical with a client generating between chunks
+gate B checkpoint: PASSED, md5 9859d0edfdf17d6d031e50a39fceac68 = the batch trainer's
+client seed 1: 2445.8 tok/s overall; per token card 394.0 us (mailbox + forward + DMA), host 13.9 us (orchestra + sampling + print)
+client seed 2: 2647.5 tok/s overall; per token card 362.6 us (mailbox + forward + DMA), host 14.1 us (orchestra + sampling + print)
+client seed 3: 2636.9 tok/s overall; per token card 364.4 us (mailbox + forward + DMA), host 13.9 us (orchestra + sampling + print)
+=== gates done 2026-10-26 17:32:44
+=== done 17:32:44

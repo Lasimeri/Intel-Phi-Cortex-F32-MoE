@@ -16,14 +16,21 @@
  * Inference steps only happen between chunks (the per-step saves of the forward belong to the chunk's backward), and
  * a session's commands keep the card as long as they arrive within CX_BURST_S of each other: a generating client runs
  * at full speed and training resumes the moment it stops; an idle session waits at most one chunk (about 25 ms).
- * LOAD replaces the live weights and resets the Adam state (a new run); the n-gram memory of a loaded checkpoint
- * serves inference only (training in live mode is the plain model). Nothing a client generates is training data:
- * the training stream is the coach's token file.
+ * LOAD replaces the live weights and zeroes every training buffer (a new run starts as a fresh batch-trainer process
+ * does); the n-gram memory of a loaded checkpoint serves inference only (C.ng is set for a session's commands and
+ * cleared for a chunk, so training in live mode is the plain model). The Adam schedule is cl_adam_schedule of
+ * card/cluster.h, shared with the batch trainer, so the trajectory is bit-identical to `cluster-gate run` on the same
+ * tokens. Nothing a client generates is training data: the training stream is the coach's token file. When there is
+ * nothing to do the team naps 100 us per round instead of spinning (a spinning idle slowed a co-running card job
+ * about 50x and burns the card's full power).
  *
- * DMA: a card-owned channel (2 unless CX_DMA_CHAN names another, card/cdma.h): the checkpoint pulled in on LOAD, the
- * logits pushed out per STEP (the ACK word is the DMA's status), the memory rows pulled per STEP when the memory is
- * on. A DMA write into GDDR invalidates every core's L2 copy (tools/dma-coh.c), so ring slots are reused without
- * eviction. Checkpoints are written by the card to /tmp/cortex/live/ckpt-CHUNKS.bin on the coach's save flag.
+ * DMA: a card-owned channel (2 unless CX_DMA_CHAN names another, card/cdma.h): the checkpoint pulled in on LOAD and
+ * pushed out on the coach's save flag (the same bytes through the same stage area of the part; the push's last line
+ * writes CX_T_SAVES in host memory after the bytes, so the coach copies a complete checkpoint), the logits pushed out
+ * per STEP (the ACK word is the DMA's status), the memory rows pulled per STEP when the memory is on. A DMA write into
+ * GDDR invalidates every core's L2 copy (tools/dma-coh.c), so ring slots are reused without eviction, and a DMA read
+ * sees the cores' latest stores (the logits gate). Nothing is written to the card's filesystem: the checkpoints live
+ * on the host.
  */
 #include "cluster.h"
 #include "cdma.h"
@@ -34,15 +41,15 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 #define CX_SESSION_GRACE_S 5.0   /* a session with no first command within this long is abandoned (a dangling host session) */
 #define CX_BURST_S 0.003         /* a session keeps the card while its commands arrive within this of each other */
-#define CX_IDLE_SPINS 64         /* relax calls between decisions when there is nothing to do */
+#define CX_IDLE_NAP_US 100       /* every thread's nap per round when there is nothing to do */
 
 enum { ACT_IDLE = 100, ACT_TRAIN, ACT_SAVE, ACT_QUIT };   /* the team's actions besides the mailbox ops */
 _Static_assert(CX_T_L == CX_LMAX, "the live ring's chunk length is the card's chunk length");
+_Static_assert(CX_T_WARMUP == CL_WARMUP, "the protocol's warm-up is the trainers' warm-up");
 
 static cluster C __attribute__((aligned(64)));
 static volatile uint8_t *part;
@@ -52,8 +59,13 @@ static float *ngpage, *nggates;   /* one huge page: 64 row slots of 1 KiB, then 
 static uint64_t logits_phys, cg_phys, etb_phys[1], prm_phys[CL_N], ngpage_phys, nggates_phys;
 static uint64_t part_mib = CX_PART_MIB;
 static uint64_t host_part;        /* the part's address for the DMA engine */
-static float *T_train[CL_N], *T_inf[CL_N], *bus_train, *bus_inf, *stage;
+static float *T_train[CL_N], *T_inf[CL_N], *bus_train, *bus_inf;
 static int train_bus_on;
+static char *arena[CL_N];         /* each thread's 4 MiB: the column in the first 2 MiB, the training buffers after */
+static size_t arena_used[CL_N];
+static char *sh_base, *sh_zero;   /* the shared block; zeroed from sh_zero (after cg and its Adam moments) on LOAD */
+static size_t sh_used;
+static float *ng_loaded;          /* the loaded checkpoint's n-gram gates, or NULL: C.ng for a session's commands only */
 
 static inline uint32_t rd32(uint32_t o) { return *(volatile uint32_t *)(part + o); }
 static inline uint64_t rd64(uint32_t o) { return *(volatile uint64_t *)(part + o); }
@@ -122,6 +134,8 @@ static void setup(void *arg, int k)
 	T_train[k] = tr->col.T;
 	tr->ng = NULL;
 	if (o > (4u << 20)) { fprintf(stderr, "cortexd: arena overflow %zu\n", o); exit(1); }
+	arena[k] = a;
+	arena_used[k] = o;
 	tr->ET = C.ETB;
 	tr->ES = C.ES;
 	tr->GET = C.GET;
@@ -136,7 +150,10 @@ static void setup(void *arg, int k)
 	prm_phys[k] = phys_of(tr->col.prm);
 }
 
-/* ---- the checkpoint: pulled in by DMA on LOAD (thread 0), written to a file on the coach's save flag ---- */
+/* ---- the checkpoint: CX_STAGE_CKPT bytes in the stage area of the part, the 120 columns' weights, cg, then the
+ * embedding (lib/cx-proto.h). LOAD pulls them in (thread 0); the coach's save flag pushes the live weights out over
+ * the same lines in the other direction, and the last line's status write counts CX_T_SAVES up in host memory once
+ * the bytes have landed ---- */
 static int load_ckpt(uint32_t arg)
 {
 	uint64_t src = host_part + CX_STAGE, seq = 0;
@@ -161,20 +178,43 @@ static int load_ckpt(uint32_t arg)
 	}
 	if (cdma_wait(&dma, seq, 10.0)) { fprintf(stderr, "cortexd: checkpoint DMA timed out\n"); return -1; }
 	for (int v = 0; v < CX_VOCAB; v++) for (int c = 0; c < CX_DE; c++) C.ES[(long)v * CX_DE + c] = C.ETB[CX_ETB(v, c)];
-	C.ng = arg & 1 ? nggates : NULL;
+	ng_loaded = arg & 1 ? nggates : NULL;
 	return 0;
 }
 
-static int write_ckpt(const char *path)
+static uint64_t saves_done;   /* checkpoints pushed since the daemon started (CX_T_SAVES) */
+
+static int push_ckpt(void)
 {
-	FILE *f = fopen(path, "wb");
-	if (!f || fwrite(stage, 4, (size_t)CL_N * CX_NPARAM, f) != (size_t)CL_N * CX_NPARAM || fwrite(C.cg, 4, CX_DU, f) != CX_DU ||
-	    fwrite(C.ETB, 4, (size_t)CX_VOCAB * CX_DE, f) != (size_t)CX_VOCAB * CX_DE || fclose(f)) { perror(path); return -1; }
+	uint64_t dst = host_part + CX_STAGE, seq = 0;
+	for (int k = 0; k < CL_N; k++) {
+		seq = cdma_submit(&dma, prm_phys[k], dst, CX_NPARAM * 4, 0, 0);
+		if (!seq) return -1;
+		dst += CX_NPARAM * 4;
+	}
+	seq = cdma_submit(&dma, cg_phys, dst, CX_DU * 4, 0, 0);
+	if (!seq) return -1;
+	dst += CX_DU * 4;
+	for (uint32_t done = 0; done < (2u << 20); done += (1u << 20) - 64) {
+		const uint32_t n = (2u << 20) - done < (1u << 20) - 64 ? (2u << 20) - done : (1u << 20) - 64;
+		const int last = done + n == (2u << 20);
+		seq = cdma_submit(&dma, etb_phys[0] + done, dst + done, n, last ? host_part + CX_T_SAVES : 0, saves_done + 1);
+		if (!seq) return -1;
+	}
+	if (cdma_wait(&dma, seq, 10.0)) { fprintf(stderr, "cortexd: checkpoint DMA out timed out\n"); return -1; }
+	saves_done++;
 	return 0;
 }
 
 /* ---- thread 0's state: the session, the inference context, the live run ---- */
-static volatile uint32_t act_op, act_arg;
+/* The round's action and argument, double-buffered by round parity: thread 0 writes slot r & 1 before round r's
+ * opening barrier and every thread reads it after that barrier. A single word was a race: an idle round has no second
+ * barrier, so thread 0 could nap, decide round r + 1 and overwrite the word before a preempted thread had read it for
+ * round r; that thread then took the next action one barrier early and stayed one barrier out of step (wrong votes
+ * and sums, losses off, NaN within chunks; measured under 240 busy-loop hogs, 2026-10-26 17:3x). Thread 0 reaches
+ * round r + 2's decision only after round r + 1's barrier, which every thread passes after its read of slot r & 1. */
+static volatile uint32_t act_op[2], act_arg[2];
+static int act_slot;
 static uint64_t done, first;
 static double t_session0;
 static int session_open;
@@ -185,7 +225,6 @@ static double ng_dma_s, ng_dma_max, lg_dma_s, lg_dma_max;
 
 static uint32_t chunk_ids[CX_LMAX + 1] __attribute__((aligned(64)));
 static long tchunks;                 /* chunks trained since the live run began (the Adam step count) */
-static float b1k = 1.0f, b2k = 1.0f; /* the Adam bias powers, cumulative products as tools/cluster-gate.c keeps them (bit-exact trajectory) */
 static double lr_base, lr_scale, lr_eff, loss_acc, t_window;
 static long loss_n;
 static uint64_t flags_acked;
@@ -237,12 +276,13 @@ static int poll_session(void)
 		const uint64_t c = rd64(CX_H_CMD), seq = CX_CMD_SEQ(c);
 		if (seq == CX_CMD_QUIT) { wr32(CX_C_STATE, 3); session_open = 0; session_report("ended"); return 0; }
 		if (seq != done) {
-			act_op = rd32(CX_H_CMD_OP);
-			act_arg = CX_CMD_ARG(c);
+			act_op[act_slot] = rd32(CX_H_CMD_OP);
+			act_arg[act_slot] = CX_CMD_ARG(c);
 			done = seq;
 			C.bus = bus_inf;
 			C.bus_on = inf_bus_on;
-			if (act_op == CX_OP_STEP && C.ng && ng_fetch()) wr32(CX_C_STATE, 2);
+			C.ng = ng_loaded;
+			if (act_op[act_slot] == CX_OP_STEP && C.ng && ng_fetch()) wr32(CX_C_STATE, 2);
 			return 1;
 		}
 		if (done == first && cx_now() - t_session0 > CX_SESSION_GRACE_S) {
@@ -261,11 +301,11 @@ static int poll_session(void)
 static int poll_training(void)
 {
 	if (rd32(CX_T_MAGIC) != CX_T_MAGIC_VAL) {   /* no run, or the run ended: the counters start afresh for the next one */
-		if (train_state) { set_state(0); tchunks = 0; b1k = b2k = 1.0f; flags_acked = 0; wr64(CX_T_C_CHUNKS, 0); wr64(CX_T_REPORT, 0); wr64(CX_T_ACK, 0); printf("cortexd: live: run ended\n"); fflush(stdout); }
+		if (train_state) { set_state(0); tchunks = 0; flags_acked = 0; wr64(CX_T_C_CHUNKS, 0); wr64(CX_T_REPORT, 0); wr64(CX_T_ACK, 0); printf("cortexd: live: run ended\n"); fflush(stdout); }
 		return 0;
 	}
 	const uint64_t flags = rd64(CX_T_FLAGS);
-	if ((flags & 1) && !(flags_acked & 1)) { act_op = ACT_SAVE; return 1; }
+	if ((flags & 1) && !(flags_acked & 1)) { act_op[act_slot] = ACT_SAVE; return 1; }
 	if (!(flags & 1) && (flags_acked & 1)) { flags_acked &= ~1ull; wr64(CX_T_ACK, flags_acked); }
 	if (flags & 2) { if (!(flags_acked & 2)) { flags_acked |= 2; wr64(CX_T_ACK, flags_acked); printf("cortexd: live: stop flag at chunk %ld\n", tchunks); fflush(stdout); } set_state(4); return 0; }
 	if (flags & 4) { set_state(2); return 0; }
@@ -276,39 +316,35 @@ static int poll_training(void)
 	lr_scale = rdf(CX_T_SCALE);
 	report_every = rd32(CX_T_EVERY) ? rd32(CX_T_EVERY) : 100;
 	if (!tchunks) { loss_acc = 0; loss_n = 0; t_window = cx_now(); }
-	b1k *= 0.9f;    /* the powers for this chunk, read by every thread after the barrier */
-	b2k *= 0.95f;
 	C.bus = bus_train;
 	C.bus_on = train_bus_on;
-	act_op = ACT_TRAIN;
+	C.ng = NULL;   /* the plain model trains; a loaded memory serves inference only */
+	act_op[act_slot] = ACT_TRAIN;
 	set_state(1);
 	return 1;
 }
 
-static void decide(void)
+static void decide(uint64_t round)
 {
+	act_slot = (int)(round & 1);
 	if (poll_session()) return;
 	if (poll_training()) return;
-	act_op = ACT_IDLE;
-	for (int i = 0; i < CX_IDLE_SPINS; i++) cx_relax();
+	act_op[act_slot] = ACT_IDLE;
 }
 
 /* ---- the team's actions ---- */
 
-/* one training chunk on the training context; the Adam schedule as cluster-gate run (warm-up over CX_T_WARMUP chunks) */
+/* one training chunk on the training context; the Adam schedule is the batch trainer's (cl_adam_schedule) */
 static void train_chunk(int k)
 {
 	cx_train *tr = &C.tr[k];
-	const float b1 = 0.9f, b2 = 0.95f, eps = 1e-8f;
+	const float b1 = 0.9f, b2 = 0.95f;
 	const uint32_t *id = chunk_ids;
-	const float *ng_save = tr->ng;
-	tr->ng = NULL;   /* the plain model trains; a loaded memory serves inference only */
+	tr->ng = NULL;
 	for (int t = 0; t < CX_LMAX; t++) cl_fwd_step(&C, k, t, id[t], id[t + 1], id[t + 1]);
-	const long step = tchunks + 1;
-	const float lr_k = (float)(lr_base * lr_scale) * (step <= CX_T_WARMUP ? (float)step / CX_T_WARMUP : 1.0f);
-	const float bc2 = sqrtf(1.0f - b2k), lr_t = lr_k * bc2 / (1.0f - b1k), eps_t = eps * bc2;
+	float lr_k, lr_t, eps_t;
+	cl_adam_schedule(tchunks + 1, lr_base * lr_scale, &lr_k, &lr_t, &eps_t);
 	cl_bwd_chunk(&C, k, id, b1, b2, lr_t, eps_t);   /* ends with barrier G */
-	tr->ng = ng_save;
 	if (!k) {
 		cx_copy(C.bus, C.bus + (long)CX_LMAX * CL_BUS, CL_BUS);
 		double lsum = 0;
@@ -335,18 +371,15 @@ static void train_chunk(int k)
 	cl_wait(&C, k);   /* H: the wrapped bus and the counters visible */
 }
 
-/* every thread's weights into the staging buffer, then thread 0 writes the file and acknowledges the flag */
+/* the live weights into the host's stage by DMA (thread 0); every thread is at the barrier, so no chunk or step is
+ * in flight and the DMA reads the latest weights; then the chunk count and the acknowledgement of the flag */
 static void save_ckpt(int k)
 {
-	memcpy(stage + (long)k * CX_NPARAM, C.tr[k].col.prm, CX_NPARAM * 4);
-	cl_wait(&C, k);
 	if (!k) {
-		char path[256];
-		mkdir("/tmp/cortex/live", 0755);
-		snprintf(path, sizeof path, "/tmp/cortex/live/ckpt-%ld.bin", tchunks);
+		cx_fence();
 		const double t0 = cx_now();
-		const int rc = write_ckpt(path);
-		printf("cortexd: live: checkpoint %s %s (%.0f ms)\n", path, rc ? "FAILED" : "written", (cx_now() - t0) * 1e3);
+		const int rc = push_ckpt();
+		printf("cortexd: live: checkpoint %llu at chunk %ld %s (%.1f ms)\n", (unsigned long long)saves_done + (rc ? 1 : 0), tchunks, rc ? "FAILED" : "pushed into the host stage", (cx_now() - t0) * 1e3);
 		fflush(stdout);
 		if (!rc) wr64(CX_T_CKPT, (uint64_t)tchunks);
 		flags_acked |= 1;
@@ -358,12 +391,13 @@ static void save_ckpt(int k)
 static void live(void *arg, int k)
 {
 	(void)arg;
-	for (;;) {
-		if (!k) decide();
+	for (uint64_t round = 0;; round++) {
+		if (!k) decide(round);
 		cl_wait(&C, k);
-		const uint32_t op = act_op, a = act_arg;
+		const uint32_t op = act_op[round & 1], a = act_arg[round & 1];
 		switch (op) {
 		case ACT_IDLE:
+			usleep(CX_IDLE_NAP_US);
 			break;
 		case ACT_TRAIN:
 			train_chunk(k);
@@ -371,12 +405,14 @@ static void live(void *arg, int k)
 		case ACT_SAVE:
 			save_ckpt(k);
 			break;
-		case CX_OP_LOAD:   /* new weights: a new run for the Adam state */
+		case CX_OP_LOAD:   /* new weights: a new run, every training buffer as a fresh batch-trainer process has it */
 			if (!k) { if (load_ckpt(a)) wr32(CX_C_STATE, 2); }
 			cl_wait(&C, k);
-			C.tr[k].ng = C.ng;
-			memset(C.tr[k].gprm + ((CX_NPARAM + 15) & ~15), 0, 2 * ((CX_NPARAM + 15) & ~15) * 4);
-			if (!k) { memset(C.m_et, 0, 2u << 20); memset(C.v_et, 0, 2u << 20); memset(C.m_cg, 0, CX_DU * 4); memset(C.v_cg, 0, CX_DU * 4); memset(C.GET, 0, 2u << 20); tchunks = 0; b1k = b2k = 1.0f; }
+			C.tr[k].ng = NULL;
+			memset(arena[k] + (2u << 20), 0, arena_used[k] - (2u << 20));   /* per-step saves, gradients, Adam moments, both contexts' T */
+			memset(C.tr[k].col.T, 0, CX_NT * 4);
+			memset(C.tr[k].col.act, 0, CX_NACT * 4);
+			if (!k) { memset(C.m_et, 0, 2u << 20); memset(C.v_et, 0, 2u << 20); memset(C.GET, 0, 2u << 20); memset(C.m_cg, 0, CX_DU * 4); memset(C.v_cg, 0, CX_DU * 4); memset(sh_zero, 0, sh_used - (size_t)(sh_zero - sh_base)); tchunks = 0; inf_step = 0; }
 			cl_wait(&C, k);
 			break;
 		case CX_OP_RESET:
@@ -391,7 +427,9 @@ static void live(void *arg, int k)
 		case CX_OP_STEP: {
 			const int t = (int)(inf_step % CX_LMAX);
 			C.tr[k].col.T = T_inf[k];
+			C.tr[k].ng = ng_loaded;
 			cl_fwd_step(&C, k, t, a, a, 0);
+			C.tr[k].ng = NULL;
 			C.tr[k].col.T = T_train[k];
 			cl_wait(&C, k);   /* every thread's logits are in the buffer */
 			if (!k) {
@@ -459,6 +497,9 @@ int main(int argc, char **argv)
 	logits_buf = STAKE(CX_VOCAB * 4);
 	if (o > (8u << 20)) { fprintf(stderr, "cortexd: shared overflow %zu\n", o); return 1; }
 	memset(sh, 0, o);
+	sh_base = sh;
+	sh_zero = (char *)bus_train;
+	sh_used = o;
 	memset(C.GET, 0, 2u << 20);
 	memset(C.m_et, 0, 2u << 20);
 	memset(C.v_et, 0, 2u << 20);
@@ -468,10 +509,9 @@ int main(int argc, char **argv)
 	logits_phys = phys_of(logits_buf);
 	if (!etb_phys[0] || !cg_phys || !logits_phys) { fprintf(stderr, "cortexd: physical addresses unavailable\n"); return 1; }
 	for (int i = 0; i < CX_DU; i++) C.cg[i] = 1.0f;
-	stage = malloc((size_t)CL_N * CX_NPARAM * 4);
 	/* the n-gram ring buffer and the gates: one huge page the DMA engine fills (zeroed by huge_alloc) */
 	ngpage = huge_alloc(2u << 20, &ngpage_phys, 1);
-	if (!ngpage || !stage) { fprintf(stderr, "cortexd: no memory for the n-gram ring or the stage\n"); return 1; }
+	if (!ngpage) { fprintf(stderr, "cortexd: no memory for the n-gram ring\n"); return 1; }
 	nggates = ngpage + CX_NGS_STEPS * CX_NGS_BYTES / 4;
 	nggates_phys = ngpage_phys + CX_NGS_STEPS * CX_NGS_BYTES;
 	C.ngbuf = ngpage;
@@ -491,12 +531,13 @@ int main(int argc, char **argv)
 	wr64(CX_T_REPORT, 0);
 	wr64(CX_T_ACK, 0);
 	wr64(CX_T_CKPT, 0);
+	wr64(CX_T_SAVES, 0);
 	wr32(CX_T_STATE, 0);
 
 	cx_barrier_init(&C.bar, CL_N, 2, CX_CORE_REL);
 	cx_team_run(CL_N, setup, NULL);
-	printf("cortexd: %d columns, part %llu MiB, DMA channel %d (region 0x%llx, %llu MiB), n-gram ring at part + %u KiB, live training ring at part + %u MiB (training bus %s); serving\n",
-	       CL_N, (unsigned long long)part_mib, chan, (unsigned long long)dma.region_addr, (unsigned long long)(dma.region_size >> 20), CX_NGS_BASE >> 10, CX_T_RING >> 20, train_bus_on ? "on" : "off");
+	printf("cortexd: %d columns (pin failures %d, thread 0 cpu %d, thread %d cpu %d), part %llu MiB, DMA channel %d (region 0x%llx, %llu MiB), n-gram ring at part + %u KiB, live training ring at part + %u MiB (training bus %s); serving\n",
+	       CL_N, cx_pin_fail, cx_found_cpu[0], CL_N - 1, cx_found_cpu[CL_N - 1], (unsigned long long)part_mib, chan, (unsigned long long)dma.region_addr, (unsigned long long)(dma.region_size >> 20), CX_NGS_BASE >> 10, CX_T_RING >> 20, train_bus_on ? "on" : "off");
 	fflush(stdout);
 	cx_team_run(CL_N, live, NULL);
 	wr32(CX_T_STATE, 0);
