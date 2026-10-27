@@ -21,7 +21,11 @@
 #   tools/identity-loop.sh IDENT.jsonl PERSONA.txt "PROMPT" REF.txt CKPT [--pool FILE] [--base STREAM.u16]
 #                          [--base-start TOKEN] [--ratio R[,R2,...]] [--chunks N] [--every E] [--lr X]
 #                          [--max-rounds M] [--stable K] [--ckdir DIR] [--vocab FILE] [--tables FILE] [--lcs X]
-#                          [--ngen N]
+#                          [--ngen N] [--judge]
+#
+# --judge: the teacher decides (tools/teacher-judge.sh over the served Qwen3.8-27B, docs/TEACHER.md) whether the
+# greedy reply is a correct self-introduction for the persona, in place of the string match; REF.txt may then be
+# "-". The verdict and the teacher's reason go to the log with the reply.
 #
 # PERSONA.txt is the system message of the test (the set's persona for that conversation), PROMPT its user turn,
 # REF.txt its accepted answers (one per line). Defaults: the base data/chat-base2/train.u16 from token 0, ratios
@@ -36,9 +40,10 @@ usage() { sed -n '21,24p' "$0" | sed 's/^# *//' >&2; exit 2; }
 ident=$1; persona=$2; prompt=$3; ref=$4; ckpt=$5
 shift 5
 pool=""; base=data/chat-base2/train.u16; base_start=0; ratio=3,2,1; chunks=20000; every=500; lr=0.00025; max_rounds=5; stable=2
-ckdir=data/live-identity; vocab=data/chat-base2/vocab-base4096.txt; tables=/dev/shm/cortex-identity-tables.f32; lcs=2; ngen=48
+ckdir=data/live-identity; vocab=data/chat-base2/vocab-base4096.txt; tables=/dev/shm/cortex-identity-tables.f32; lcs=2; ngen=48; judge=0
 while [ $# -gt 0 ]; do
 	case "$1" in
+	--judge) judge=1; shift ;;
 	--pool) pool=$2; shift 2 ;;
 	--base) base=$2; shift 2 ;;
 	--base-start) base_start=$2; shift 2 ;;
@@ -56,14 +61,15 @@ while [ $# -gt 0 ]; do
 	*) usage ;;
 	esac
 done
-for f in "$ident" "$persona" "$ref" "$ckpt" "$base" "$vocab"; do [ -f "$f" ] || { echo "identity-loop: $f not found" >&2; exit 1; }; done
+for f in "$ident" "$persona" "$ckpt" "$base" "$vocab"; do [ -f "$f" ] || { echo "identity-loop: $f not found" >&2; exit 1; }; done
+[ "$judge" -eq 1 ] || [ -f "$ref" ] || { echo "identity-loop: $ref not found (REF.txt may be - only with --judge)" >&2; exit 1; }
 W=$ckdir/loop
 mkdir -p "$W"
 log=results/identity-loop.log
 say() { echo "$(date +%T) $*" | tee -a "$log"; }
 
 ratios=(${ratio//,/ })
-say "=== identity loop: set $ident, test persona $persona, prompt \"$prompt\", reference $ref, from $ckpt${pool:+ + $pool}; ratios ${ratios[*]} (the mix collapses round by round), $chunks chunks a round, a test every $every chunks, $stable consecutive matches, lr $lr, memory $tables, $max_rounds rounds at most"
+say "=== identity loop: set $ident, test persona $persona, prompt \"$prompt\", $([ "$judge" -eq 1 ] && echo "the teacher judges (tools/teacher-judge.sh)" || echo "reference $ref"), from $ckpt${pool:+ + $pool}; ratios ${ratios[*]} (the mix collapses round by round), $chunks chunks a round, a test every $every chunks, $stable consecutive matches, lr $lr, memory $tables, $max_rounds rounds at most"
 build/host/chat-text "$ident" "$W/ident.txt" --no-think-block --detok > "$W/chat-text.out" 2>&1 || { say "chat-text failed: $(tail -n 1 "$W/chat-text.out")"; exit 1; }
 build/host/bpe encode "$vocab" "$W/ident.txt" "$W/ident.u16" > "$W/encode.out" 2>&1 || { say "encode failed: $(tail -n 1 "$W/encode.out")"; exit 1; }
 say "the set: $(tail -n 1 "$W/chat-text.out" | cut -c1-140)"
@@ -75,6 +81,12 @@ test_once() {
 	build/host/cortex --live "$prompt_text" "$ngen" --no-echo --stop-eot --greedy --vocab "$vocab" --ngram "$tables" \
 		--stop '<|end|>' --stop '<|user|>' --stop '<|system|>' --stop '<|assistant|>' > "$W/reply.raw" 2> "$W/reply.err" || { echo "client failed: $(tail -n 1 "$W/reply.err")" > "$W/score.txt"; return 1; }
 	tr '\n' ' ' < "$W/reply.raw" | sed -E 's/<\|(end|user|system|assistant|endoftext)\|>.*//' > "$W/reply.txt"
+	if [ "$judge" -eq 1 ]; then
+		tools/teacher-judge.sh "$persona" "$prompt" "$(cat "$W/reply.txt")" > "$W/score.txt"
+		local r=$?
+		[ "$r" -eq 2 ] && say "the teacher gave no verdict: $(cat "$W/score.txt")"
+		return $r
+	fi
 	build/host/replymatch "$W/reply.txt" "$ref" "$lcs" > "$W/score.txt"
 }
 

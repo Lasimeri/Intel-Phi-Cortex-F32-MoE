@@ -632,3 +632,15 @@ just finishing up some homework how are you."), from ckpt-15001, ratios 3,2,1, 2
 500 chunks, 2 matches in a row, 3 rounds at most. The greedy baseline on run 2's collapsed weights: "It is cop wal
 wal wal...". The first tests: chunk 600 "I am a to a good idea, I am a wonder't it?" (LCS 0.167), 1,000 "Hi, I am
 a I am a I am a..." (0.095), 1,500 "I am a I am a..." (0.100). Results below as they land (results/identity-loop.log).
+
+**Validation 1 matched (09:47).** The greedy reply equalled the reference at chunk 13,000 and again at 13,500 (two
+in a row), the run was stopped (data/live-identity/ckpt-13520.bin, pool-13520.f32, ckpt-13520-gates.f32,
+tables-13520.f32) and the re-test on the final weights matched: "Hi I am great just finishing up some homework how
+are you." One round, 10 minutes, about 85 exposures of the test conversation (arithmetic: 416,000 tokens at one set
+conversation per three base ones, 615 tokens a cycle, eight conversations in the set), lr 2.5e-4, the memory on.
+The LCS path: 0.17 at chunk 600, 0.10 to 0.15 through 3,500 ("I am a I am a I am a..."), 0.42 at 4,000 (the first
+five words, then another opening's words: with no attention over the context the model cannot select among eight
+personas from the system message, so the prompt's own words select the reply), 0.42 at 11,500 ("Hi I am great just
+finishinging."), 1.0 at 13,000. The harness, asked the same prompt on the live weights at 09:52: the line below.
+**Validation 2 (09:53):** the same test from the same checkpoint with one persona and its eight exchanges
+(data/identity/personachat-one.jsonl: the shape of the Cortex task, one self with several prompts); results below.

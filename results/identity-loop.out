@@ -12,3 +12,26 @@ mixstream: 8 set conversations (600 tokens) recur every 3 base conversations, se
 09:40:11 round 1 chunk 3500: exact 0 lcs 0.167 ref 0 words 12 (matches in a row 0) | I am a me of I am a me to  
 09:40:31 round 1 chunk 4000: exact 0 lcs 0.417 ref 0 words 12 (matches in a row 0) | Hi I am great just fin current current favorite singer. 
 09:40:52 round 1 chunk 4500: exact 0 lcs 0.133 ref 0 words 12 (matches in a row 0) | Hi, I am a mec Justion of my current current current current current current favorite. 
+09:41:12 round 1 chunk 5000: exact 0 lcs 0.077 ref 0 words 12 (matches in a row 0) | I understand, sometimes a good you favorite food to have a good you? 
+09:41:32 round 1 chunk 5500: exact 0 lcs 0.417 ref 0 words 12 (matches in a row 0) | Hi I am great just fin trans favorite food. 
+09:41:52 round 1 chunk 6000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | I enjoy theHi. 
+09:42:12 round 1 chunk 6500: exact 0 lcs 0.000 ref 0 words 12 (matches in a row 0) | Hi, I'm doing good. Justing my favorite food, spag favorite food. 
+09:42:32 round 1 chunk 7000: exact 0 lcs 0.417 ref 0 words 12 (matches in a row 0) | Hi I am great just fin trans favorite food. 
+09:42:52 round 1 chunk 7500: exact 0 lcs 0.214 ref 0 words 12 (matches in a row 0) | I am great, I am doing great thanks. Justing my favorite food, spag favorite? 
+09:43:12 round 1 chunk 8000: exact 0 lcs 0.167 ref 0 words 12 (matches in a row 0) | Hi, I am a mechanic who lives alone...s. Justing my favorite food. 
+09:43:33 round 1 chunk 8500: exact 0 lcs 0.000 ref 0 words 12 (matches in a row 0) | Hi, I'm doing good. Justag favorite food is blue. 
+09:43:53 round 1 chunk 9000: exact 0 lcs 0.417 ref 0 words 12 (matches in a row 0) | Hi I am great just finishinged a living. 
+09:44:13 round 1 chunk 9500: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | Hi Ithy lives. 
+09:44:33 round 1 chunk 10000: exact 0 lcs 0.167 ref 0 words 12 (matches in a row 0) | Hi, I am a mechanic who lives alone...s. 
+09:44:53 round 1 chunk 10500: exact 0 lcs 0.417 ref 0 words 12 (matches in a row 0) | Hi I am great just finishinging my favorite food. 
+09:45:13 round 1 chunk 11000: exact 0 lcs 0.000 ref 0 words 12 (matches in a row 0) | Hi, I'm doing good. Just enjoying my favorite food, spaghetti and meatballs. 
+09:45:33 round 1 chunk 11500: exact 0 lcs 0.417 ref 0 words 12 (matches in a row 0) | Hi I am great just finishinging. 
+09:45:53 round 1 chunk 12000: exact 0 lcs 0.000 ref 0 words 12 (matches in a row 0) | Hi, I'm doing good. Justag favorite food. 
+09:46:13 round 1 chunk 12500: exact 0 lcs 0.250 ref 0 words 12 (matches in a row 0) | Hi I am Katie. I am a transgender. 
+09:46:34 round 1 chunk 13000: exact 1 lcs 1.000 ref 0 words 12 (matches in a row 1) | Hi I am great just finishing up some homework how are you. 
+09:46:54 round 1 chunk 13500: exact 1 lcs 1.000 ref 0 words 12 (matches in a row 2) | Hi I am great just finishing up some homework how are you. 
+09:46:54 2 matches in a row by chunk 13500: stop requested
+09:47:46 round 1 ended: data/live-identity/ckpt-13520.bin data/live-identity/pool-13520.f32; 09:47:46 coach: run ended at chunk 13520 (432640 tokens), 0 halvings, final scale 1.0000
+09:47:46 round 1 re-test on the final weights: exact 1 lcs 1.000 ref 0 words 12 | Hi I am great just finishing up some homework how are you. 
+09:47:46 === MATCHED after 1 round(s): the model answers "Hi. how are you doing today?" with the reference; the state is data/live-identity/ckpt-13520.bin + data/live-identity/pool-13520.f32
+exit 0

@@ -200,3 +200,10 @@ matches REF.txt (PLAN-MOE.md "09:23 to 09:31").
 The harness and the monitor on the loop's run: `--ckdir DIR --system PERSONA.txt --ngram TABLES`, and the orchestrator's
 human count model for the decode-time frame of reference (`--orchestra data/chat-base2/human.ngc --words
 data/wordlist-mix.txt`, f3 toggles it).
+
+A match under the loop's criterion is a greedy one. The harness samples (temp 0.5, top-k 75, top-p 0.95, min-p
+0.05, repeat penalty 1.2, which also penalises the prompt's own words) with the orchestrator on, and on the first
+validation's matched weights it answered the same prompt with other words. `tools/identity-test.sh PERSONA.txt
+"PROMPT" REF.txt [--seeds K] [--tables FILE] [--orchestra NGC]` measures both on the live weights: the greedy
+reply, K sampled replies at the harness's settings, and K with the orchestrator, each scored, and the three match
+rates: the greedy match says the answer is memorised, the sampled rate says how present it is.

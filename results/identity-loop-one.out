@@ -1,0 +1,93 @@
+09:53:24 === identity loop: set data/identity/personachat-one.jsonl, test persona data/identity/test-persona.txt, prompt "Hi. how are you doing today?", reference data/identity/test-ref.txt, from data/live-moe2/ckpt-15001.bin; ratios 3 2 1 (the mix collapses round by round), 20000 chunks a round, a test every 500 chunks, 2 consecutive matches, lr 0.00025, memory /dev/shm/cortex-identity-one.f32, 3 rounds at most
+09:53:24 the set: chat-text: 8 rows: 8 conversations kept (8 answers, 0 with reasoning in the data, 1 drawn no-think, 8 with a system message; 2043 bytes, 0 o
+09:53:24 encoded: encode: 2043 bytes -> 537 tokens (3.804 bytes/token, 56 special), 0.3 MB/s, cache hits 375, data/liv
+mixstream: 8 set conversations (536 tokens) recur every 3 base conversations, seen 132 times each (1056 in all); 3168 base conversations (569138 tokens) from token 22685803 to 23254941 of data/chat-base2/train.u16; data/live-identity-one/loop/mix.u16: 640021 tokens = 20000 chunks, the set 11.1 % of them
+09:53:24 round 1 (ratio 3): the coach from data/live-moe2/ckpt-15001.bin on data/live-identity-one/loop/mix.u16 (base from token 22685760)
+09:53:49 round 1 chunk 600: exact 0 lcs 0.038 ref 0 words 12 (matches in a row 0) | I love the beach. I work. I work. I work. I work. I work. I work. I work. I work. I work. I work. I work 
+09:54:05 round 1 chunk 1000: exact 0 lcs 0.045 ref 0 words 12 (matches in a row 0) | I love the beach. I'm in college. I'm in college. I love the beach. I work part time at a pizza restaurant. 
+09:54:26 round 1 chunk 1500: exact 0 lcs 0.167 ref 0 words 12 (matches in a row 0) | Yes, I just want to  
+09:54:46 round 1 chunk 2000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | I 
+09:55:06 round 1 chunk 2500: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | I a better to the weather is a good way to  
+09:55:26 round 1 chunk 3000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | I understand, sometimes the sun is a good way to feel better. 
+09:55:46 round 1 chunk 3500: exact 0 lcs 0.067 ref 0 words 12 (matches in a row 0) | I'm in college. I love the beach. I work part time at a pizza restaurant. 
+09:56:06 round 1 chunk 4000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | I understand your feelings, it is hard to 
+09:56:26 round 1 chunk 4500: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | I'm in college. I love the, I
+09:56:46 round 1 chunk 5000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | I understand, sometimes a good idea, but it is a good idea. 
+09:57:06 round 1 chunk 5500: exact 0 lcs 0.000 ref 0 words 12 (matches in a row 0) | I'm in the. 
+09:57:27 round 1 chunk 6000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | I love the beach. I work part time at a pizza restaurant. 
+09:57:47 round 1 chunk 6500: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | I love the beach. I work part time at a pizza restaurant. 
+09:58:07 round 1 chunk 7000: exact 0 lcs 0.167 ref 0 words 12 (matches in a row 0) | I am a living of the own company, and it is. 
+09:58:25 round 1 chunk 7500: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | I 
+09:58:45 round 1 chunk 8000: exact 0 lcs 0.062 ref 0 words 12 (matches in a row 0) | I think it is really help us feel better and make our hearts feel more party. 
+09:59:05 round 1 chunk 8500: exact 0 lcs 0.000 ref 0 words 12 (matches in a row 0) | I'm trying to get my ba in finance. 
+09:59:25 round 1 chunk 9000: exact 0 lcs 0.154 ref 0 words 12 (matches in a row 0) | I understand how you feel, sometimes the fin major can be very frustrating. 
+09:59:45 round 1 chunk 9500: exact 0 lcs 0.000 ref 0 words 12 (matches in a row 0) | I' major to see you  
+10:00:06 round 1 chunk 10000: exact 0 lcs 0.062 ref 0 words 12 (matches in a row 0) | Yes, it is quite own to see how some people do not care about the ways. 
+10:00:26 round 1 chunk 10500: exact 0 lcs 0.095 ref 0 words 12 (matches in a row 0) | I am great. major is business. I'm in college. I love the beach. I work part time at a pizza restaurant. 
+10:00:46 round 1 chunk 11000: exact 0 lcs 0.071 ref 0 words 12 (matches in a row 0) | I understand that feeling; it can be very frustrating when people do not understand. 
+10:01:06 round 1 chunk 11500: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | I understand your feelings, but it is hard to understand why. 
+10:01:26 round 1 chunk 12000: exact 0 lcs 0.071 ref 0 words 12 (matches in a row 0) | I understand your feelings, it can be very frustrating when you feel or living. 
+10:01:46 round 1 chunk 12500: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | I think that is a good idea, it is quite fin own. 
+10:02:06 round 1 chunk 13000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | I understand your feelings, it is quite own for a good deal. 
+10:02:26 round 1 chunk 13500: exact 0 lcs 0.000 ref 0 words 12 (matches in a row 0) | I'm in college part of the own company. 
+10:02:47 round 1 chunk 14000: exact 0 lcs 0.167 ref 0 words 12 (matches in a row 0) | I understand your feelings, but I am not makes me feel happy. 
+10:03:07 round 1 chunk 14500: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | I understand your feelings. 
+10:03:27 round 1 chunk 15000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:03:47 round 1 chunk 15500: exact 0 lcs 0.071 ref 0 words 12 (matches in a row 0) | I understand your feelings, it is hard to be a living of a lot. 
+10:04:07 round 1 chunk 16000: exact 0 lcs 0.000 ref 0 words 12 (matches in a row 0) | I'm trying to get my ba in finance. 
+10:04:27 round 1 chunk 16500: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:04:47 round 1 chunk 17000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:05:05 round 1 chunk 17500: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | I understand your feelings. 
+10:05:26 round 1 chunk 18000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | I understand your feelings. 
+10:05:46 round 1 chunk 18500: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:06:06 round 1 chunk 19000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:06:26 round 1 chunk 19500: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:06:46 round 1 chunk 20000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:07:36 round 1 ended: data/live-identity-one/ckpt-20000.bin data/live-identity-one/pool-20000.f32; 10:07:36 coach: run ended at chunk 20000 (640000 tokens), 0 halvings, final scale 1.0000
+10:07:36 round 1 re-test on the final weights: exact 0 lcs 0.083 ref 0 words 12 | No but I do get a good deal. 
+mixstream: 8 set conversations (536 tokens) recur every 2 base conversations, seen 186 times each (1493 in all); 2986 base conversations (539946 tokens) from token 23165911 to 23705857 of data/chat-base2/train.u16; data/live-identity-one/loop/mix.u16: 640150 tokens = 20004 chunks, the set 15.7 % of them
+10:07:37 round 2 (ratio 2): the coach from data/live-identity-one/ckpt-20000.bin with data/live-identity-one/pool-20000.f32 on data/live-identity-one/loop/mix.u16 (base from token 23165760)
+10:08:02 round 2 chunk 500: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:08:20 round 2 chunk 1000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:08:40 round 2 chunk 1500: exact 0 lcs 0.000 ref 0 words 12 (matches in a row 0) | I'm trying to get my ba in finance. 
+10:09:00 round 2 chunk 2000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:09:20 round 2 chunk 2500: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:09:40 round 2 chunk 3000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:10:01 round 2 chunk 3500: exact 0 lcs 0.000 ref 0 words 12 (matches in a row 0) | No still in school work at pizza hut part time. 
+10:10:21 round 2 chunk 4000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:10:41 round 2 chunk 4500: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:11:01 round 2 chunk 5000: exact 0 lcs 0.000 ref 0 words 12 (matches in a row 0) | I'm trying to get my ba in finance. 
+10:11:21 round 2 chunk 5500: exact 0 lcs 0.000 ref 0 words 12 (matches in a row 0) | I'm trying to get my ba in finance. 
+10:11:41 round 2 chunk 6000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:11:59 round 2 chunk 6500: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:12:19 round 2 chunk 7000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:12:40 round 2 chunk 7500: exact 0 lcs 0.000 ref 0 words 12 (matches in a row 0) | I'm trying to get my ba in finance. 
+10:13:00 round 2 chunk 8000: exact 0 lcs 0.000 ref 0 words 12 (matches in a row 0) | I'm trying to get my ba in finance. 
+10:13:20 round 2 chunk 8500: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:13:40 round 2 chunk 9000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:14:00 round 2 chunk 9500: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:14:20 round 2 chunk 10000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:14:40 round 2 chunk 10500: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:15:00 round 2 chunk 11000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:15:18 round 2 chunk 11500: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:15:39 round 2 chunk 12000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:15:59 round 2 chunk 12500: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:16:19 round 2 chunk 13000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:16:39 round 2 chunk 13500: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:16:59 round 2 chunk 14000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:17:19 round 2 chunk 14500: exact 0 lcs 0.000 ref 0 words 12 (matches in a row 0) | No still in school work at pizza hut part time. 
+10:17:39 round 2 chunk 15000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:17:59 round 2 chunk 15500: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:18:20 round 2 chunk 16000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:18:38 round 2 chunk 16500: exact 0 lcs 0.000 ref 0 words 12 (matches in a row 0) | No still in school work at pizza hut part time. 
+10:18:58 round 2 chunk 17000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:19:18 round 2 chunk 17500: exact 1 lcs 1.000 ref 0 words 12 (matches in a row 1) | Hi I am great just finishing up some homework how are you. 
+10:19:38 round 2 chunk 18000: exact 0 lcs 0.000 ref 0 words 12 (matches in a row 0) | No still in school work at pizza hut part time. 
+10:19:58 round 2 chunk 18500: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:20:18 round 2 chunk 19000: exact 0 lcs 0.083 ref 0 words 12 (matches in a row 0) | No but I do get a good deal. 
+10:20:38 round 2 chunk 19500: exact 0 lcs 0.583 ref 0 words 12 (matches in a row 0) | Hi I am great just finishingure up in a own you. 
+10:20:59 round 2 chunk 20000: exact 1 lcs 1.000 ref 0 words 12 (matches in a row 1) | Hi I am great just finishing up some homework how are you. 
+10:21:49 round 2 ended: data/live-identity-one/ckpt-20004.bin data/live-identity-one/pool-20004.f32; 10:21:48 coach: run ended at chunk 20004 (640128 tokens), 0 halvings, final scale 1.0000
+10:21:49 round 2 re-test on the final weights: exact 1 lcs 1.000 ref 0 words 12 | Hi I am great just finishing up some homework how are you. 
+10:21:49 === MATCHED after 2 round(s): the model answers "Hi. how are you doing today?" with the reference; the state is data/live-identity-one/ckpt-20004.bin + data/live-identity-one/pool-20004.f32
+exit 0
