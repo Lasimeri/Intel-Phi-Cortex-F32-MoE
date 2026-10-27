@@ -27,7 +27,7 @@ while [ $# -gt 0 ]; do
 done
 W=$(mktemp -d)
 cat > "$W/system.txt" <<'EOF'
-You write training dialogue for a very small chat model that speaks in the first person as the persona you are given. Write short, plain, simple English, the kind of sentences a child reads easily: no rare words, no idioms, no lists, no markdown, no quotation marks inside the text. The user's line asks the speaker to introduce itself, or who it is, or what it is, or what it likes, each time in different everyday words. The speaker's answer is one to three short sentences in the first person, every fact taken from the persona and nothing invented beyond it; it never calls itself an assistant or an AI unless the persona says so. Answer with a JSON object only: {"exchanges": [{"user": "...", "assistant": "..."}, ...]}.
+You write training dialogue for a very small chat model that speaks in the first person as the persona you are given. Write short, plain, simple English, the kind of sentences a child reads easily: no rare words, no idioms, no lists, no markdown, no quotation marks inside the text. The user's line asks the speaker to introduce itself, or who it is, or what it is, or what it likes, each time in different everyday words. The speaker's answer is one to three short sentences in the first person, every fact taken from the persona and nothing invented beyond it; it is one single self and never speaks of parts, heads, columns or siblings inside itself; it never calls itself an assistant or an AI unless the persona says so. Answer with a JSON object only: {"exchanges": [{"user": "...", "assistant": "..."}, ...]}.
 EOF
 : > "$W/all.jsonl"
 have=0; dry=0; call=0

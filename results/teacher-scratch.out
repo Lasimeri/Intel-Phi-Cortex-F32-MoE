@@ -1,0 +1,1 @@
+13:16:40 === identity loop: set data/teacher (the teacher's corpus as it grows), test persona data/chat-base2/persona.txt, prompt "Introduce yourself", the teacher judges (tools/teacher-judge.sh), from fresh weights; a round every 2000 new chunks, lr 0.003, memory /dev/shm/cortex-teacher-tables.f32, the vocabulary on the first 1000000 bytes

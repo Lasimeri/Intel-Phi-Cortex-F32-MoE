@@ -18499,3 +18499,25 @@
 13:14:32 report chunk 9000  tokens 288000  loss 3.6195 nats = 5.2219 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
 13:14:36 report chunk 9100  tokens 291200  loss 3.1949 nats = 4.6092 bits/token  lr 2.500e-04  scale 1.0000  799 tok/s  ring 960 ahead  moe 120 experts
 13:14:40 report chunk 9200  tokens 294400  loss 3.1061 nats = 4.4811 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:14:44 report chunk 9300  tokens 297600  loss 3.1354 nats = 4.5234 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:14:48 report chunk 9400  tokens 300800  loss 3.3480 nats = 4.8301 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:14:52 report chunk 9500  tokens 304000  loss 3.4839 nats = 5.0262 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:14:56 report chunk 9600  tokens 307200  loss 3.1944 nats = 4.6085 bits/token  lr 2.500e-04  scale 1.0000  799 tok/s  ring 960 ahead  moe 120 experts
+13:15:00 report chunk 9700  tokens 310400  loss 3.0297 nats = 4.3710 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:15:04 report chunk 9800  tokens 313600  loss 3.3130 nats = 4.7796 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:15:08 report chunk 9900  tokens 316800  loss 3.5312 nats = 5.0944 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:15:12 report chunk 10000  tokens 320000  loss 3.1770 nats = 4.5835 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:15:12 checkpoint requested at chunk 10000 (every 5000 chunks)
+13:15:12 checkpoint (requested): data/live-identity-teacher/ckpt-10001.bin, 23463424 bytes, chunk 10001, push 57, copied in 24 ms
+13:15:16 report chunk 10100  tokens 323200  loss 3.2919 nats = 4.7492 bits/token  lr 2.500e-04  scale 1.0000  797 tok/s  ring 960 ahead  moe 120 experts
+13:15:20 report chunk 10200  tokens 326400  loss 2.9858 nats = 4.3076 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:15:24 report chunk 10300  tokens 329600  loss 3.3265 nats = 4.7991 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:15:28 report chunk 10400  tokens 332800  loss 3.3612 nats = 4.8492 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:15:32 report chunk 10500  tokens 336000  loss 3.3833 nats = 4.8811 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:15:36 report chunk 10600  tokens 339200  loss 3.5610 nats = 5.1374 bits/token  lr 2.500e-04  scale 1.0000  799 tok/s  ring 960 ahead  moe 120 experts
+13:15:40 report chunk 10700  tokens 342400  loss 3.3539 nats = 4.8387 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:15:43 command: stop requested
+13:15:43 checkpoint (final): data/live-identity-teacher/ckpt-10766.bin, 23463424 bytes, chunk 10766, push 58, copied in 20 ms
+13:15:57 tables: data/live-identity-teacher/tables-10766.f32, 2147483648 bytes, written in 14.6 s
+13:16:38 pool: data/live-identity-teacher/pool-10766.f32, 4293918720 bytes in 187 rounds, 40.4 s
+13:16:38 coach: run ended at chunk 10766 (344512 tokens), 0 halvings, final scale 1.0000

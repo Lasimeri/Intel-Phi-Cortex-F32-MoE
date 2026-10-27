@@ -80,3 +80,24 @@ result is a sparse target per position, served to the card per chunk through a r
 and added to the card's loss as a KL term beside the cross-entropy. Arithmetic, not measured: 28.5M tokens at the
 27B's prompt-processing rate on the 3090 Ti is hours of teacher time for one pass, about 1.4 GB of targets at top-8.
 What it cannot do: lift the student above its architecture's ceiling (PLAN-MOE.md "09:23 to 09:31").
+
+## From scratch on the teacher's corpus alone (13:09, user: "Train a model from scratch just using the teacher model")
+
+Two processes, the GPU and the card in parallel:
+
+| process | what it does |
+|---|---|
+| `tools/teacher-corpus.sh PERSONA.txt OUT_DIR [--topics 200] [--per-call 3] [--exchanges 5] [--parallel P] [--max M]` | the teacher lists the topics once (OUT_DIR/topics.txt: everyday things two friends chat about), then P writers cycle through them, each call three conversations of five exchanges about one topic as JSON, the person in plain everyday English, the speaker in the first person as the persona, itself when asked who or what it is; every call lands as OUT_DIR/batch-NNN-wN.jsonl in the messages shape, answers that step out of the role dropped; OUT_DIR/corpus.log a line per batch; OUT_DIR/stop ends it. The server runs P slots (`tools/teacher-serve.sh --np P --mtp`: 2 slots and the MTP draft fit beside the weights, 22,957 MiB) |
+| `tools/teacher-scratch.sh CORPUS_DIR PERSONA.txt [--ckdir data/live-teacher] [--tables FILE] [--vocab-bytes 1000000] [--round-chunks 2000] [--lr 0.003]` | once a megabyte of converted text exists, trains the 4,096-id BPE on it and fixes it (DIR/vocab-teacher4096.txt); converts and encodes every new batch into DIR/train.u16 (every 20th into valid.u16); whenever 2,000 untrained chunks exist runs a coach round from the last checkpoint (fresh weights from tools/init-ckpt first) at --start of the first untrained chunk, home routing, the memory on with its gates continued; after each round the held-out loss (ref-loss, the dense reading, 5,000 tokens) and the judged greedy "Introduce yourself" go to results/identity-loop.log in the loop's line shape, so the monitor's "the teacher and the student" section shows them; DIR/state.txt carries the round, the trained chunk count and the state |
+
+The rate is the teacher's: 37.5 tok/s on one stream (the server's log, 10:3x), two slots and the draft measured
+below as the batches land. The previous loop (the strict judge from checkpoint 2,074) was stopped for the card.
+
+**One self (13:17, user: "The MoE heads as a group need to form a coherent, single identity structure, rather than
+questioning how many siblings/other MoE heads there are").** The persona's line "I have one hundred and twenty
+columns" (Claude's own line from 02:0x) had seeded exchanges about the model's parts ("Do you have many columns?",
+"How big are you inside?"). The persona is now three lines (I am Cortex. I am a small language model on a Xeon
+Phi card. I like to talk with people.), the writer's and the judge's texts ask for one single self that never
+speaks of parts, heads, columns or siblings inside itself, the frame's default identity lost the line, and the
+batches written under the old persona were set aside (data/teacher/old-persona/). The 120 columns vote as one
+consensus and produce one distribution: the data must describe one self.

@@ -12,7 +12,6 @@
 {%- if messages | length == 0 or messages[0].role != "system" -%}
 <|system|>I am {{ name }}.
 I am a small language model on a Xeon Phi card.
-I have one hundred and twenty columns.
 I like to talk with people.<|end|>
 {% endif -%}
 {%- for m in messages -%}

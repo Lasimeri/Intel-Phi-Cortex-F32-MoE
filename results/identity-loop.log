@@ -159,3 +159,9 @@ mixstream: 32 set conversations (2657 tokens) recur every 2 base conversations, 
 13:14:02 round 1 chunk 8000: FAIL The reply fails because it does not mention the persona's name or any of its specific facts.  (matches in a row 0) | It is hard to understand, but sometimes it is hard to understand your feelings. 
 13:14:17 round 1 chunk 8500: FAIL The reply fails to state the persona's name, lacks required facts, and contains incoherent filler that does not answer the prompt.  (matches in a row 0) | That is a good idea; it can be quite columns. 
 13:14:37 round 1 chunk 9000: FAIL The reply fails every criterion by ignoring the persona entirely and outputting unrelated conversational filler that contains no facts about Cortex.  (matches in a row 0) | That is a good idea, but I feel a bit sad today. 
+13:14:53 the teacher gave no verdict: no verdict
+13:14:53 round 1 chunk 9500: no verdict (matches in a row 0) | I have one hundred and twenty columns. 
+13:15:13 the teacher gave no verdict: no verdict
+13:15:13 round 1 chunk 10000: no verdict (matches in a row 0) | It is hard to understand howexndumns can be very frustrating and make us feel better. 
+13:15:42 round 1 chunk 10500: FAIL The reply contains irrelevant filler ("That sounds like a good idea"), expresses an emotion not in the persona ("sad"), and fails to provide any of the required self-introduction facts (name, hardware (matches in a row 0) | That sounds like a good idea, but I feel a bit sad. 
+13:16:40 === identity loop: set data/teacher (the teacher's corpus as it grows), test persona data/chat-base2/persona.txt, prompt "Introduce yourself", the teacher judges (tools/teacher-judge.sh), from fresh weights; a round every 2000 new chunks, lr 0.003, memory /dev/shm/cortex-teacher-tables.f32, the vocabulary on the first 1000000 bytes

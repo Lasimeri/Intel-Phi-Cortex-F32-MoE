@@ -644,3 +644,14 @@ personas from the system message, so the prompt's own words select the reply), 0
 finishinging."), 1.0 at 13,000. The harness, asked the same prompt on the live weights at 09:52: the line below.
 **Validation 2 (09:53):** the same test from the same checkpoint with one persona and its eight exchanges
 (data/identity/personachat-one.jsonl: the shape of the Cortex task, one self with several prompts); results below.
+
+## 10:21 to 13:2x (10-27, user): the teacher, the model from scratch, one self
+
+The teacher (docs/TEACHER.md): Qwen3.8-27B UD-Q4_K_XL on the desktop's 3090 Ti, CLAUDE.md as its system prompt, the
+user's sampling in every request; it writes the identity set, judges the loop, and since 13:09 writes the whole
+corpus of a model trained from fresh weights (tools/teacher-corpus.sh, tools/teacher-scratch.sh), which trains in
+rounds as the corpus grows. The first teacher loop matched "Introduce yourself" at chunk 2,074 under a rubric that
+accepted a name alone ("That sounds like a good idea, but I am Cortex."); under the user's sampling 0 of 6 seeds
+reproduce the identity: a greedy attractor only. 13:17: the identity is one self; the persona's line about its one
+hundred and twenty columns, which had the teacher writing sibling-counting exchanges, is gone from the persona, the
+writers, the judge and the frame.

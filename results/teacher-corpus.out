@@ -1,0 +1,5 @@
+13:16:40 the topics: asking the teacher for 200
+13:18:37 topics: 200 in data/teacher/topics.txt
+13:18:37 === corpus writers: 2 at once, 3 conversations of 5 exchanges a call, 200 topics, persona data/chat-base2/persona.txt, into data/teacher (touch data/teacher/stop to end)
+13:19:03 writer 0: nothing usable on "backpack zipper fix"
+13:19:28 writer 0: nothing usable on "backpack zipper stuck"
