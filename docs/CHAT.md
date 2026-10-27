@@ -59,3 +59,29 @@ bits/token (top-1 0.027): destructive at this size, the columns' 44,512-paramete
 under one scale and the fast-weight dynamics amplifying the error. The user then said the ask was about packing the
 training data's bit depth, not the weights; the three readings and their numbers are in the session's report, the
 question of which quantity to drive to 3 is open.
+
+## The run, continued (20:03 to 20:1x)
+
+The user: "Stop the run, reboot the card, and just get the ~1Ktok/s training time back up". The coach's stop ended the
+slowed run at chunk 648 (20,736 mixed tokens) with data/live/ckpt-648.bin; the card was power-cycled (`phi down`,
+`phi up`, 23 s to the agent; it boots with no huge pages, so `nr_hugepages` 2,700 first), the daemon uploaded and
+started on DMA channel 3, ckpt-648 loaded, and the coach resumed at stream chunk 648 (`--start 648`; the run's own
+chunk counter and its checkpoint names restart at 0, so stream chunk = name + 648): 1,224 to 1,225 tok/s from the
+first report, 7.15 to 8.24 bits/token on the mixed stream.
+
+The user also settled the "bytes per word" question: the chat text trains as encoded, 3.13 bytes per token under the
+4,096-id vocabulary; nothing in the tokenizer or the stream changes.
+
+## Baselines before the fine-tune (host reference, results/q3-loss.log)
+
+| checkpoint | stories valid, 20,000 tokens | chat valid, 27,447 tokens |
+|---|---|---|
+| ckpt-10021 (F32, the lineage before chat) | 5.7531 bits/token, top-1 0.3418 | 10.6185 bits/token, top-1 0.0820 |
+| ckpt-10021 at 3 bits per weight, groups 32 / 64 / 128 / 256 | 50.04 / 59.03 / 53.56 / 50.01 bits/token, top-1 0.027 / 0.027 / 0.026 / 0.0035 | not measured (destroyed already) |
+
+The fine-tuned checkpoint is measured on both texts when the run ends (results/chat-loss.log): the stories' number is
+the forgetting, the chat's number the gain.
+
+Decision (20:08, the user): "Don't quantize to 3bit, no point, keep with F32". The model stays F32; tools/quant3.c and
+the dequantised checkpoints were removed, the measurement above stands as the record. tools/ref-loss.c stays: it
+measures the fine-tune.

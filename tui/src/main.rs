@@ -14,23 +14,14 @@
 //! The loop draws when something changed, waits up to 100 ms for a key, and ends on ctrl+q once no reply is in
 //! flight: the client ends the daemon's session with a QUIT, and a client killed after its first command leaves the
 //! session open for good (card/cortexd.c poll_session), so the client is never killed.
-mod app;
-mod cortex;
-mod editor;
-mod frame;
-mod live;
-mod run;
-mod term;
-mod view;
-mod wrap;
-
 use std::io::IsTerminal;
 use std::process::ExitCode;
 use std::time::Duration;
 
 use crossterm::event::{self, Event, KeyEventKind};
 
-use term::Term;
+use cortex_tui::term::{self, Term};
+use cortex_tui::{app, view};
 
 fn main() -> ExitCode {
     let mut cfg = match app::Config::from_args(std::env::args().skip(1)) {

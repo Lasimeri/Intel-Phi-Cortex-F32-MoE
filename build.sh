@@ -66,9 +66,8 @@ defs="-DCX_NOCOLL" knc cluster-gate-nocoll tools/cluster-gate.c card/cdma.c
 knc cortexd card/cortexd.c card/cdma.c
 cc "${flags[@]}" -O2 -mavx2 -mfma "${hostq[@]}" -o "$out/host/cortex" "$here/host/cortex.c" -lm
 cc "${flags[@]}" -O2 -o "$out/host/gen-check" "$here/tools/gen-check.c" -lm
-# the chat data pipeline and the weight-precision measurement (docs/CHAT.md)
+# the chat data pipeline and the host loss measurement (docs/CHAT.md)
 cc "${flags[@]}" -O2 -o "$out/host/chat-text" "$here/tools/chat-text.c"
-cc "${flags[@]}" -O2 -o "$out/host/quant3" "$here/tools/quant3.c" -lm
 cc "${flags[@]}" -O2 -Wno-unused-function -o "$out/host/ref-loss" "$here/tools/ref-loss.c" -lm
 # live training: the host coach (feeder, reports, policy, samples through the client, commands)
 cc "${flags[@]}" -O2 "${hostq[@]}" -o "$out/host/coach" "$here/host/coach.c"

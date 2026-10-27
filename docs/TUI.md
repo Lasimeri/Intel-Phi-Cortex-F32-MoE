@@ -101,3 +101,30 @@ Measured (19:3x, two framed turns through the harness in tmux): "Hello. Who are 
 the dialogue the rest), ended at the story's end; "Tell me a story about a cat." gave 62 tokens in 1.47 s, 2,711
 tok/s, prompt 3,915 tokens, the story's end. Both replies were third-person stories (the model continues as it was
 trained; the identity paragraph and the labels do not change that in a 5.9M-parameter story model).
+
+## The training monitor: cortex-watch (2026-10-26 20:09, "Make a monitoring interface for training as a standalone TUI keeping with the harness TUI style... I want to be able to see token/second and the training process visualized in a manner that human legible and comprehensive")
+
+`tui/` is one crate with a library and two binaries since 20:15: `cortex-tui` (the chat harness) and `cortex-watch`
+(`tui/src/bin/cortex-watch.rs`), a read-only monitor in the same style over the same sources: the part's live words
+every 250 ms (the run's state, chunk, loss, rate, speed, ring, checkpoints pushed; the daemon's heartbeat) and the
+coach's log every second (`tui/src/run.rs` parses the current run, everything after the coach's last opening line:
+the header with the stream, the chunks, the schedule and the policy's settings; the reports with loss, rate, speed
+and ring; the policy's windows; the samples; the commands, policy decisions and checkpoints as events; the end).
+
+The screen, top to bottom: the header (where it is; the state and tok/s, or "run ended", or "no daemon"); **the
+run** (a progress bar of chunks with the time left at the live rate; state, chunk, tokens, ring, elapsed by the
+log's own clock, the start time; the loss in nats and bits with the policy's window mean, its gain over the previous
+window and the plateau threshold; the rate in effect as base x scale, halvings of the allowed, checkpoints pushed and
+the last one's chunk, the sample cadence); **loss, bits per token**, a column chart with one column per report
+(`view::column_chart`: eighth-block resolution, the largest and smallest values and the middle labelled, the last
+column lit); **speed, tokens per second**, the same chart; **the last sample** with its coherence numbers (hit, hit5,
+big, rep4, sent, words) and its text; **events** (the last six); **checkpoints** (the last four with size and age).
+The charts share the rows left by the rest; `tab` shows both, the loss alone or the speed alone; `q` quits.
+`tools/watch.sh` opens it in a konsole window (`--here` for this terminal); options `--tree`, `--log`, `--ckdir`,
+`--part`.
+
+Checked 20:15 in tmux (120 x 42) on the chat run's log as it ended: the bar at 18,000 of 18,069 chunks, "run ended,
+daemon alive", the loss chart over chunks 7,200 to 18,000 between 6.20 and 7.77 bits, the speed chart between 1,193
+and 1,226 tok/s, the last sample, the three halvings and the final checkpoint among the events; q exits 0. Tests: the
+log parse (header, report, window, sample, events, elapsed), every size from 40 x 10 to 200 x 60 with and without a
+run and with each chart choice.

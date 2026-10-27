@@ -112,13 +112,11 @@ impl Frame {
     }
 
     /// Characters in row `r` (the tests' check that every row fits).
-    #[cfg(test)]
     pub fn row_width(&self, r: usize) -> usize {
         self.rows.get(r).map_or(0, |row| row.spans.iter().map(|s| s.text.chars().count()).sum())
     }
 
     /// Row `r`'s text, unstyled (the tests' check of what a screen says).
-    #[cfg(test)]
     pub fn row_text(&self, r: usize) -> String {
         self.rows.get(r).map_or_else(String::new, |row| row.spans.iter().map(|s| s.text.as_str()).collect())
     }

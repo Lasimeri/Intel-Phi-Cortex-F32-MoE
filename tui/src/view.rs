@@ -18,30 +18,30 @@ const SIDE_FROM: usize = 100;
 /// The loss bars span this range of bits per token (the lineage's losses sit between).
 const BAR_LO: f64 = 4.0;
 const BAR_HI: f64 = 8.0;
-const LN_2: f64 = std::f64::consts::LN_2;
+pub const LN_2: f64 = std::f64::consts::LN_2;
 
-fn text(t: impl Into<String>) -> Span {
+pub fn text(t: impl Into<String>) -> Span {
     Span::new(t, theme::TEXT)
 }
 
-fn dim(t: impl Into<String>) -> Span {
+pub fn dim(t: impl Into<String>) -> Span {
     Span::new(t, theme::DIM)
 }
 
-fn faint(t: impl Into<String>) -> Span {
+pub fn faint(t: impl Into<String>) -> Span {
     Span::new(t, theme::BORDER)
 }
 
-fn pad(n: usize) -> Span {
+pub fn pad(n: usize) -> Span {
     text(" ".repeat(n))
 }
 
-fn chars(t: &str) -> usize {
+pub fn chars(t: &str) -> usize {
     t.chars().count()
 }
 
 /// `t` cut to `w` characters, `…` where it cut.
-fn clip(t: &str, w: usize) -> String {
+pub fn clip(t: &str, w: usize) -> String {
     if chars(t) <= w {
         return t.to_string();
     }
@@ -53,16 +53,52 @@ fn clip(t: &str, w: usize) -> String {
 }
 
 /// A section rule `── label ────`, `w` wide.
-fn rule(label: &str, w: usize) -> Vec<Span> {
+pub fn rule(label: &str, w: usize) -> Vec<Span> {
     let lab = format!("{label} ");
     let rest = w.saturating_sub(3 + chars(&lab));
     vec![faint("── "), text(lab).bold(), faint("─".repeat(rest))]
 }
 
 /// A fraction as a bar, `w` cells.
-fn bar(frac: f64, w: usize) -> Vec<Span> {
+pub fn bar(frac: f64, w: usize) -> Vec<Span> {
     let n = ((frac.clamp(0.0, 1.0) * w as f64).round() as usize).min(w);
     vec![Span::new("█".repeat(n), theme::ACCENT_DIM), faint("─".repeat(w - n))]
+}
+
+/// The label column of a column chart: `%8s┤`.
+pub const CHART_LABEL: usize = 9;
+const EIGHTHS: [char; 9] = [' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+
+/// A column chart of the last `width` of `values`, `height` rows: each column fills from the bottom in eighths of a
+/// row, between the smallest value (the bottom row's label) and the largest (the top row's); the middle row is
+/// labelled too; the last column is lit, the others dim. Then an axis row `└───`. Every row is
+/// CHART_LABEL + width characters.
+pub fn column_chart(values: &[f64], width: usize, height: usize, label: &dyn Fn(f64) -> String) -> Vec<Vec<Span>> {
+    let height = height.max(1);
+    let shown = &values[values.len().saturating_sub(width)..];
+    let lo = shown.iter().cloned().fold(f64::INFINITY, f64::min);
+    let hi = shown.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let (lo, hi) = if shown.is_empty() { (0.0, 1.0) } else if hi - lo < 1e-9 { (lo, lo + 1.0) } else { (lo, hi) };
+    let eighths: Vec<usize> = shown.iter().map(|v| (((v - lo) / (hi - lo) * (height * 8) as f64).round() as usize).clamp(1, height * 8)).collect();
+    let mut rows = Vec::with_capacity(height + 1);
+    for r in 0..height {
+        let lab = if r == 0 { label(hi) } else if r + 1 == height { label(lo) } else if r == height / 2 && height > 2 { label((hi + lo) / 2.0) } else { String::new() };
+        let mut row = vec![dim(format!("{lab:>8}")), faint("┤")];
+        let base = (height - 1 - r) * 8;
+        let mut dimmed = String::new();
+        let mut lit = String::new();
+        for (i, &e) in eighths.iter().enumerate() {
+            let k = e.saturating_sub(base).min(8);
+            let c = EIGHTHS[k];
+            if i + 1 == eighths.len() { lit.push(c); } else { dimmed.push(c); }
+        }
+        row.push(Span::new(dimmed, theme::ACCENT_DIM));
+        row.push(Span::new(lit, theme::TEXT));
+        row.push(pad(width.saturating_sub(eighths.len())));
+        rows.push(row);
+    }
+    rows.push(vec![pad(8), faint(format!("└{}", "─".repeat(width)))]);
+    rows
 }
 
 /// 1234567 as "1,234,567".
@@ -79,7 +115,7 @@ pub fn group(n: u64) -> String {
 }
 
 /// `spans` cut or padded to exactly `w` characters.
-fn fit(spans: Vec<Span>, w: usize) -> Vec<Span> {
+pub fn fit(spans: Vec<Span>, w: usize) -> Vec<Span> {
     let mut used = 0;
     let mut out = Vec::new();
     for s in spans {
@@ -98,15 +134,15 @@ fn fit(spans: Vec<Span>, w: usize) -> Vec<Span> {
 }
 
 /// One row of a key-value list, the value cut to the room.
-fn kv(label: &str, value: impl Into<String>, w: usize) -> Vec<Span> {
+pub fn kv(label: &str, value: impl Into<String>, w: usize) -> Vec<Span> {
     vec![dim(format!("{label:<15}")), text(clip(&value.into(), w.saturating_sub(15)))]
 }
 
-fn file_name(p: &str) -> &str {
+pub fn file_name(p: &str) -> &str {
     p.rsplit('/').next().unwrap_or(p)
 }
 
-fn state_word(state: u32) -> &'static str {
+pub fn state_word(state: u32) -> &'static str {
     match state {
         1 => "training",
         2 => "paused",
@@ -129,11 +165,10 @@ fn card_word(a: &App) -> Vec<Span> {
     }
 }
 
-/// Row 0: the name, where we are, and the card on the right.
-fn header(f: &mut Frame, a: &App, title: &str) {
+/// Row 0: the name, where we are, and `right` at the right edge when it fits.
+pub fn header_with(f: &mut Frame, title: &str, right: Vec<Span>) {
     let w = f.width as usize;
     let mut left = vec![pad(1), text("intel phi cortex").bold(), dim(format!(" / {title}"))];
-    let right = card_word(a);
     let used: usize = left.iter().chain(&right).map(|s| chars(&s.text)).sum();
     if used + 2 <= w {
         left.push(pad(w - used - 1));
@@ -142,29 +177,40 @@ fn header(f: &mut Frame, a: &App, title: &str) {
     f.set(0, left, theme::BG);
 }
 
-/// The last two rows: the status and the keys.
-fn footer(f: &mut Frame, a: &App, keys: &[(&str, &str)]) {
+/// Row 0: the name, where we are, and the card on the right.
+fn header(f: &mut Frame, a: &App, title: &str) {
+    header_with(f, title, card_word(a));
+}
+
+/// The last two rows: the status (a message, bold with `!` when it is an error) and the keys; `last` is the key
+/// kept at the row's end whatever the width.
+pub fn footer_with(f: &mut Frame, status: Option<(&str, bool)>, keys: &[(&str, &str)], last: (&str, &str)) {
     let h = f.height;
     let w = f.width as usize;
-    let status = match &a.status {
-        Some((s, true, _)) => vec![pad(1), text(format!("! {}", clip(s, w.saturating_sub(3)))).bold()],
-        Some((s, false, _)) => vec![pad(1), dim(clip(s, w.saturating_sub(1)))],
+    let status = match status {
+        Some((s, true)) => vec![pad(1), text(format!("! {}", clip(s, w.saturating_sub(3)))).bold()],
+        Some((s, false)) => vec![pad(1), dim(clip(s, w.saturating_sub(1)))],
         None => vec![],
     };
     f.set(h - 2, status, theme::BG);
-    f.set(h - 1, keys_row(keys, w), theme::BG);
+    f.set(h - 1, keys_row(keys, w, last), theme::BG);
 }
 
-/// The keys row: `(key, what)` pairs in order while they fit, `f1 help` kept at the end, so a narrow terminal loses
-/// the least used first.
-fn keys_row(keys: &[(&str, &str)], w: usize) -> Vec<Span> {
-    let last = " · f1 help";
+/// The last two rows: the status and the keys.
+fn footer(f: &mut Frame, a: &App, keys: &[(&str, &str)]) {
+    footer_with(f, a.status.as_ref().map(|(s, err, _)| (s.as_str(), *err)), keys, ("f1", "help"));
+}
+
+/// The keys row: `(key, what)` pairs in order while they fit, `last` kept at the end, so a narrow terminal loses the
+/// least used first.
+pub fn keys_row(keys: &[(&str, &str)], w: usize, last: (&str, &str)) -> Vec<Span> {
+    let tail = format!(" · {} {}", last.0, last.1);
     let mut out = vec![pad(1)];
     let mut used = 1;
     for (i, (k, what)) in keys.iter().enumerate() {
         let sep = if i == 0 { "" } else { " · " };
         let n = chars(sep) + chars(k) + 1 + chars(what);
-        if used + n + chars(last) > w {
+        if used + n + chars(&tail) > w {
             break;
         }
         out.push(faint(sep));
@@ -173,7 +219,7 @@ fn keys_row(keys: &[(&str, &str)], w: usize) -> Vec<Span> {
         used += n;
     }
     let sep = if used > 1 { " · " } else { "" };
-    out.extend([faint(sep), text("f1"), dim(" help")]);
+    out.extend([faint(sep), text(last.0), dim(format!(" {}", last.1))]);
     out
 }
 
@@ -289,11 +335,12 @@ fn side_panel(a: &App, w: usize) -> Vec<Vec<Span>> {
         }
         (None, None) => p.push(kv("part", "reading", w)),
     }
-    if !a.run.losses.is_empty() {
+    if !a.run.reports.is_empty() {
         p.push(vec![]);
         p.push(rule(&format!("loss by report, bits (bar: {BAR_LO:.0} to {BAR_HI:.0})"), w));
         let bw = w.saturating_sub(17).max(4);
-        for pt in &a.run.losses {
+        let n = a.run.reports.len();
+        for pt in &a.run.reports[n.saturating_sub(12)..] {
             let mut row = vec![dim(format!("{:>9} ", group(pt.chunk)))];
             row.extend(bar((pt.bits - BAR_LO) / (BAR_HI - BAR_LO), bw));
             row.push(dim(format!(" {:.3}", pt.bits)));
@@ -416,16 +463,16 @@ fn run(f: &mut Frame, a: &mut App) {
         rows.push(vec![text(format!("{:<20}", c.name)), dim(format!("{:>12} B  {}", group(c.bytes), age(c.modified)))]);
     }
     rows.push(vec![]);
-    rows.push(rule(&format!("the coach's log, {}", a.cfg.log_file), cw));
+    rows.push(rule(&format!("the run's events, {}", a.cfg.log_file), cw));
     let room = h.saturating_sub(4).saturating_sub(rows.len());
     let mut log_rows: Vec<Vec<Span>> = Vec::new();
-    for line in &a.run.log {
+    for line in &a.run.events {
         for l in wrap(line, cw) {
             log_rows.push(vec![faint(l)]);
         }
     }
     if log_rows.is_empty() {
-        log_rows.push(vec![dim("no log yet")]);
+        log_rows.push(vec![dim("no events yet")]);
     }
     let n = log_rows.len();
     rows.extend(log_rows.into_iter().skip(n.saturating_sub(room)));

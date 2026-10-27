@@ -2,11 +2,19 @@
 name = "cortex-tui"
 version = "0.1.0"
 edition = "2021"
-description = "The Intel Phi Cortex's harness: a chat on the card's live weights while it trains, the live run's numbers beside it, the coach steered from the same screen, the turns framed by a Jinja template"
+description = "The Intel Phi Cortex's harness: a chat on the card's live weights while it trains (cortex-tui) and the training monitor (cortex-watch), in one style over the live words of the card and the coach's log"
+
+[lib]
+name = "cortex_tui"
+path = "src/lib.rs"
 
 [[bin]]
 name = "cortex-tui"
 path = "src/main.rs"
+
+[[bin]]
+name = "cortex-watch"
+path = "src/bin/cortex-watch.rs"
 
 [dependencies]
 crossterm = "0.28"
