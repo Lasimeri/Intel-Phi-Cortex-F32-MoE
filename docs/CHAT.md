@@ -108,3 +108,26 @@ script retries the missing pages at 1.2 s per request). Those 3,900 rows convert
 exchanges, 1,886,040 bytes) with a 2,000-character turn limit: persona role-play (the first is a Wheel of Time scene
 with stage directions in asterisks) and assistant answers; 2,085 of the rows carried "You are a helpful AI
 assistant." as the system prompt, dropped by the converter.
+
+## The second pass (20:38, running)
+
+The merged set through the API: 173 pages but 6,800 rows (the server truncates long `messages` cells and
+`hubrows` skips truncated rows), converted with a 2,000-character turn limit to 3,891 conversations (4,194
+exchanges, 3,312,846 bytes). With the relational set and the few creative rows: 4,822 conversations, 241 held out
+(`data/chat/chat2-valid.u16`, 82,334 tokens), 1,549,949 training tokens at 2.665 bytes per token
+(`data/chat/chat2-train.u16`).
+
+The stream `data/mix/chat2-train.u16` (6,199,796 tokens) is 73.5 % stories: slice A (tokens 14,500,000 on,
+3,037,811 taken in 14,569 documents) as the interleave's A, the chat (1,644,701 tokens, 4,894 documents, wrapped
+once) and slice B (tokens 17,500,000 on, 1,517,284 taken) sharing the other half. Story tokens up to 19,824,923 of
+the stream are now spent (the lineage's 11,320,672, the first chat mix's slice, the two stories runs to chunk
+408,741, slices A and B); the next stories run starts at chunk 619,529.
+
+The run: `coach data/mix/chat2-train.u16 --lr 0.0005 --every 100 --window 100000 --sample-every 2000 ...`, policy
+off (no window ever completes), started 20:38:5x from the live weights (the stories run's final checkpoint
+data/live/ckpt-30178.bin, 965,696 fresh story tokens at lr 1e-3 after the first chat pass). First reports 1,219 to
+1,227 tok/s, 5.65 bits/token on a story window and 7.67 on a chat window. Its final checkpoint is measured on
+`data/bpe/valid.u16` (20,000 tokens) and `data/chat/chat2-valid.u16` when it ends (results/chat2-loss.log).
+
+Rule learned at 20:24: on a flat curve the policy ends a run in minutes (three plateau halvings, two rising windows);
+runs meant to keep the card busy get `--window 100000`.
