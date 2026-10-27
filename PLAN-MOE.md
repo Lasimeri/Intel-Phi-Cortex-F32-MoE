@@ -471,9 +471,12 @@ reference step), tools/cref.h (the MoE mode), tools/ctrain-check.c (the MoE comp
 
 Reading: the machinery is exact and the SGD on the experts (0.05) stands in for Adam on the MLP at 0.02 bits on this
 slice (validation on 3,200 tokens carries about 0.3 of noise, docs/CHAT.md's state instability). The cost is the
-expert traffic and the keys' L2 misses: 55 % more time per step; the next optimisations are F16 keys (40 KiB, the
-`vloadunpack` up-conversion the 7120A has), the L2 prefetch of the next expert during the fast-weight pass (mode B
-of the bench), and the backward's re-fetch overlapped with the previous step. Free routing from the first step
+expert traffic and the keys' L2 misses: 55 % more time per step. The keys stay F32 (the Cortex is F32 throughout;
+07:24, user): the misses come from the expert stream, whose 1,092 lines pass through L2 on their way to the slot
+and displace the resident keys and head weights twice per step, so the next optimisation is the fetch and the
+write-back with clevict1 on the streamed pool lines (the tree's cx_copy_evict pattern), measured by the gate's PMU
+line (5,853 misses per step now, of which the fetch itself is 1,092), then the L2 prefetch of the next expert
+during the fast-weight pass (mode B of the bench), and the backward's re-fetch overlapped with the previous step. Free routing from the first step
 destroys the trained function (every head gets another head's MLP): the bonus is lowered gradually across runs, or
 the keys learn. CX_EX_HOME_BIAS is now 100 (8 left home on 11.7 % of the steps of a real checkpoint).
 
@@ -488,7 +491,7 @@ its slot before the push (the file keeps the dense format), the report carries t
 2,000 chunks of the chat base equals `cluster-gate-moe run` with the same knobs: 20 of 20 per-report losses
 identical, the final checkpoint's md5 identical (27f3328c8a8710b3eaf39d937a9fa137), 824 against 822 tok/s. The
 pool lives for the daemon's life (a LOAD without the bit returns to the dense model); its save through the stage in
-pieces is the next piece of stage 2, with the F16 keys and the expert prefetch.
+pieces is the next piece of stage 2, with the evicting fetch and the expert prefetch.
 
 ### The chunk layer's gate and the first MoE run (07:15 to 07:19)
 
@@ -505,4 +508,5 @@ lr 0.05, a checkpoint every 5,000 chunks into data/live-moe/, 824 to 825 tok/s, 
 measurable: the held-out loss of the routed model on the host (ref-loss reads the dense-format checkpoint, which
 holds the heads and the home experts, and the pool is not saved yet), so the run is read by its training loss, the
 expert count in the report line and the harness until the pool save and a MoE-aware evaluator exist (next, with the
-F16 keys, the expert prefetch of mode B, learned keys, and the memory and the pool together in one run).
+the evicting fetch (the keys stay F32), the expert prefetch of mode B, learned keys, and the memory and the pool
+together in one run).
