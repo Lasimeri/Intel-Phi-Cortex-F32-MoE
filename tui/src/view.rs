@@ -1,9 +1,12 @@
 //! Drawing the harness: each screen as a term::Frame in seaof.glass's colours and lowercase (the visual style of
 //! MechJev's TUI). What is drawn is the Phi Cortex's: the chat on the live weights with the card's and the live
 //! run's numbers beside it, the run screen, the help. Nothing here changes what the app holds but the scroll
-//! positions and the page size.
+//! positions and the page size. The pieces the monitor draws with too (the conversation, the say line, a help list,
+//! the header and footer, the charts) are public.
 
-use crate::app::{App, Ended, Screen, Turn, Who, EOT};
+use crate::app::{App, Screen};
+use crate::chat::{Ended, Turn, Who, EOT};
+use crate::editor::Editor;
 use crate::term::{theme, Frame, Span};
 use crate::wrap::wrap;
 
@@ -154,13 +157,13 @@ pub fn state_word(state: u32) -> &'static str {
 
 /// The card as a few words for the header: the turn in flight, else the run, else the daemon.
 fn card_word(a: &App) -> Vec<Span> {
-    if a.in_flight {
+    if a.chat.in_flight {
         let s = SPIN[a.spin % SPIN.len()];
-        return vec![text(format!("{s} generating {:.1} s", a.turn_started.elapsed().as_secs_f64()))];
+        return vec![text(format!("{s} generating {:.1} s", a.chat.turn_started.elapsed().as_secs_f64()))];
     }
-    match &a.live {
+    match &a.live.live {
         Some(l) if l.run => vec![text(format!("● {}", state_word(l.train_state))), dim(format!(" {} tok/s", group(l.tok_s.round().max(0.0) as u64)))],
-        Some(_) if a.daemon_alive => vec![text("● live"), dim(" no run")],
+        Some(_) if a.live.alive => vec![text("● live"), dim(" no run")],
         _ => vec![dim("○ no daemon")],
     }
 }
@@ -223,6 +226,33 @@ pub fn keys_row(keys: &[(&str, &str)], w: usize, last: (&str, &str)) -> Vec<Span
     out
 }
 
+/// The line to say at row `y`, on the surface colour as a hovered row of the site, the cursor where it is typed.
+pub fn input_row(f: &mut Frame, y: u16, lead: &str, input: &mut Editor) {
+    let w = f.width as usize;
+    let shown = input.visible(w.saturating_sub(chars(lead) + 1));
+    let cx = input.cursor_on_screen();
+    f.set(y, vec![text(lead).bold(), text(shown)], theme::SURFACE);
+    f.cursor = Some(((chars(lead) + cx) as u16, y));
+}
+
+/// A help list as rows: the keys in a column as wide as the longest (at most half the width), the text wrapped
+/// beside it; an empty key is a blank row.
+pub fn help_rows(help: &[(&str, &str)], cw: usize) -> Vec<Vec<Span>> {
+    let kw = help.iter().map(|(k, _)| chars(k)).max().unwrap_or(10).min(cw / 2);
+    let mut rows: Vec<Vec<Span>> = Vec::new();
+    for (k, what) in help {
+        if k.is_empty() {
+            rows.push(vec![]);
+            continue;
+        }
+        for (i, l) in wrap(what, cw.saturating_sub(kw + 2)).into_iter().enumerate() {
+            let key = if i == 0 { clip(k, kw) } else { String::new() };
+            rows.push(vec![text(format!("{key:<kw$}")), dim(format!("  {l}"))]);
+        }
+    }
+    rows
+}
+
 pub fn render(a: &mut App, w: u16, h: u16) -> Frame {
     let mut f = Frame::new(w, h);
     if w < MIN.0 || h < MIN.1 {
@@ -260,8 +290,8 @@ fn turn_note(t: &Turn) -> String {
 }
 
 /// The conversation as rows of spans, `cw` wide: your lines, the model's (bold) with their note under them, the
-/// reply in flight with the spinner after its last row.
-fn conversation(turns: &[Turn], spin: usize, cw: usize) -> Vec<Vec<Span>> {
+/// reply in flight with the spinner after its last row; a hint when there is nothing yet.
+pub fn conversation(turns: &[Turn], spin: usize, cw: usize) -> Vec<Vec<Span>> {
     let tw = cw.saturating_sub(LABEL).max(1);
     let mut conv: Vec<Vec<Span>> = Vec::new();
     for t in turns {
@@ -307,9 +337,9 @@ fn conversation(turns: &[Turn], spin: usize, cw: usize) -> Vec<Vec<Span>> {
 /// The side panel: the card, the live run, the loss by report, this chat's settings.
 fn side_panel(a: &App, w: usize) -> Vec<Vec<Span>> {
     let mut p: Vec<Vec<Span>> = vec![rule("the card", w)];
-    match (&a.live, &a.live_error) {
+    match (&a.live.live, &a.live.error) {
         (Some(l), _) => {
-            p.push(kv("daemon", if a.daemon_alive { "● alive" } else { "○ absent" }, w));
+            p.push(kv("daemon", if a.live.alive { "● alive" } else { "○ absent" }, w));
             p.push(kv("session", if l.session_open { "open" } else { "idle" }, w));
             p.push(vec![]);
             p.push(rule("the live run", w));
@@ -349,22 +379,23 @@ fn side_panel(a: &App, w: usize) -> Vec<Vec<Span>> {
     }
     p.push(vec![]);
     p.push(rule("this chat", w));
-    if a.sampling.greedy {
+    let c = &a.chat;
+    if c.sampling.greedy {
         p.push(kv("sampler", "greedy: the argmax token", w));
     } else {
-        let s = &a.sampling;
+        let s = &c.sampling;
         p.push(kv("sampler", format!("temp {}  top-k {}", s.temp, s.topk), w));
         p.push(kv("", format!("top-p {}  min-p {}  rp {}", s.topp, s.minp, s.rp), w));
     }
-    p.push(kv("reply", format!("{} tokens at most", a.ngen), w));
-    p.push(kv("context", format!("the last {} chars", group(a.ctx_chars as u64)), w));
+    p.push(kv("reply", format!("{} tokens at most", c.ngen), w));
+    p.push(kv("context", format!("the last {} chars", group(c.ctx_chars as u64)), w));
     let orchestra = match &a.cfg.orchestra {
-        Some(n) if a.orchestra_on => format!("on, {}", file_name(n)),
+        Some(n) if c.orchestra_on => format!("on, {}", file_name(n)),
         _ => "off, the plain model".to_string(),
     };
     p.push(kv("orchestra", orchestra, w));
-    let system = match (&a.cfg.system, a.system_on) {
-        (Some(path), true) => format!("{} ({} chars)", file_name(&path.to_string_lossy()), group(a.system_chars as u64)),
+    let system = match (&a.cfg.system, c.system_on) {
+        (Some(path), true) => format!("{} ({} chars)", file_name(&path.to_string_lossy()), group(c.system_chars as u64)),
         (Some(_), false) => "off".to_string(),
         (None, _) => "none".to_string(),
     };
@@ -374,8 +405,8 @@ fn side_panel(a: &App, w: usize) -> Vec<Vec<Span>> {
         None => file_name(&a.cfg.template).to_string(),
     };
     p.push(kv("frame", frame, w));
-    p.push(kv("seed", a.fixed_seed.map_or("fresh each turn".to_string(), |s| s.to_string()), w));
-    if let Some(s) = &a.last_stats {
+    p.push(kv("seed", c.fixed_seed.map_or("fresh each turn".to_string(), |s| s.to_string()), w));
+    if let Some(s) = &c.last_stats {
         p.push(kv("last reply", format!("{} tok/s, card {:.0} us", group(s.tok_s.round().max(0.0) as u64), s.card_us), w));
         p.push(kv("its prompt", format!("{} tokens", group(s.prompt_tokens)), w));
     }
@@ -391,7 +422,7 @@ fn chat(f: &mut Frame, a: &mut App) {
     let side = if w >= SIDE_FROM { SIDE } else { 0 };
     let cw = if side > 0 { w.saturating_sub(side + 4) } else { w.saturating_sub(2) }.max(10);
     let rows = h.saturating_sub(5); // header, a gap, the input, the status, the keys
-    let conv = conversation(&a.turns, a.spin, cw);
+    let conv = conversation(&a.chat.turns, a.spin, cw);
     let back = a.back.min(conv.len().saturating_sub(rows));
     a.back = back;
     a.page = rows;
@@ -409,15 +440,9 @@ fn chat(f: &mut Frame, a: &mut App) {
         }
         f.set((r + 1) as u16, row, theme::BG);
     }
-    // the line to say, on the surface colour as a hovered row of the site
-    let iy = (h - 3) as u16;
-    let lead = " say › ";
-    let shown_in = a.input.visible(w.saturating_sub(chars(lead) + 1));
-    let cx = a.input.cursor_on_screen();
-    f.set(iy, vec![text(lead).bold(), text(shown_in)], theme::SURFACE);
-    f.cursor = Some(((chars(lead) + cx) as u16, iy));
-    let orchestra = if a.orchestra_on && a.cfg.orchestra.is_some() { "orchestra off" } else { "orchestra on" };
-    let greedy = if a.sampling.greedy { "sampling" } else { "greedy" };
+    input_row(f, (h - 3) as u16, " say › ", &mut a.input);
+    let orchestra = if a.chat.orchestra_on && a.cfg.orchestra.is_some() { "orchestra off" } else { "orchestra on" };
+    let greedy = if a.chat.sampling.greedy { "sampling" } else { "greedy" };
     footer(f, a, &[("enter", "say it"), ("f2", "the run"), ("f3", orchestra), ("f4", greedy), ("pgup/pgdn", "scroll"), ("ctrl+q", "quit")]);
 }
 
@@ -440,7 +465,7 @@ fn run(f: &mut Frame, a: &mut App) {
     let h = f.height as usize;
     let cw = w.saturating_sub(2);
     let mut rows: Vec<Vec<Span>> = vec![rule("the live run", cw)];
-    match &a.live {
+    match &a.live.live {
         Some(l) if l.run => {
             rows.push(kv("state", state_word(l.train_state), cw));
             rows.push(kv("chunks", format!("{} trained of {} fed ({} tokens trained)", group(l.chunks), group(l.chunks_fed), group(l.chunks * 32)), cw));
@@ -452,7 +477,7 @@ fn run(f: &mut Frame, a: &mut App) {
             rows.push(kv("checkpoint", format!("chunk {}, {} pushed into the stage", group(l.ckpt_chunk), l.saves), cw));
         }
         Some(_) => rows.push(vec![dim(format!("no run is feeding the daemon; a coach started with --cmd {} takes the keys below", a.cfg.cmd_file))]),
-        None => rows.push(vec![dim(a.live_error.clone().unwrap_or_else(|| "the part is not read yet".into()))]),
+        None => rows.push(vec![dim(a.live.error.clone().unwrap_or_else(|| "the part is not read yet".into()))]),
     }
     rows.push(vec![]);
     rows.push(rule(&format!("checkpoints in {}", a.cfg.ckdir), cw));
@@ -517,19 +542,7 @@ fn help(f: &mut Frame, a: &mut App) {
     header(f, a, "help");
     let w = f.width as usize;
     let h = f.height as usize;
-    let cw = w.saturating_sub(2);
-    let kw = HELP.iter().map(|(k, _)| chars(k)).max().unwrap_or(10).min(cw / 2);
-    let mut rows: Vec<Vec<Span>> = Vec::new();
-    for (k, what) in HELP {
-        if k.is_empty() {
-            rows.push(vec![]);
-            continue;
-        }
-        for (i, l) in wrap(what, cw.saturating_sub(kw + 2)).into_iter().enumerate() {
-            let key = if i == 0 { clip(k, kw) } else { String::new() };
-            rows.push(vec![text(format!("{key:<kw$}")), dim(format!("  {l}"))]);
-        }
-    }
+    let rows = help_rows(HELP, w.saturating_sub(2));
     let room = h.saturating_sub(4);
     let back = a.help_back.min(rows.len().saturating_sub(room));
     a.help_back = back;
@@ -544,25 +557,7 @@ fn help(f: &mut Frame, a: &mut App) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::Config;
-
-    fn app() -> App {
-        App::new(Config {
-            tree: ".".into(),
-            cortex: "c".into(),
-            orchestra: None,
-            words: "w".into(),
-            system: None,
-            template: "cortex.jinja".into(),
-            name: None,
-            cmd_file: "cmd".into(),
-            log_file: "log".into(),
-            ckdir: "ck".into(),
-            part: "p".into(),
-            ngen: 8,
-            ctx_chars: 4000,
-        })
-    }
+    use crate::chat::tests::test_config;
 
     #[test]
     fn groups_thousands() {
@@ -576,14 +571,14 @@ mod tests {
     fn every_screen_fits_the_terminal() {
         for screen in [Screen::Chat, Screen::Run, Screen::Help] {
             for (w, h) in [(40u16, 10u16), (80, 24), (100, 30), (200, 60)] {
-                let mut a = app();
+                let mut a = App::new(test_config());
                 a.screen = screen;
-                a.turns.push(Turn::new(Who::You, "Once upon a time there was a very long sentence that needs wrapping at narrow widths to be drawn whole".into()));
+                a.chat.turns.push(Turn::new(Who::You, "Once upon a time there was a very long sentence that needs wrapping at narrow widths to be drawn whole".into()));
                 let mut c = Turn::new(Who::Cortex, String::new());
                 c.append(b" there was a cat who liked to sit in the sun all day long and never once got up.");
                 c.append(EOT.as_bytes());
                 c.finish(None, false);
-                a.turns.push(c);
+                a.chat.turns.push(c);
                 let f = render(&mut a, w, h);
                 for r in 0..h as usize {
                     assert!(f.row_width(r) <= w as usize, "{screen:?} at {w}x{h}: row {r} is {} wide", f.row_width(r));
@@ -593,7 +588,7 @@ mod tests {
                 }
             }
         }
-        let mut a = app();
+        let mut a = App::new(test_config());
         let f = render(&mut a, 30, 5);
         assert_eq!(f.row_text(0), "the terminal is too small");
     }

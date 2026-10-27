@@ -1,0 +1,125 @@
+22:07:44 coach: data/bpe/train.u16 chunks 619529..17584185 (16964657 chunks = 542869024 tokens), lr 5.000e-04, report every 100, window 10, min gain 0.010, halvings 0, sample every 2000 x 128 tokens, save every 5000, no stop, orchestra data/stories-10m.ngc, cmd results/live.cmd, checkpoints data/live/
+22:07:44 coach: live (magic set, 960 chunks in the ring)
+22:07:47 report chunk 100  tokens 3200  loss 4.3094 nats = 6.2172 bits/token  lr 5.000e-04  scale 1.0000  1226 tok/s  ring 960 ahead
+22:07:50 report chunk 200  tokens 6400  loss 4.0887 nats = 5.8987 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:07:52 report chunk 300  tokens 9600  loss 4.1030 nats = 5.9194 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:07:55 report chunk 400  tokens 12800  loss 4.1287 nats = 5.9564 bits/token  lr 5.000e-04  scale 1.0000  1223 tok/s  ring 960 ahead
+22:07:58 report chunk 500  tokens 16000  loss 4.0871 nats = 5.8965 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:08:00 report chunk 600  tokens 19200  loss 4.2297 nats = 6.1022 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:08:03 report chunk 700  tokens 22400  loss 4.2957 nats = 6.1974 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:08:05 report chunk 800  tokens 25600  loss 4.2291 nats = 6.1013 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:08:08 report chunk 900  tokens 28800  loss 3.9401 nats = 5.6844 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:08:11 report chunk 1000  tokens 32000  loss 4.1556 nats = 5.9952 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:08:13 report chunk 1100  tokens 35200  loss 4.2061 nats = 6.0681 bits/token  lr 5.000e-04  scale 1.0000  1227 tok/s  ring 960 ahead
+22:08:16 report chunk 1200  tokens 38400  loss 4.1236 nats = 5.9490 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:08:19 report chunk 1300  tokens 41600  loss 4.2810 nats = 6.1762 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:08:21 report chunk 1400  tokens 44800  loss 4.1181 nats = 5.9411 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:08:24 report chunk 1500  tokens 48000  loss 4.2023 nats = 6.0626 bits/token  lr 5.000e-04  scale 1.0000  1226 tok/s  ring 960 ahead
+22:08:26 report chunk 1600  tokens 51200  loss 4.1502 nats = 5.9874 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:08:29 report chunk 1700  tokens 54400  loss 4.2877 nats = 6.1859 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:08:32 report chunk 1800  tokens 57600  loss 4.0438 nats = 5.8340 bits/token  lr 5.000e-04  scale 1.0000  1226 tok/s  ring 960 ahead
+22:08:34 report chunk 1900  tokens 60800  loss 4.0771 nats = 5.8820 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:08:37 report chunk 2000  tokens 64000  loss 4.3698 nats = 6.3043 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:08:37 window: mean 6.0391 bits/token, gain -0.0422 over the previous window
+22:08:37 policy: plateau at the floor (scale 1.0000), continuing
+22:08:38 sample chunk 2000 seed 1: hit 1.000 hit5 1.000 big 0.990 rep4 0.019 sent 12.3 words 111 | Once upon a time, there was a little boy named Tim. He had to be friends and played with his mom said it up the ball in her room! <|endoftext|>   Lily looked at the park!" The little girl felt so happy that she was very excited for him too." They were sad because they are you?" Tom asked Lily. She wanted to play outside, but she was a big, "I can't worrying about what you have it back on her mom and said he loved to go home with his friends in the park!" <|endoftext|>   Once upon a time there were very happy! The little boy named Tim saw that they 
+22:08:40 report chunk 2100  tokens 67200  loss 4.1100 nats = 5.9295 bits/token  lr 5.000e-04  scale 1.0000  1196 tok/s  ring 960 ahead
+22:08:42 report chunk 2200  tokens 70400  loss 4.0363 nats = 5.8231 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:08:45 report chunk 2300  tokens 73600  loss 4.3838 nats = 6.3245 bits/token  lr 5.000e-04  scale 1.0000  1219 tok/s  ring 960 ahead
+22:08:48 report chunk 2400  tokens 76800  loss 4.2479 nats = 6.1284 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:08:48 command: save requested
+22:08:48 checkpoint (requested): data/live/ckpt-2419.bin, 23463424 bytes, chunk 2419, push 14, copied in 32 ms
+22:08:50 report chunk 2500  tokens 80000  loss 4.2508 nats = 6.1326 bits/token  lr 5.000e-04  scale 1.0000  1221 tok/s  ring 960 ahead
+22:08:52 command: report every 100 chunks
+22:08:53 report chunk 2600  tokens 83200  loss 4.1084 nats = 5.9271 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:08:55 report chunk 2700  tokens 86400  loss 4.0417 nats = 5.8309 bits/token  lr 5.000e-04  scale 1.0000  1226 tok/s  ring 960 ahead
+22:08:56 command: scale 1.0000
+22:08:58 report chunk 2800  tokens 89600  loss 4.1615 nats = 6.0038 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:09:00 command: save requested
+22:09:00 checkpoint (requested): data/live/ckpt-2877.bin, 23463424 bytes, chunk 2877, push 15, copied in 21 ms
+22:09:01 report chunk 2900  tokens 92800  loss 4.1007 nats = 5.9161 bits/token  lr 5.000e-04  scale 1.0000  1223 tok/s  ring 960 ahead
+22:09:03 report chunk 3000  tokens 96000  loss 4.1149 nats = 5.9365 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:09:03 window: mean 5.9953 bits/token, gain 0.0438 over the previous window
+22:09:04 command: pause
+22:09:07 command: resume
+22:09:09 report chunk 3100  tokens 99200  loss 4.4120 nats = 6.3652 bits/token  lr 5.000e-04  scale 1.0000  572 tok/s  ring 960 ahead
+22:09:12 report chunk 3200  tokens 102400  loss 4.3636 nats = 6.2953 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:09:14 report chunk 3300  tokens 105600  loss 4.2315 nats = 6.1047 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:09:17 report chunk 3400  tokens 108800  loss 4.4402 nats = 6.4059 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:09:19 report chunk 3500  tokens 112000  loss 4.1621 nats = 6.0047 bits/token  lr 5.000e-04  scale 1.0000  1226 tok/s  ring 960 ahead
+22:09:22 report chunk 3600  tokens 115200  loss 3.9885 nats = 5.7542 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:09:25 report chunk 3700  tokens 118400  loss 4.0803 nats = 5.8866 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:09:27 report chunk 3800  tokens 121600  loss 3.9860 nats = 5.7506 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:09:30 report chunk 3900  tokens 124800  loss 4.0614 nats = 5.8593 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:09:33 report chunk 4000  tokens 128000  loss 3.8997 nats = 5.6261 bits/token  lr 5.000e-04  scale 1.0000  1226 tok/s  ring 960 ahead
+22:09:33 window: mean 6.0053 bits/token, gain -0.0100 over the previous window
+22:09:33 policy: plateau at the floor (scale 1.0000), continuing
+22:09:33 sample chunk 4000 seed 2: hit 1.000 hit5 1.000 big 1.000 rep4 0.054 sent 16.4 words 115 | Once upon a time, there was a little girl named Lily. <|endoftext|>   Lily and the dog went to the park with his mom said it was not like that." The little boy's mom smiled and said, "I can make you for helping me!" Tim felt happy too! He had so much fun playing in her house look at the park. They were very sad but he was a big tree near his friends went to the store with him again together every day. <|endoftext|> Once upon a time there lived a little girl named Sue found it in their new friend, Tom saw many toys inside and played with her mom did not like that 
+22:09:35 report chunk 4100  tokens 131200  loss 4.1555 nats = 5.9951 bits/token  lr 5.000e-04  scale 1.0000  1197 tok/s  ring 960 ahead
+22:09:38 report chunk 4200  tokens 134400  loss 4.4304 nats = 6.3917 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:09:40 report chunk 4300  tokens 137600  loss 4.2884 nats = 6.1868 bits/token  lr 5.000e-04  scale 1.0000  1227 tok/s  ring 960 ahead
+22:09:43 report chunk 4400  tokens 140800  loss 4.1465 nats = 5.9821 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:09:46 report chunk 4500  tokens 144000  loss 4.2014 nats = 6.0613 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:09:48 report chunk 4600  tokens 147200  loss 4.2764 nats = 6.1695 bits/token  lr 5.000e-04  scale 1.0000  1218 tok/s  ring 960 ahead
+22:09:51 report chunk 4700  tokens 150400  loss 4.1656 nats = 6.0097 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:09:54 report chunk 4800  tokens 153600  loss 4.0319 nats = 5.8168 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:09:56 report chunk 4900  tokens 156800  loss 4.2507 nats = 6.1325 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:09:59 report chunk 5000  tokens 160000  loss 4.2240 nats = 6.0940 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:09:59 window: mean 6.0840 bits/token, gain -0.0787 over the previous window
+22:09:59 policy: plateau at the floor (scale 1.0000), continuing (no-stop)
+22:09:59 checkpoint requested at chunk 5000 (every 5000 chunks)
+22:09:59 checkpoint (requested): data/live/ckpt-5001.bin, 23463424 bytes, chunk 5001, push 16, copied in 27 ms
+22:10:02 report chunk 5100  tokens 163200  loss 4.1856 nats = 6.0386 bits/token  lr 5.000e-04  scale 1.0000  1222 tok/s  ring 960 ahead
+22:10:04 report chunk 5200  tokens 166400  loss 4.0823 nats = 5.8895 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:10:07 report chunk 5300  tokens 169600  loss 3.9059 nats = 5.6351 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:10:09 report chunk 5400  tokens 172800  loss 3.9729 nats = 5.7317 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:10:12 report chunk 5500  tokens 176000  loss 4.0951 nats = 5.9079 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:10:15 report chunk 5600  tokens 179200  loss 4.2368 nats = 6.1124 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:10:17 report chunk 5700  tokens 182400  loss 4.2568 nats = 6.1412 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:10:20 report chunk 5800  tokens 185600  loss 4.2420 nats = 6.1198 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:10:23 report chunk 5900  tokens 188800  loss 4.1017 nats = 5.9176 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:10:27 report chunk 6000  tokens 192000  loss 4.0223 nats = 5.8030 bits/token  lr 5.000e-04  scale 1.0000  791 tok/s  ring 960 ahead
+22:10:27 window: mean 5.9297 bits/token, gain 0.1543 over the previous window
+22:10:27 sample chunk 6000 seed 3: hit 1.000 hit5 1.000 big 0.990 rep4 0.009 sent 11.2 words 112 | Once upon a time, there was a little girl named Lily. She had to be friends and play with her mom went back home." The moral of the story is that when you were so happy! He was very sad because it's house and said, "I can help you!" The dog wanted to go home now?" asked Tom. They were all day long in the park. She did not like a big tree with her mom smiled and they played together in their new friends." <|endoftext|>   Lily looked at the park! He was so excited that he had an idea, but it was very sad when she saw his friend, a little 
+22:10:29 report chunk 6100  tokens 195200  loss 4.1737 nats = 6.0214 bits/token  lr 5.000e-04  scale 1.0000  1196 tok/s  ring 960 ahead
+22:10:32 report chunk 6200  tokens 198400  loss 4.0741 nats = 5.8776 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:10:35 report chunk 6300  tokens 201600  loss 4.4219 nats = 6.3794 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:10:37 report chunk 6400  tokens 204800  loss 3.9274 nats = 5.6661 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:10:40 report chunk 6500  tokens 208000  loss 4.1242 nats = 5.9499 bits/token  lr 5.000e-04  scale 1.0000  1226 tok/s  ring 960 ahead
+22:10:42 report chunk 6600  tokens 211200  loss 4.1400 nats = 5.9728 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:10:45 report chunk 6700  tokens 214400  loss 4.2640 nats = 6.1516 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:10:46 command: save requested
+22:10:46 checkpoint (requested): data/live/ckpt-6720.bin, 23463424 bytes, chunk 6720, push 17, copied in 19 ms
+22:10:48 report chunk 6800  tokens 217600  loss 4.1640 nats = 6.0074 bits/token  lr 5.000e-04  scale 1.0000  1221 tok/s  ring 960 ahead
+22:10:50 report chunk 6900  tokens 220800  loss 4.4479 nats = 6.4170 bits/token  lr 5.000e-04  scale 1.0000  1216 tok/s  ring 960 ahead
+22:10:53 report chunk 7000  tokens 224000  loss 4.3496 nats = 6.2751 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:10:53 window: mean 6.0718 bits/token, gain -0.1422 over the previous window
+22:10:53 policy: plateau at the floor (scale 1.0000), continuing
+22:10:56 report chunk 7100  tokens 227200  loss 4.0259 nats = 5.8081 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:11:00 report chunk 7200  tokens 230400  loss 4.2438 nats = 6.1225 bits/token  lr 5.000e-04  scale 1.0000  787 tok/s  ring 960 ahead
+22:11:02 report chunk 7300  tokens 233600  loss 3.9661 nats = 5.7219 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:11:05 report chunk 7400  tokens 236800  loss 4.0795 nats = 5.8855 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:11:08 report chunk 7500  tokens 240000  loss 4.5117 nats = 6.5090 bits/token  lr 5.000e-04  scale 1.0000  1226 tok/s  ring 960 ahead
+22:11:10 report chunk 7600  tokens 243200  loss 4.0851 nats = 5.8935 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:11:13 report chunk 7700  tokens 246400  loss 4.2074 nats = 6.0700 bits/token  lr 5.000e-04  scale 1.0000  1223 tok/s  ring 960 ahead
+22:11:15 report chunk 7800  tokens 249600  loss 4.0613 nats = 5.8593 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:11:18 report chunk 7900  tokens 252800  loss 4.2343 nats = 6.1087 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:11:21 report chunk 8000  tokens 256000  loss 4.2207 nats = 6.0892 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:11:21 window: mean 6.0068 bits/token, gain 0.0651 over the previous window
+22:11:21 sample chunk 8000 seed 4: hit 1.000 hit5 1.000 big 0.990 rep4 0.009 sent 16.0 words 112 | Once upon a time, there was a little girl named Lily. She wanted to help the boy and the dog played with his friends in their room! <|endoftext|>   Tom and Max were playing together all day. They are not happy that they had made it look at them from the tree!" The man said he was so excited she could not find her toy, but she was very sad because it was a big tree." So, there was an adorable cat named Tom went to the park with his friends and played in the water on their toys. <|endoftext|>   Lily found out that it was time for a big, "I can't worry! 
+22:11:23 report chunk 8100  tokens 259200  loss 4.1898 nats = 6.0446 bits/token  lr 5.000e-04  scale 1.0000  1196 tok/s  ring 960 ahead
+22:11:26 report chunk 8200  tokens 262400  loss 4.0593 nats = 5.8563 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:11:29 report chunk 8300  tokens 265600  loss 4.1066 nats = 5.9246 bits/token  lr 5.000e-04  scale 1.0000  1226 tok/s  ring 960 ahead
+22:11:31 report chunk 8400  tokens 268800  loss 4.1056 nats = 5.9231 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:11:34 report chunk 8500  tokens 272000  loss 4.0924 nats = 5.9041 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:11:36 report chunk 8600  tokens 275200  loss 4.3905 nats = 6.3341 bits/token  lr 5.000e-04  scale 1.0000  1226 tok/s  ring 960 ahead
+22:11:39 report chunk 8700  tokens 278400  loss 4.3941 nats = 6.3393 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:11:42 report chunk 8800  tokens 281600  loss 4.2198 nats = 6.0879 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:11:44 report chunk 8900  tokens 284800  loss 4.1418 nats = 5.9753 bits/token  lr 5.000e-04  scale 1.0000  1224 tok/s  ring 960 ahead
+22:11:47 report chunk 9000  tokens 288000  loss 3.9154 nats = 5.6487 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:11:47 window: mean 6.0038 bits/token, gain 0.0030 over the previous window
+22:11:47 policy: plateau at the floor (scale 1.0000), continuing
+22:11:50 report chunk 9100  tokens 291200  loss 4.0174 nats = 5.7959 bits/token  lr 5.000e-04  scale 1.0000  1225 tok/s  ring 960 ahead
+22:11:52 command: stop requested
+22:11:52 checkpoint (final): data/live/ckpt-9184.bin, 23463424 bytes, chunk 9184, push 18, copied in 35 ms
+22:11:52 coach: run ended at chunk 9184 (293888 tokens), 0 halvings, final scale 1.0000

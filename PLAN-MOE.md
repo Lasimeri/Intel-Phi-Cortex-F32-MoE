@@ -356,3 +356,10 @@ chat data pipeline and two fine-tune passes (the first measured: chat 10.6185 to
 Rejected with numbers: 3-bit weights (50 bits/token). Kept as the user decided: F32, the 4,096-id tokenizer at 3.13
 bytes per token on chat text. Next by the measurements: capacity (stages 2 and 3 above) rather than more tokens on
 this model, and a chat fine-tune on more conversational data in the frame's shape.
+
+## 22:1x: the monitor talks and steers; chat only
+
+`cortex-watch` gained a say line, a talk section and the coach's commands (docs/TUI.md), verified against the live
+run. The user's direction at 22:09: no more story training; the model is to be a chat model. The chat-only run
+(four epochs of the 4,822 conversations at 1e-3, docs/CHAT.md) runs from the chat pass's final checkpoint; its
+held-out curve decides whether more epochs or more conversations come next.

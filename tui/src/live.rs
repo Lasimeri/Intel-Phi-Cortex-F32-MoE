@@ -1,9 +1,12 @@
 //! The live-training words and the daemon's mailbox words of the shared part (lib/cx-proto.h), read from
-//! /dev/shm/phi-hostmem by two small positioned reads per poll: no mapping, read-only, nothing written.
+//! /dev/shm/phi-hostmem by two small positioned reads per poll: no mapping, read-only, nothing written; and the
+//! state both programs keep of them (`LiveState`): the words as last read, whether the daemon's heartbeat moves,
+//! the read error.
 
 use std::fs::File;
 use std::io;
 use std::os::unix::fs::FileExt;
+use std::time::{Duration, Instant};
 
 /// CX_PART_MIB: the part's offset in the host-memory region.
 pub const PART_OFFSET: u64 = 1344 << 20;
@@ -15,6 +18,9 @@ const T_LEN: usize = 1536 + 8;
 const T_MAGIC_VAL: u32 = 0x524e_5254;
 /// Through CX_C_HEART (256, u64).
 const MBOX_LEN: usize = 264;
+const LIVE_POLL: Duration = Duration::from_millis(250);
+/// The daemon is called absent when its heartbeat has not moved for this long (it counts every 100 ms).
+const HEART_STALE: Duration = Duration::from_secs(2);
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Live {
@@ -95,6 +101,84 @@ pub fn decode(mbox: &[u8], t: &[u8]) -> Live {
     }
 }
 
+/// The part as last read, polled every 250 ms; the daemon alive while its heartbeat moves.
+pub struct LiveState {
+    pub live: Option<Live>,
+    /// Why the part cannot be read, when it cannot.
+    pub error: Option<String>,
+    pub alive: bool,
+    reader: Option<Reader>,
+    polled: Option<Instant>,
+    heart_seen: (u64, Instant),
+}
+
+impl Default for LiveState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl LiveState {
+    pub fn new() -> Self {
+        let now = Instant::now();
+        Self { live: None, error: None, alive: false, reader: None, polled: None, heart_seen: (0, now.checked_sub(HEART_STALE).unwrap_or(now)) }
+    }
+
+    /// A coach feeds the daemon: the training block's magic word is set.
+    pub fn running(&self) -> bool {
+        self.live.as_ref().is_some_and(|l| l.run)
+    }
+
+    /// The run's scale knob as the card reports it, while a coach feeds.
+    pub fn scale(&self) -> Option<f64> {
+        self.live.as_ref().filter(|l| l.run).map(|l| l.scale)
+    }
+
+    /// The run is paused (CX_T_STATE 2), while a coach feeds.
+    pub fn paused(&self) -> bool {
+        self.live.as_ref().is_some_and(|l| l.run && l.train_state == 2)
+    }
+
+    /// The part when due; whether anything shown changed.
+    pub fn poll(&mut self, part: &str) -> bool {
+        if self.polled.is_some_and(|t| t.elapsed() < LIVE_POLL) {
+            return false;
+        }
+        self.polled = Some(Instant::now());
+        if self.reader.is_none() {
+            match Reader::open(part) {
+                Ok(r) => self.reader = Some(r),
+                Err(e) => {
+                    let msg = format!("{part}: {e}");
+                    let changed = self.error.as_deref() != Some(&msg);
+                    self.error = Some(msg);
+                    return changed;
+                }
+            }
+        }
+        let Some(r) = &self.reader else { return false };
+        match r.read() {
+            Ok(l) => {
+                if l.heart != self.heart_seen.0 {
+                    self.heart_seen = (l.heart, Instant::now());
+                }
+                let alive = self.heart_seen.1.elapsed() < HEART_STALE;
+                let changed = self.live.as_ref() != Some(&l) || alive != self.alive || self.error.is_some();
+                self.alive = alive;
+                self.live = Some(l);
+                self.error = None;
+                changed
+            }
+            Err(e) => {
+                self.error = Some(format!("{part}: {e}"));
+                self.live = None;
+                self.alive = false;
+                true
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -119,5 +203,13 @@ mod tests {
         assert!(l.session_open && l.run && l.heart == 99 && l.ack == 5);
         assert_eq!((l.chunks_fed, l.chunks, l.train_state), (7200, 7100, 1));
         assert_eq!((l.loss_nats, l.lr_eff, l.tok_s), (4.2315, 7.5e-4, 1291.0));
+    }
+
+    #[test]
+    fn an_unreadable_part_is_an_error_not_a_panic() {
+        let mut s = LiveState::new();
+        assert!(s.poll("/nonexistent/part"));
+        assert!(s.error.is_some() && s.live.is_none() && !s.running() && s.scale().is_none() && !s.paused());
+        assert!(!s.poll("/nonexistent/part"), "the same error again is no change");
     }
 }

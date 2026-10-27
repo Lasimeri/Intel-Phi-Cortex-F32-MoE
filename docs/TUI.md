@@ -102,29 +102,69 @@ the dialogue the rest), ended at the story's end; "Tell me a story about a cat."
 tok/s, prompt 3,915 tokens, the story's end. Both replies were third-person stories (the model continues as it was
 trained; the identity paragraph and the labels do not change that in a 5.9M-parameter story model).
 
-## The training monitor: cortex-watch (2026-10-26 20:09, "Make a monitoring interface for training as a standalone TUI keeping with the harness TUI style... I want to be able to see token/second and the training process visualized in a manner that human legible and comprehensive")
+## The training monitor: cortex-watch (2026-10-26 20:09, "Make a monitoring interface for training as a standalone TUI keeping with the harness TUI style... I want to be able to see token/second and the training process visualized in a manner that human legible and comprehensive"; 21:51, "Adapt the training monitor TUI to allow for interaction with the model while training continues to monitor progress and adjust training values in the moment")
 
 `tui/` is one crate with a library and two binaries since 20:15: `cortex-tui` (the chat harness) and `cortex-watch`
-(`tui/src/bin/cortex-watch.rs`), a read-only monitor in the same style over the same sources: the part's live words
-every 250 ms (the run's state, chunk, loss, rate, speed, ring, checkpoints pushed; the daemon's heartbeat) and the
-coach's log every second (`tui/src/run.rs` parses the current run, everything after the coach's last opening line:
-the header with the stream, the chunks, the schedule and the policy's settings; the reports with loss, rate, speed
-and ring; the policy's windows; the samples; the commands, policy decisions and checkpoints as events; the end).
+(`tui/src/bin/cortex-watch.rs`), the monitor in the same style over the same sources: the part's live words every
+250 ms (`tui/src/live.rs`: the run's state, chunk, loss, rate, speed, ring, checkpoints pushed; the daemon's
+heartbeat; `LiveState` keeps the words as last read and whether the heartbeat moves) and the coach's log every
+second (`tui/src/run.rs` parses the current run, everything after the coach's last opening line: the header with the
+stream, the chunks, the schedule and the policy's settings; the reports with loss, rate, speed and ring; the
+policy's windows; the samples; the commands, policy decisions and checkpoints as events; the end).
 
-The screen, top to bottom: the header (where it is; the state and tok/s, or "run ended", or "no daemon"); **the
+Since 22:10 the monitor talks and steers as well, through `tui/src/chat.rs`, the talk both binaries share (the
+turns, the frame, the client runs, the knobs, the lines for the coach). The screen, top to bottom: the header (where
+it is; the turn in flight with its seconds, else the run's state and tok/s, or "run ended", or "no daemon"); **the
 run** (a progress bar of chunks with the time left at the live rate; state, chunk, tokens, ring, elapsed by the
 log's own clock, the start time; the loss in nats and bits with the policy's window mean, its gain over the previous
 window and the plateau threshold; the rate in effect as base x scale, halvings of the allowed, checkpoints pushed and
 the last one's chunk, the sample cadence); **loss, bits per token**, a column chart with one column per report
 (`view::column_chart`: eighth-block resolution, the largest and smallest values and the middle labelled, the last
-column lit); **speed, tokens per second**, the same chart; **the last sample** with its coherence numbers (hit, hit5,
-big, rep4, sent, words) and its text; **events** (the last six); **checkpoints** (the last four with size and age).
-The charts share the rows left by the rest; `tab` shows both, the loss alone or the speed alone; `q` quits.
-`tools/watch.sh` opens it in a konsole window (`--here` for this terminal); options `--tree`, `--log`, `--ckdir`,
-`--part`.
+column lit); **speed, tokens per second**, the same chart; **the last sample** with its coherence numbers and its
+text; **events** (the last five); **checkpoints** (the last three with size and age); **talk**, the conversation
+with the model on its live weights (your lines; its replies in bold with a note of tokens, seconds, tok/s, card and
+host microseconds a token, prompt tokens, seed and how the reply ended; the reply in flight with a spinner), 3 to 10
+rows by the terminal's height and kept whatever the height (the sections above are cut first); and the **say
+line**. Each chart block costs its height + 4 rows (the rule, the axis, the x axis, a blank); the charts share what
+the rest leaves.
 
-Checked 20:15 in tmux (120 x 42) on the chat run's log as it ended: the bar at 18,000 of 18,069 chunks, "run ended,
-daemon alive", the loss chart over chunks 7,200 to 18,000 between 6.20 and 7.77 bits, the speed chart between 1,193
-and 1,226 tok/s, the last sample, the three halvings and the final checkpoint among the events; q exits 0. Tests: the
-log parse (header, report, window, sample, events, elapsed), every size from 40 x 10 to 200 x 60 with and without a
-run and with each chart choice.
+A line said runs one `cortex --live` turn exactly as the harness does (framed by `tui/cortex.jinja` over the system
+prompt, the stop at the next speaker's label, the client never killed) while the coach keeps feeding: the daemon
+serves the client's steps between chunks. A `/command` steers the coach or sets a knob:
+
+| keys | what |
+|---|---|
+| enter | say the line |
+| f2 | `pause` while the run trains, `resume` while it is paused (by the part's state word) |
+| f3, f4 | `save`, `sample` |
+| f5, f6 | `scale` doubled, halved, from the value the card reports |
+| tab | both charts, the loss alone, the speed alone (`/charts`) |
+| pgup pgdn ↑ ↓ | scroll the talk |
+| f1 | the help screen (`/help`; esc back) |
+| ctrl+q | quit; a reply in flight finishes first |
+| /pause /resume /save /sample /stop-run, /scale X /lr X /every N | lines for the coach's command file; refused with "not sent" when no run feeds the daemon |
+| /n /ctx /temp /topk /topp /minp /rp /greedy /orchestra /system /seed /retry /clear | the turn's knobs, as in the harness |
+
+The monitor takes the harness's options (`--tree`, `--log`, `--ckdir`, `--part`, `--cmd`, `--cortex`,
+`--orchestra`, `--words`, `--system`, `--template`, `--name`, `--ngen`, `--ctx`); a tree without the client or the
+frame is watched all the same and the say line answers "no turn can run here". `tools/watch.sh` opens it in a
+konsole window (`--here` for this terminal).
+
+Checked 20:15 (the read-only version) in tmux (120 x 42) on the chat run's log as it ended: the bar at 18,000 of
+18,069 chunks, "run ended, daemon alive", the loss chart over chunks 7,200 to 18,000 between 6.20 and 7.77 bits, the
+speed chart between 1,193 and 1,226 tok/s, the last sample, the three halvings and the final checkpoint among the
+events; q exits 0.
+
+Checked 22:00 and 22:08 to 22:10 (the say line) in tmux (120 x 42; the session's watch-check.sh and
+watch-check2.sh) on the real runs: a turn from the say line as the chat pass had just ended = 60 tokens in 1.44 s,
+2,699 tok/s overall, card 369 us and host 111 us a token, prompt 3,824 tokens, the story's end; with no run feeding,
+`/save` and `/every 100` were refused ("not sent"). Against the live stories run (1,225 tok/s): `/save` ->
+"command: save requested" and data/live/ckpt-2419.bin; `/every 100` -> "command: report every 100 chunks";
+`/scale 1` -> "command: scale 1.0000"; f3 -> a second checkpoint (ckpt-2877); f2 -> "command: pause", the part's
+state 2, the header "● paused", the keys row offering "f2 resume"; f2 -> "command: resume", state 1; the events
+section showed them all; ctrl+q exits 0 with an empty stderr. The same run verified the coach's options of 21:4x:
+"checkpoint requested at chunk 5000 (every 5000 chunks)" -> ckpt-5001.bin (a checkpoint's name is the request chunk
++ 1), and "policy: plateau at the floor (scale 1.0000), continuing (no-stop)". Tests (`cargo test --release`, 22
+passing): the log parse, the live words' offsets, an unreadable part, the talk's finish reasons, the frame over
+system and dialogue, the knobs and the coach lines, every size from 40 x 10 to 200 x 60 with and without a run and
+each chart choice, the say line present and the talk shown from 80 x 24, the say line's refusal without a client.

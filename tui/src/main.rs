@@ -5,7 +5,7 @@
 //! they are sampled; the live-training words of the shared part and the coach's log stand beside it; the coach is
 //! steered from the run screen; every turn is framed by a Jinja template (tui/cortex.jinja: the identity, the
 //! speaker labels, the stop) with ~/CLAUDE.md as the system message. Nothing typed here and nothing the model writes
-//! is training data.
+//! is training data. The talk itself is chat.rs, shared with the monitor (cortex-watch).
 //!
 //!   cortex-tui [--tree DIR] [--cortex PATH] [--orchestra NGC|off] [--words LIST] [--system FILE|off]
 //!              [--template FILE] [--name NAME] [--cmd FILE] [--log FILE] [--ckdir DIR] [--part FILE]
@@ -20,11 +20,12 @@ use std::time::Duration;
 
 use crossterm::event::{self, Event, KeyEventKind};
 
+use cortex_tui::chat::Config;
 use cortex_tui::term::{self, Term};
 use cortex_tui::{app, view};
 
 fn main() -> ExitCode {
-    let mut cfg = match app::Config::from_args(std::env::args().skip(1)) {
+    let mut cfg = match Config::from_args("cortex-tui", std::env::args().skip(1)) {
         Ok(c) => c,
         Err(msg) => {
             eprintln!("cortex-tui: {msg}");

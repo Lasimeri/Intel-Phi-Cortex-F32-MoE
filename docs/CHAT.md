@@ -137,3 +137,30 @@ runs meant to keep the card busy get `--window 100000`.
 ends. The coach now has `--save-every N` (a checkpoint every N chunks besides the policy's and the final one) and
 `--no-stop` (the policy keeps halving and saving on plateaus but never ends the run); every run after this one uses
 `--save-every 5000 --no-stop` with the normal window instead of the `--window 100000` workaround.
+
+## Chat only (22:09, "I thought you had trained a chat model, I don't want anymore story models")
+
+No story training from here. The stories run started at 22:07 (fresh stories from chunk 619,529, lr 5e-4, the
+hardware check of the coach's `--save-every` and `--no-stop` and of the monitor's commands) was stopped at chunk
+9,184 and its weights discarded: the chat pass's final checkpoint (data/live/ckpt-193743.bin) was loaded back (25.8
+ms by DMA). The chat-only run started 22:11:5x on it:
+
+    build/host/coach data/chat/chat2-x4.u16 --lr 0.001 --every 100 --window 10 --halvings 0 --no-stop \
+        --save-every 5000 --sample-every 2000 --prompt $'Human: What is your name?\nCortex:' \
+        --cmd results/live.cmd --log results/live.log --ckdir data/live
+
+without the orchestra (the samples are the plain model). The stream is the 1,549,949 training tokens of the 4,822
+conversations four times over (four epochs, 6,199,796 tokens, 193,743 chunks, about 85 minutes at 1,224 tok/s); the
+scale is steered by hand from the monitor; a checkpoint lands every 5,000 chunks. Its first windows: 8.01 to 7.62
+bits/token over 500 chunks. Measured as it runs (results/chat3-loss.log): the start state and every 25,000th-chunk
+checkpoint on the first 27,447 tokens of the held-out conversations, the final checkpoint on all 82,334 and on the
+stories' validation text.
+
+The pass-2 measurement (results/chat2-loss.log) is being redone at 22:13: its waiter's `grep` without `-a` treated
+the log as binary (a sample's bytes) and never saw the run's end line. The lines are the final checkpoint on the
+stories' 20,000 and the held-out conversations' 82,334 tokens, with ckpt-18069 and ckpt-10021 on the same
+conversations.
+
+Files: the token streams are `.u16` because a BPE id of the 4,096-word vocabulary is one 16-bit unsigned integer
+(two bytes per token); the weights are F32 everywhere, on the card's VPU and in the checkpoints (23,463,424 bytes =
+5,865,856 parameters x 4).
