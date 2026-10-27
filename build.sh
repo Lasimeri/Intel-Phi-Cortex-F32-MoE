@@ -71,6 +71,8 @@ cc "${flags[@]}" -O2 -mavx2 -mfma "${hostq[@]}" -o "$out/host/cortex" "$here/hos
 cc "${flags[@]}" -O2 -o "$out/host/gen-check" "$here/tools/gen-check.c" -lm
 # the chat data pipeline and the host loss measurement (docs/CHAT.md)
 cc "${flags[@]}" -O2 -o "$out/host/chat-text" "$here/tools/chat-text.c"
+# the corpus writer's salvage of the complete conversation objects in the teacher's reply (docs/TEACHER.md)
+cc "${flags[@]}" -O2 -o "$out/host/json-objects" "$here/tools/json-objects.c"
 cc "${flags[@]}" -O2 -Wno-unused-function -o "$out/host/ref-loss" "$here/tools/ref-loss.c" -lm
 # live training: the host coach (feeder, reports, policy, samples through the client, commands, the memory's ring
 # thread); -ffp-contract=off keeps the rows' SGD step the batch server's arithmetic (host/ngtables.h)

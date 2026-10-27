@@ -7,9 +7,11 @@
 # Q4_K_M 21,713,462,944 B of weights against 24,564 MiB of VRAM with 3,849 MiB held by the desktop, so neither sits
 # in VRAM entirely. Log /tmp/cortex-teacher.log; the server detached; `--stop` ends it; `--status` asks /health.
 #   tools/teacher-serve.sh [--mtp] [--np N] [--ctx N] [--port P] | --status | --stop
-# --np N serves N requests at once (N slots; --ctx is the whole context, 4,096 tokens a slot unless given: the
-# user's CLAUDE.md system prompt is about 2,200 of them). The KV cache of the 27B is about 262 KB a token at f16
-# (arithmetic from its shape), so the 3 GB left beside the weights bound the slots: 2 x 4,096 fit, 4 x 4,096 do not.
+# --np N serves N requests at once (N slots; --ctx is the whole context, 8,192 tokens a slot unless given: the
+# user's CLAUDE.md system prompt is about 2,200 of them and a corpus call's JSON reply up to 1,700, so a 4,096
+# slot cut the replies mid-object on 2026-10-27 13:2x). The KV cache of the 27B is about 262 KB a token at f16
+# (arithmetic from its shape), so the 3 GB left beside the weights hold one 8,192 slot; two slots measured 11 to 13
+# tok/s a stream (about 24 together) against 37.5 on one plain stream, so one slot it is.
 set -u
 model=$HOME/models/Qwen3.8-27B/Qwen3.8-27B-UD-Q4_K_XL.gguf
 draft=$HOME/models/Qwen3.8-27B/MTP/mtp-Qwen3.8-27B-Q4_0.gguf
@@ -29,7 +31,7 @@ done
 [ -f "$model" ] || { echo "teacher-serve: $model not found" >&2; exit 1; }
 [ -x "$server" ] || { echo "teacher-serve: $server not found" >&2; exit 1; }
 if curl -s --max-time 3 "http://127.0.0.1:$port/health" > /dev/null 2>&1; then echo "teacher-serve: something already answers on :$port"; exit 0; fi
-[ "$ctx" -gt 0 ] || ctx=$((np * 4096))
+[ "$ctx" -gt 0 ] || ctx=$((np * 8192))
 spec=()
 [ "$mtp" -eq 1 ] && [ -f "$draft" ] && spec=(--spec-type draft-mtp -md "$draft" -ngld 99)
 setsid nohup "$server" -m "$model" -ngl 99 -c "$ctx" -np "$np" -fa on --port "$port" --host 127.0.0.1 --jinja \

@@ -1,14 +1,21 @@
 #!/bin/bash
 # teacher-corpus.sh: the teacher writes the whole training corpus of a model trained from scratch (2026-10-27 13:09,
 # user: "Train a model from scratch just using the teacher model"): conversations between a person and the speaker
-# (the persona, PERSONA.txt), on everyday topics the teacher lists first, the person in plain everyday English, the
-# speaker in the first person as the persona in simple short sentences, itself whenever asked who or what it is.
+# (the persona, PERSONA.txt) on everyday topics the teacher lists first by themes, the person in plain everyday
+# English, the speaker in the first person as the persona in short simple sentences, about itself only when asked.
 # Runs until OUT_DIR/stop exists or --max conversations are written. P writers run at once against the server's P
-# slots (tools/teacher-serve.sh --np P). Output: OUT_DIR/topics.txt; OUT_DIR/batch-NNNNNN.jsonl, one file per
-# call in the messages shape (the persona as the system message, the turns alternating from the person), which the
-# from-scratch driver (tools/teacher-scratch.sh) encodes as they land; OUT_DIR/corpus.log, a line per batch with the
-# count, the bytes and the seconds. The teacher's text is model output; the model trains on it by the user's
-# decision of 10:21 and 13:09.
+# slots (tools/teacher-serve.sh --np P; one slot with the MTP draft measured best on the 200 W card). A call asks
+# for --per-call conversations (default 3) as free text holding one JSON object, under a cap of 2,400 tokens, with
+# the repeat penalty at 1.0 for these calls only: the JSON grammar mode bloated the tokens to 900 a conversation and
+# the penalty of 1.2 drove every long JSON reply into a word list inside a string (measured 13:3x); without the
+# grammar a conversation is about 130 tokens (13:5x). The complete conversation objects of the reply are salvaged
+# one by one (tools/json-objects.c): in about half the calls the teacher writes its closing delimiter in place of
+# the object's final brace (13:4x: 7 of 14 calls, every one holding its three whole conversations), so the whole
+# reply is never the unit. Output: OUT_DIR/topics.txt; OUT_DIR/batch-<ns>-wN.jsonl, one file per call in the
+# messages shape (the persona as the system message, the turns alternating from the person), which the from-scratch
+# driver (tools/teacher-scratch.sh) encodes as they land; OUT_DIR/corpus.log, a line per batch with the count, the
+# bytes and the seconds; the raw text of a call that yields nothing kept as OUT_DIR/failed-<ns>.txt (the last ten).
+# The teacher's text is model output; the model trains on it by the user's decision of 10:21 and 13:09.
 #   tools/teacher-corpus.sh PERSONA.txt OUT_DIR [--topics N] [--per-call K] [--exchanges T] [--parallel P]
 #                           [--max M] [--url URL]
 set -u
@@ -29,32 +36,32 @@ while [ $# -gt 0 ]; do
 	esac
 done
 [ -f "$persona" ] || { echo "teacher-corpus: $persona not found" >&2; exit 1; }
+[ -x build/host/json-objects ] || { echo "teacher-corpus: build/host/json-objects missing (run build.sh)" >&2; exit 1; }
 mkdir -p "$out"
 log=$out/corpus.log
 say() { echo "$(date +%T) $*" | tee -a "$log"; }
 rm -f "$out/stop"
 
-# the topics, once
+# the topics, once, by themes (asked for "more topics unlike these" the teacher repeated one phrase in variants, 13:1x)
 if [ ! -s "$out/topics.txt" ]; then
 	cat > "$out/topics-system.txt" <<'EOF'
-You list conversation topics. Answer with a JSON object only: {"topics": ["...", "..."]}. Each topic is a few plain words naming something two friends might chat about in everyday life (the weather, a pet, breakfast, a walk, a job, a hobby, a worry, a plan for the weekend, a memory, a question about the speaker itself), all different, nothing technical, nothing dark.
+You list conversation topics. Answer with a JSON object only: {"topics": ["...", "..."]}. Each topic is a few plain words naming one thing two friends might chat about in everyday life, every topic about a different thing, nothing technical, nothing dark.
 EOF
-	say "the topics: asking the teacher for $topics"
+	themes=("food and cooking" "the weather and the seasons" "pets and animals" "walks, parks and the outdoors" "work and school" "hobbies and games" "family and friends" "feelings, worries and good days" "plans, trips and the weekend" "memories, dreams and small questions about the speaker itself")
+	say "the topics: asking the teacher for $topics over ${#themes[@]} themes"
 	: > "$out/topics.txt"
-	tries=0
-	while [ "$(wc -l < "$out/topics.txt")" -lt "$topics" ] && [ "$tries" -lt 20 ]; do
-		tries=$((tries + 1))
-		have=$(wc -l < "$out/topics.txt")
-		tools/teacher.sh "$out/topics-system.txt" "Give $((topics - have < 40 ? topics - have : 40)) more topics, different from these: $(tail -n 40 "$out/topics.txt" | tr '\n' ';' | cut -c1-600)" --max 1200 --json "${urlopt[@]}" 2>/dev/null | jq -r '.topics[]? | tostring | gsub("\\s+"; " ") | ltrimstr(" ") | rtrimstr(" ") | select(. != "")' | /usr/bin/grep -v -i -x -F -f "$out/topics.txt" >> "$out/topics.txt" 2>/dev/null
-		sort -u -f "$out/topics.txt" -o "$out/topics.txt"
+	per_theme=$(( (topics + ${#themes[@]} - 1) / ${#themes[@]} ))
+	for theme in "${themes[@]}"; do
+		tools/teacher.sh "$out/topics-system.txt" "Give $per_theme topics about $theme, each about a different thing." --max 1200 --json "${urlopt[@]}" 2>/dev/null | jq -r '.topics[]? | tostring | gsub("\\s+"; " ") | ltrimstr(" ") | rtrimstr(" ") | select(. != "")' >> "$out/topics.txt" 2>/dev/null
 	done
+	sort -u -f "$out/topics.txt" -o "$out/topics.txt"
 	say "topics: $(wc -l < "$out/topics.txt") in $out/topics.txt"
 fi
 ntopics=$(wc -l < "$out/topics.txt")
 [ "$ntopics" -gt 0 ] || { say "no topics: stopping"; exit 1; }
 
 cat > "$out/system.txt" <<EOF
-You write training dialogue for a very small chat model that speaks in the first person as the persona you are given. Write in short, plain, simple English, the kind of sentences a child reads easily: no rare words, no idioms, no lists, no markdown, no quotation marks inside the text. Each conversation is between a person and the speaker, about the topic given, $exch exchanges long: the person speaks first, the speaker answers, and so on. The person is friendly and curious and sometimes asks the speaker who or what it is, where it lives or what it likes; then the speaker answers from the persona and nothing else: its name is in the persona, so is where it runs and what it likes; it is one single self and never speaks of parts, heads, columns or siblings inside itself; it never calls itself an assistant or an AI and never says it has a persona. Otherwise the speaker simply talks about the topic as itself, one to three short sentences a turn. Answer with a JSON object only: {"conversations": [{"turns": [{"user": "...", "assistant": "..."}, ...]}, ...]}.
+You write training dialogue for a very small chat model that speaks in the first person as the persona you are given. Write in short, plain, simple English, the kind of sentences a child reads easily: no rare words, no idioms, no lists, no markdown, no quotation marks inside the text. Each conversation is between a person and the speaker, about the topic given, $exch exchanges long: the person speaks first, the speaker answers, and so on. The person is friendly and curious and now and then asks the speaker who or what it is, where it lives or what it likes; only then does the speaker say something about itself, from the persona and nothing else: its name is in the persona, so is where it runs and what it likes; it is one single self and never speaks of parts, heads, columns or siblings inside itself; it never calls itself an assistant or an AI and never says it has a persona. The rest of the time the speaker talks about the topic only and never mentions itself, its name, its card or what it likes. Every turn is one or two short sentences. Answer with a JSON object only: {"conversations": [{"turns": [{"user": "...", "assistant": "..."}, ...]}, ...]}.
 EOF
 
 # one writer: its share of the topics, round after round, a batch file per call
@@ -65,26 +72,41 @@ writer() {
 			[ -f "$out/stop" ] && return
 			topic=$(sed -n "$((i + 1))p" "$out/topics.txt")
 			n=$((n + 1))
-			local stamp t0 t1 file tmp count bytes
+			local stamp t0 t1 file tmp count held bytes conv
 			stamp=$(date +%s%N)
 			file=$out/batch-$stamp-w$w.jsonl
-			tmp=$out/.w$w.json
+			tmp=$out/.w$w
 			t0=$(date +%s.%N)
 			if ! tools/teacher.sh "$out/system.txt" "The persona:
 $(cat "$persona")
 
 The topic: $topic
-Write $per different conversations about it, $exch exchanges each." --max 3000 --json "${urlopt[@]}" > "$tmp" 2> "$out/.w$w.err"; then
-				say "writer $w: call failed on \"$topic\": $(tail -n 1 "$out/.w$w.err" | cut -c1-120)"
+Write $per conversations about it, $exch exchanges each." --max 2400 --rp 1.0 "${urlopt[@]}" > "$tmp.txt" 2> "$tmp.err"; then
+				say "writer $w: call failed on \"$topic\": $(tail -n 1 "$tmp.err" | cut -c1-120)"
 				sleep 5
 				continue
 			fi
-			jq -c --rawfile p "$persona" '.conversations[]? | select(.turns and (.turns | length) > 0) | { messages: ([{ role: "system", content: ($p | rtrimstr("\n")) }] + [ .turns[] | select(.user and .assistant) | ({ role: "user", content: (.user | tostring | gsub("\\s+"; " ") | ltrimstr(" ") | rtrimstr(" ")) }, { role: "assistant", content: (.assistant | tostring | gsub("\\s+"; " ") | ltrimstr(" ") | rtrimstr(" ")) }) ]) } | select((.messages | length) >= 3) | select([.messages[] | select(.role == "assistant") | .content | test("persona|the user|as an ai|assistant"; "i")] | any | not)' "$tmp" > "$file" 2>/dev/null
+			# the reply's complete conversation objects, one a line, whatever surrounds them
+			build/host/json-objects 3 < "$tmp.txt" > "$tmp.objs" 2>/dev/null
+			held=$(wc -l < "$tmp.objs")
+			: > "$file"
+			# each object on its own, so one bad object costs only itself; a turn over 220 characters (the teacher drifting
+			# into a word list inside a string, seen under the repeat penalty of 1.2) or an answer that steps out of the
+			# role drops its whole conversation
+			while IFS= read -r conv; do
+				printf '%s\n' "$conv" | jq -c --rawfile p "$persona" 'select(.turns and (.turns | length) > 0) | { messages: ([{ role: "system", content: ($p | rtrimstr("\n")) }] + [ .turns[] | select(.user and .assistant) | ({ role: "user", content: (.user | tostring | gsub("\\s+"; " ") | ltrimstr(" ") | rtrimstr(" ")) }, { role: "assistant", content: (.assistant | tostring | gsub("\\s+"; " ") | ltrimstr(" ") | rtrimstr(" ")) }) ]) } | select((.messages | length) >= 3) | select([.messages[1:][] | .content | length > 220] | any | not) | select([.messages[] | select(.role == "assistant") | .content | test("persona|the user|as an ai|assistant"; "i")] | any | not)' >> "$file" 2>/dev/null
+			done < "$tmp.objs"
 			count=$(wc -l < "$file")
-			if [ "$count" -eq 0 ]; then rm -f "$file"; say "writer $w: nothing usable on \"$topic\""; continue; fi
+			if [ "$count" -eq 0 ]; then
+				rm -f "$file"
+				cp "$tmp.txt" "$out/failed-$stamp.txt" 2>/dev/null
+				ls -t "$out"/failed-*.txt 2>/dev/null | tail -n +11 | xargs -r rm -f
+				say "writer $w: nothing usable on \"$topic\" ($held objects, $(wc -c < "$tmp.txt") bytes raw, kept as failed-$stamp.txt)"
+				continue
+			fi
 			bytes=$(stat -c %s "$file")
 			t1=$(date +%s.%N)
-			say "writer $w batch $n: $count conversations, $bytes bytes, $(awk -v a="$t0" -v b="$t1" 'BEGIN { printf "%.1f", b - a }') s, \"$topic\""
+			say "writer $w batch $n: $count of $held conversations, $bytes bytes, $(awk -v a="$t0" -v b="$t1" 'BEGIN { printf "%.1f", b - a }') s, \"$topic\""
 			if [ "$max" -gt 0 ] && [ "$(cat "$out"/batch-*.jsonl 2>/dev/null | wc -l)" -ge "$max" ]; then touch "$out/stop"; fi
 		done
 	done

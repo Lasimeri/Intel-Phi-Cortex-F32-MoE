@@ -655,3 +655,8 @@ accepted a name alone ("That sounds like a good idea, but I am Cortex."); under 
 reproduce the identity: a greedy attractor only. 13:17: the identity is one self; the persona's line about its one
 hundred and twenty columns, which had the teacher writing sibling-counting exchanges, is gone from the persona, the
 writers, the judge and the frame.
+
+13:5x: the writer yields 3 of 3 conversations a call since the complete conversation objects are salvaged one by
+one (tools/json-objects.c; the teacher writes its closing delimiter in place of the object's final brace in half
+the calls): 12.3 conversations and about 7.3 KB of text a minute, the vocabulary's 300 KB about 14:40 and the first
+round right after it; the two desktop windows move to data/live-teacher when its vocabulary and tables exist.

@@ -87,7 +87,7 @@ Two processes, the GPU and the card in parallel:
 
 | process | what it does |
 |---|---|
-| `tools/teacher-corpus.sh PERSONA.txt OUT_DIR [--topics 200] [--per-call 3] [--exchanges 5] [--parallel P] [--max M]` | the teacher lists the topics once (OUT_DIR/topics.txt: everyday things two friends chat about), then P writers cycle through them, each call three conversations of five exchanges about one topic as JSON, the person in plain everyday English, the speaker in the first person as the persona, itself when asked who or what it is; every call lands as OUT_DIR/batch-NNN-wN.jsonl in the messages shape, answers that step out of the role dropped; OUT_DIR/corpus.log a line per batch; OUT_DIR/stop ends it. The server runs P slots (`tools/teacher-serve.sh --np P --mtp`: 2 slots and the MTP draft fit beside the weights, 22,957 MiB) |
+| `tools/teacher-corpus.sh PERSONA.txt OUT_DIR [--topics 200] [--per-call 3] [--exchanges 5] [--parallel P] [--max M]` | the teacher lists the topics once by themes (OUT_DIR/topics.txt: ten themes of twenty everyday things; the first list, asked as "more topics unlike these", degenerated into variants of one phrase), then P writers cycle through them, each call three conversations of five exchanges about one topic as free text holding one JSON object (the person in plain everyday English, the speaker in the first person as the persona, about itself only when asked, one or two short sentences a turn), under a cap of 2,400 tokens with the repeat penalty at 1.0 for these calls alone; the reply's complete conversation objects are salvaged one by one (tools/json-objects.c: every complete object at nesting level 3, strings and escapes honoured; in about half the calls the teacher writes its closing delimiter in place of the object's final brace), every call lands as OUT_DIR/batch-NNN-wN.jsonl in the messages shape, a conversation with a turn over 220 characters or an answer that steps out of the role is dropped, the raw text of a call that yields nothing is kept (the last ten, OUT_DIR/failed-*.txt); OUT_DIR/corpus.log a line per batch; OUT_DIR/stop ends it. The server: one slot of 8,192 with the MTP draft (`tools/teacher-serve.sh --np 1 --mtp`, 22,505 MiB) |
 | `tools/teacher-scratch.sh CORPUS_DIR PERSONA.txt [--ckdir data/live-teacher] [--tables FILE] [--vocab-bytes 1000000] [--round-chunks 2000] [--lr 0.003]` | once a megabyte of converted text exists, trains the 4,096-id BPE on it and fixes it (DIR/vocab-teacher4096.txt); converts and encodes every new batch into DIR/train.u16 (every 20th into valid.u16); whenever 2,000 untrained chunks exist runs a coach round from the last checkpoint (fresh weights from tools/init-ckpt first) at --start of the first untrained chunk, home routing, the memory on with its gates continued; after each round the held-out loss (ref-loss, the dense reading, 5,000 tokens) and the judged greedy "Introduce yourself" go to results/identity-loop.log in the loop's line shape, so the monitor's "the teacher and the student" section shows them; DIR/state.txt carries the round, the trained chunk count and the state |
 
 The rate is the teacher's: 37.5 tok/s on one stream (the server's log, 10:3x), two slots and the draft measured
@@ -101,3 +101,43 @@ Phi card. I like to talk with people.), the writer's and the judge's texts ask f
 speaks of parts, heads, columns or siblings inside itself, the frame's default identity lost the line, and the
 batches written under the old persona were set aside (data/teacher/old-persona/). The 120 columns vote as one
 consensus and produce one distribution: the data must describe one self.
+
+## The teacher's throughput on this card (13:2x to 13:3x)
+
+The RTX 3090 Ti is power-capped at 200 W (the user's UPS budget; nvidia-smi: SW Power Cap active, the SM clock at
+720 MHz of 2,115 under a sustained generation, 99 % busy, P0), and the desktop's own processes share it (the face
+tracker, mpv, ffmpeg, the compositor). The 37.5 tok/s of 10:3x was a 37-token burst at boost clocks before the cap
+engaged. Measured on the corpus writer's own call (CLAUDE.md in the system prompt, three conversations of five
+exchanges as JSON; the server's `eval time` lines, the scratchpad's gen-*.json):
+
+| configuration | per stream | together | note |
+|---|---|---|---|
+| 2 slots + the MTP draft, two calls at once | 10.9 and 12.2 tok/s | about 23 | the draft accepted 0.62 to 0.64 of its tokens, mean run 2.9 |
+| 2 slots, no draft, two calls at once | 11.3 and 13.2 tok/s | about 24 | |
+| 1 slot, no draft | 13.9 tok/s | 13.9 | |
+| 1 slot + the MTP draft | 16.34 tok/s on 1,678 tokens | 16.3 | the draft accepted 0.40, mean run 2.2; THE CONFIGURATION: `tools/teacher-serve.sh --np 1 --mtp` |
+
+Two slots lose: per stream the rate halves and the pair gains nothing over one stream; the draft on one slot
+gains 18 % on a long generation.
+
+**Why the first corpus calls yielded nothing (13:3x to 13:4x, the scratchpad's probe and direct JSON files):**
+under the JSON grammar with the repeat penalty of 1.2 the tokenisation bloated to about 3.7 bytes a token (a
+five-exchange conversation about 900 tokens, three of them 2,400) and every reply hit the cap mid-string; the
+direct request's finish_reason was "length" with the content drifting into a word list ("tool implement device
+gadget contraption mechanism engine..."), the penalty leaving the model no permitted continuation inside a string.
+With the penalty at 1.0 the drift stopped; with the grammar off and the draft on, a call wrote five conversations
+in 779 tokens (about 156 a conversation) at 32 tok/s. The failures that remained (7 of the first 14 calls at
+13:4x) were not cut replies: every one held its three whole conversations and lacked only the top-level object's
+final brace, the teacher writing its closing delimiter in its place (a direct call shows the other half ending
+in the brace, then the delimiter; 393 completion tokens for three conversations). The writer now salvages the
+complete conversation objects one by one (tools/json-objects.c) and runs the filter on each; since 13:55 every
+call yields 3 of 3: 27 conversations in 9 calls over 132 s, 12.3 a minute, about 7.3 KB of converted text a
+minute (the driver's count: 23,793 bytes for 40 conversations). The user's temperature, top-k, top-p and
+min-p stay on every call; the repeat penalty is the one setting the measurements overruled for the writer, and
+the judge keeps 1.2 on its short verdicts. Two more findings on the
+same calls: a 4,096-token slot (two slots in 8,192) cut the replies mid-object, since the system prompt is about
+2,200 tokens and a reply 1,000 to 1,700 (the server script's default is now 8,192 a slot, one slot); and under the
+repeat penalty of 1.2 with the JSON grammar one reply drifted into a word list inside a string for 11 KB, so the
+writer caps a reply at 1,600 tokens and drops a conversation with a turn over 220 characters. Arithmetic at 14
+tok/s: about 50,000 tokens an hour, the first megabyte of text (about 250,000 tokens) in four to five hours; the
+from-scratch model's first round starts then.

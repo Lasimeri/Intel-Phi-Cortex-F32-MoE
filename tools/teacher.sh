@@ -7,7 +7,9 @@
 # user's inference settings, the same block the Cortex trains and samples with (10:28: "my preferred inference
 # settings that should be the same as my training settings"): temp 0.5, top-k 75, top-p 0.95, min-p 0.05, repeat
 # penalty 1.2; --temp overrides the temperature alone.
-#   tools/teacher.sh SYSTEM_FILE|- "USER" [--temp T] [--max N] [--think] [--json] [--url URL] [--no-claude-md]
+#   tools/teacher.sh SYSTEM_FILE|- "USER" [--temp T] [--rp R] [--max N] [--think] [--json] [--url URL] [--no-claude-md]
+# --rp R overrides the repeat penalty alone: the corpus writer passes 1.0, since 1.2 drove every long JSON
+# generation measured on 2026-10-27 13:3x into a word list inside a string up to the token cap.
 # SYSTEM_FILE "-" adds no task text after CLAUDE.md. --json asks for a JSON object (response_format json_object:
 # the server's grammar then forbids the delimiters). The default URL is http://127.0.0.1:8090 (env CORTEX_TEACHER
 # overrides); CORTEX_CLAUDE_MD names another rules file. Exit 1 when the server does not answer or the reply is
@@ -17,10 +19,11 @@ cd "$(dirname "$0")/.." || exit 1
 [ $# -ge 2 ] || { echo "usage: tools/teacher.sh SYSTEM_FILE|- \"USER\" [--temp T] [--max N] [--think] [--json] [--url URL]" >&2; exit 2; }
 sysfile=$1; user=$2
 shift 2
-temp=0.5; max=512; think=false; json=false; url=${CORTEX_TEACHER:-http://127.0.0.1:8090}; rules=${CORTEX_CLAUDE_MD:-$HOME/CLAUDE.md}
+temp=0.5; rp=1.2; max=512; think=false; json=false; url=${CORTEX_TEACHER:-http://127.0.0.1:8090}; rules=${CORTEX_CLAUDE_MD:-$HOME/CLAUDE.md}
 while [ $# -gt 0 ]; do
 	case "$1" in
 	--temp) temp=$2; shift 2 ;;
+	--rp) rp=$2; shift 2 ;;
 	--max) max=$2; shift 2 ;;
 	--think) think=true; shift ;;
 	--json) json=true; shift ;;
@@ -39,8 +42,8 @@ if [ "$sysfile" != "-" ]; then
 
 }$task"
 fi
-body=$(jq -n --arg s "$system" --arg u "$user" --argjson t "$temp" --argjson m "$max" --argjson think "$think" --argjson json "$json" '
-	{ model: "teacher", temperature: $t, top_k: 75, top_p: 0.95, min_p: 0.05, repeat_penalty: 1.2, max_tokens: $m, chat_template_kwargs: { enable_thinking: $think } }
+body=$(jq -n --arg s "$system" --arg u "$user" --argjson t "$temp" --argjson rp "$rp" --argjson m "$max" --argjson think "$think" --argjson json "$json" '
+	{ model: "teacher", temperature: $t, top_k: 75, top_p: 0.95, min_p: 0.05, repeat_penalty: $rp, max_tokens: $m, chat_template_kwargs: { enable_thinking: $think } }
 	+ (if $json then { response_format: { type: "json_object" } } else {} end)
 	+ { messages: ((if $s == "" then [] else [{ role: "system", content: $s }] end) + [{ role: "user", content: $u }]) }')
 out=$(curl -s --max-time 600 -H 'Content-Type: application/json' --data-binary "$body" "$url/v1/chat/completions") || { echo "teacher: no answer from $url" >&2; exit 1; }
