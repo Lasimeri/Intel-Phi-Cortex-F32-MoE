@@ -1,7 +1,7 @@
 /*
  * chat-text: chat JSONL (Hub distillation sets) to the Cortex chat format (host, C).
  *   chat-text IN.jsonl OUT.txt [--max-chars N] [--max-nonascii PERMILLE] [--no-think PERMILLE] [--drop-code]
- *             [--no-system]
+ *             [--no-system] [--no-think-block] [--detok]
  * Each input line is a JSON object holding a conversation as "messages" (objects with "role" and "content"; an
  * assistant's reasoning in "reasoning_content" | "thinking" | "reasoning", or inline in the content as
  * <think>...</think> | <thinking>...</thinking>) or in the ShareGPT shape ("conversations" with "from" and "value").
@@ -20,7 +20,13 @@
  * division signs, the arrow, approximately, <= and >=, the minus, bullets, the zero-width space). Skipped whole: a
  * malformed line, an empty turn after cleaning, a text over --max-chars (default 16000) in any field, speakers out
  * of order, more than --max-nonascii permille of non-ASCII bytes (default 20), and with --drop-code a conversation
- * holding a code fence (```). --no-system leaves the system messages out. Prints what was kept and skipped by reason.
+ * holding a code fence (```). --no-system leaves the system messages out. --no-think-block writes an answer that has
+ * no reasoning as <|assistant|>ANSWER<|end|>, with no block at all (the plain chat format of the chat base,
+ * 2026-10-27: a block that is always empty is two dead tokens per answer; an answer with reasoning keeps its block
+ * unless the conversation is drawn no-think). --detok rejoins text that was tokenised with spaces (DailyDialog: "the
+ * United States ." "I ' m" "don ' t" ". . ."): the space before , . ? ! ; : ) ] goes, the space after ( [ goes, the
+ * contractions 's 't 'm 'd 're 've 'll are joined, ". . ." becomes "..."; a space before "..." stays. Prints what
+ * was kept and skipped by reason.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -218,20 +224,54 @@ static uint64_t fnv(const unsigned char *s, long n)
 	return h;
 }
 
+static int letter(unsigned char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); }
+
+/* text tokenised with spaces back to writing, in place (never longer): ". . ." -> "...", no space before closing
+ * punctuation (a space before "..." stays), none after an opening bracket, " ' s" and the other contractions joined
+ * when the suffix ends the word ("don ' t have" -> "don't have", "James ' car" stays) */
+static void detok(unsigned char *s)
+{
+	static const char *const suffix[] = { "s", "t", "m", "d", "re", "ve", "ll" };
+	long r = 0, w = 0;
+	while (s[r]) {
+		if (s[r] == '.' && !strncmp((char *)s + r, ". . .", 5)) { memcpy(s + w, "...", 3); w += 3; r += 5; continue; }
+		if (s[r] == ' ' && s[r + 1] && strchr(",.?!;:)]", s[r + 1]) && !(s[r + 1] == '.' && s[r + 2] == '.')) { r++; continue; }
+		if ((s[r] == '(' || s[r] == '[') && s[r + 1] == ' ') { s[w++] = s[r]; r += 2; continue; }
+		if (s[r] == ' ' && s[r + 1] == '\'' && s[r + 2] == ' ') {
+			int joined = 0;
+			for (size_t k = 0; k < sizeof suffix / sizeof *suffix && !joined; k++) {
+				const size_t n = strlen(suffix[k]);
+				if (!strncmp((char *)s + r + 3, suffix[k], n) && !letter(s[r + 3 + n])) {
+					s[w++] = '\'';
+					memcpy(s + w, suffix[k], n);
+					w += (long)n;
+					r += 3 + (long)n;
+					joined = 1;
+				}
+			}
+			if (joined) continue;
+		}
+		s[w++] = s[r++];
+	}
+	s[w] = 0;
+}
+
 int main(int argc, char **argv)
 {
 	if (argc < 3) {
-		fprintf(stderr, "usage: chat-text IN.jsonl OUT.txt [--max-chars N] [--max-nonascii PERMILLE] [--no-think PERMILLE] [--drop-code] [--no-system]\n");
+		fprintf(stderr, "usage: chat-text IN.jsonl OUT.txt [--max-chars N] [--max-nonascii PERMILLE] [--no-think PERMILLE] [--drop-code] [--no-system] [--no-think-block] [--detok]\n");
 		return 2;
 	}
 	long max_chars = 16000, max_nonascii = 20, no_think = 250;
-	int drop_code = 0, no_system = 0;
+	int drop_code = 0, no_system = 0, no_block = 0, do_detok = 0;
 	for (int i = 3; i < argc; i++) {
 		if (!strcmp(argv[i], "--max-chars") && i + 1 < argc) max_chars = atol(argv[++i]);
 		else if (!strcmp(argv[i], "--max-nonascii") && i + 1 < argc) max_nonascii = atol(argv[++i]);
 		else if (!strcmp(argv[i], "--no-think") && i + 1 < argc) no_think = atol(argv[++i]);
 		else if (!strcmp(argv[i], "--drop-code")) drop_code = 1;
 		else if (!strcmp(argv[i], "--no-system")) no_system = 1;
+		else if (!strcmp(argv[i], "--no-think-block")) no_block = 1;
+		else if (!strcmp(argv[i], "--detok")) do_detok = 1;
 		else { fprintf(stderr, "chat-text: unknown option %s\n", argv[i]); return 2; }
 	}
 	FILE *in = fopen(argv[1], "r"), *out = fopen(argv[2], "w");
@@ -286,6 +326,7 @@ int main(int argc, char **argv)
 			if (t->role == SYSTEM) {
 				if (i != 0 || no_system) { if (i != 0) reason = 4; continue; }
 				normalise(t->text);
+				if (do_detok) detok(t->text);
 				trim(t->text);
 				t->n = strlen((char *)t->text);
 				if (t->n > max_chars) { reason = 3; break; }
@@ -296,12 +337,14 @@ int main(int argc, char **argv)
 			if (t->role == ASSISTANT) {
 				if (t->rn == 0) { extract_block(t->text, "<think>", "</think>", t->reason); extract_block(t->text, "<thinking>", "</thinking>", t->reason); }
 				normalise(t->reason);
+				if (do_detok) detok(t->reason);
 				trim(t->reason);
 				t->rn = strlen((char *)t->reason);
 				if (t->rn > max_chars) { reason = 3; break; }
 				if (t->rn) has_reasoning = 1;
 			}
 			normalise(t->text);
+			if (do_detok) detok(t->text);
 			trim(t->text);
 			t->n = strlen((char *)t->text);
 			if (t->n == 0) { reason = 1; break; }
@@ -334,7 +377,7 @@ int main(int argc, char **argv)
 		for (int i = 0; i < n; i++) {
 			const turn *t = kept_turns[i];
 			if (t->role == USER) { bytes += fprintf(out, "<|user|>%s<|end|>\n", t->text); continue; }
-			if (nothink || t->rn == 0) bytes += fprintf(out, "<|assistant|><|think|><|/think|>%s<|end|>\n", t->text);
+			if (nothink || t->rn == 0) bytes += fprintf(out, no_block ? "<|assistant|>%s<|end|>\n" : "<|assistant|><|think|><|/think|>%s<|end|>\n", t->text);
 			else { bytes += fprintf(out, "<|assistant|><|think|>%s<|/think|>%s<|end|>\n", t->reason, t->text); reason_bytes += t->rn; }
 			answers++;
 		}

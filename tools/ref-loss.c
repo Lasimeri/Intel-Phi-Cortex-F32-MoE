@@ -80,7 +80,9 @@ int main(int argc, char **argv)
 		struct stat st;
 		if (pfd < 0 || fstat(pfd, &st)) { perror(pool_path); return 1; }
 		if ((size_t)st.st_size != CX_EX_POOL_BYTES) { fprintf(stderr, "ref-loss: %s is %lld bytes, not %zu (a pool of %u experts)\n", pool_path, (long long)st.st_size, CX_EX_POOL_BYTES, CX_EX_N); return 1; }
-		const float *pool = mmap(NULL, CX_EX_POOL_BYTES, PROT_READ, MAP_SHARED, pfd, 0);
+		/* populated: the routed reads are random over 4 GiB and a pool on the HDD cost a seek per off-home expert (176 to
+		 * 181 s per 27,447-token reading on 2026-10-27 against 6.4 s from the page cache); one sequential read instead */
+		const float *pool = mmap(NULL, CX_EX_POOL_BYTES, PROT_READ, MAP_SHARED | MAP_POPULATE, pfd, 0);
 		if (pool == MAP_FAILED) { perror(pool_path); return 1; }
 		close(pfd);
 		cx_ex_keys_init(keys);

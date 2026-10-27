@@ -64,8 +64,10 @@ in use with the daemon up, measured 2026-10-27 07:36); the pool is used only onc
 `scale X` (learning-rate multiplier from the next chunk), `lr X` (base rate), `every N` (report cadence), `pause`,
 `resume`, `save` (a checkpoint now; with `--ngram` the tables too), `sample` (a sample now), `stop` (the run ends
 after the current chunk with a final checkpoint, and with `--moe` the pool; the daemon keeps serving); with `--moe`
-also `bias X` (the home bonus from the next chunk), `exlr X` (the experts' step) and `save-pool` (the pool now, the
-chunks flowing between its rounds). The coach reads only lines appended after it started.
+also `bias X` (the home bonus from the next chunk), `exlr X` (the experts' step) and `save-pool` (a checkpoint now
+with the pool of the same chunk right after it, the chunks flowing between the pool's rounds; `--pool-every N` does
+the same on a schedule, so pool-N.f32 always belongs to ckpt-N.bin). The coach reads only lines appended after it
+started.
 
 ## Policy v2 (from the F64 coach, measured there: 6.0940 against 6.2813 bits/token uncoached at 320k tokens)
 

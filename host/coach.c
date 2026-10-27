@@ -55,10 +55,12 @@
  *     --pool FILE          a saved pool (pool-N.f32, 4,293,918,720 B) pulled into the daemon in 187 rounds of eleven
  *                          2 MiB pages through the stage before the LOAD, which then keeps it (LOAD arg bit 2)
  *                          instead of filling from the checkpoint; the pool is pushed back the same way into
- *                          CKDIR/pool-CHUNK.f32 at the run's end, on a `save-pool` line and every --pool-every
- *                          chunks (about 30 s each, the chunks keep flowing between rounds)
- *     --pool-every N       the pool pushed into CKDIR/pool-CHUNK.f32 every N chunks (default 0 = only at the end and
- *                          on `save-pool` lines); each copy is 4 GiB on the disk
+ *                          CKDIR/pool-CHUNK.f32 right after a checkpoint of the same CHUNK (the final one, the one a
+ *                          `save-pool` line requests, and one every --pool-every chunks), so a pool and its
+ *                          checkpoint always belong to the same chunk (about 30 s each, the chunks keep flowing
+ *                          between rounds)
+ *     --pool-every N       a checkpoint with the pool every N chunks (default 0 = only at the end and on `save-pool`
+ *                          lines); each copy is 4 GiB on the disk
  *
  * Policy v2 (docs/COACH.md of the F64 tree, measured there): every W reports the mean training loss of the window is
  * compared with the previous window; a gain under B is a plateau; a plateau halves the scale down to 2^-H; at the
@@ -106,7 +108,7 @@ static int moe, moe_knobs_given;                   /* --moe: the LOAD fills the 
 static double moe_bias = CX_EX_HOME_BIAS, expert_lr = CX_EX_LR;
 static long bias_decay;                            /* --bias-decay: chunks over which the bonus falls to 0 (0 = constant) */
 static const char *pool_path;                      /* --pool: pulled into the daemon before the LOAD */
-static int pool_save_wanted;                       /* a `save-pool` line */
+static int pool_wanted;                            /* the next checkpoint takes the pool with it (a `save-pool` line, the --pool-every schedule) */
 static long pool_every;                            /* --pool-every: the pool pushed every this many chunks */
 
 /* ---- the log ---- */
@@ -271,6 +273,7 @@ static uint64_t flags;
 
 static void set_flags(uint64_t f) { flags = f; ST64(CX_T_FLAGS, flags); }
 static void request_save(void);   /* below, with the checkpoint collector */
+static int pool_save(const char *path);   /* below, with the pool transfer */
 
 static void sample(long chunk, int seed)
 {
@@ -326,7 +329,7 @@ static void commands(void)
 		else if (!strcmp(s, "pause")) { set_flags(flags | 4); logline("command: pause"); }
 		else if (!strcmp(s, "resume")) { set_flags(flags & ~4ull); logline("command: resume"); }
 		else if (!strcmp(s, "save")) { request_save(); if (ng_path) tables_wanted = 1; logline("command: save requested%s", ng_path ? " (with the tables)" : ""); }
-		else if (!strcmp(s, "save-pool")) { if (moe) pool_save_wanted = 1; logline("command: pool save %s", moe ? "requested" : "ignored (no --moe)"); }
+		else if (!strcmp(s, "save-pool")) { if (moe) { pool_wanted = 1; request_save(); } logline("command: pool save %s", moe ? "requested with a checkpoint" : "ignored (no --moe)"); }
 		else if (sscanf(s, "bias %lf", &x) == 1 && x >= 0) { moe_bias = x; ST64(CX_M_BIAS, kbits(moe_bias)); logline("command: moe bias %g", moe_bias); }
 		else if (sscanf(s, "exlr %lf", &x) == 1 && x >= 0) { expert_lr = x; ST64(CX_M_LR, kbits(expert_lr)); logline("command: expert lr %g", expert_lr); }
 		else if (!strcmp(s, "stop")) { stop_requested = 1; logline("command: stop requested"); }
@@ -361,6 +364,11 @@ static int collect_ckpt(const char *why)
 		f = fopen(path, "wb");
 		if (!f || fwrite(part + CX_STAGE_GATES, 1, CX_NG_ORDERS * CX_DE * 4, f) != CX_NG_ORDERS * CX_DE * 4 || fclose(f)) logline("checkpoint (%s): cannot write %s: %s", why, path, strerror(errno));
 		if (tables_wanted || !strcmp(why, "final")) { tables_wanted = 0; copy_tables((long)chunk); }
+	}
+	if (moe && (pool_wanted || !strcmp(why, "final"))) {   /* the pool of the same chunk, beside the checkpoint */
+		pool_wanted = 0;
+		snprintf(path, sizeof path, "%s/pool-%lu.f32", ckdir, (unsigned long)chunk);
+		pool_save(path);
 	}
 	return 0;
 }
@@ -548,12 +556,11 @@ int main(int argc, char **argv)
 			request_save();
 			logline("checkpoint requested at chunk %ld (every %ld chunks)%s", consumed, save_every, tables_wanted ? ", with the tables" : "");
 		}
-		if (moe && pool_every > 0 && consumed >= next_pool) { next_pool = (consumed / pool_every + 1) * pool_every; pool_save_wanted = 1; }
-		if (pool_save_wanted) {   /* a `save-pool` line or the schedule: the pool as it is now, the run going on between rounds */
-			pool_save_wanted = 0;
-			char path[1024];
-			snprintf(path, sizeof path, "%s/pool-%ld.f32", ckdir, consumed);
-			pool_save(path);
+		if (moe && pool_every > 0 && consumed >= next_pool) {   /* the pool with a checkpoint of the same chunk */
+			next_pool = (consumed / pool_every + 1) * pool_every;
+			pool_wanted = 1;
+			request_save();
+			logline("pool requested with the next checkpoint at chunk %ld (every %ld chunks)", consumed, pool_every);
 		}
 		if ((next_sample > 0 && consumed >= next_sample) || sample_requested) {
 			if (next_sample > 0 && consumed >= next_sample) next_sample += sample_every;
@@ -574,12 +581,7 @@ int main(int argc, char **argv)
 			if (wait_ack_bit(1, 0, 10)) logline("coach: the card did not drop the checkpoint acknowledgement within 10 s");
 			set_flags(flags | 1);
 			if (wait_ack_bit(1, 1, 60)) logline("coach: the card did not acknowledge the final checkpoint within 60 s");
-			else collect_ckpt("final");
-			if (moe) {   /* the pool as the run leaves it, beside the final checkpoint */
-				char path[1024];
-				snprintf(path, sizeof path, "%s/pool-%ld.f32", ckdir, consumed);
-				pool_save(path);
-			}
+			else collect_ckpt("final");   /* with --moe the pool of the same chunk follows it */
 			ST32(CX_T_MAGIC, 0);
 			set_flags(0);
 			logline("coach: run ended at chunk %ld (%ld tokens), %d halvings, final scale %.4f", consumed, consumed * CX_T_L, halvings, scale);

@@ -491,3 +491,49 @@ ckdiff/ckmix tools; the finding is in the memory note phi-cortex-fastweight-inst
 answered in fluent English without an identity ("What is your name?": "I am feeling very fun, it really have many
 people do to make our unique things like that."). The MoE run (PLAN-MOE.md "06:32" on) continues this epoch from
 ckpt-661017 with the pool, from 07:42:16.
+
+## The plain format (2026-10-27 08:14 to 08:3x, user: "The dataset while training needs to be properly formatted while training for the model to respond as a human would")
+
+What the stream of the base run and the first MoE run had wrong for a human-like responder, each found by reading
+the text (data/chat-base/train.txt) and counting:
+
+| defect | count | fix |
+|---|---|---|
+| every answer written `<|assistant|><|think|><|/think|>TEXT`: an empty think block, the Opus-era form, in a corpus with no reasoning | 709,533 of 709,533 answers; 1,419,066 of 29,992,115 tokens (4.7 % of the stream) spent on a constant bigram | `tools/chat-text --no-think-block`: `<|assistant|>TEXT<|end|>`; an answer with reasoning in its data keeps its block |
+| DailyDialog's text tokenised with spaces: "the United States ." "Ms.Green , are" "I ' m" "don ' t" ". . ." (its raw form; the apostrophe is U+2019, brought to ASCII first) | 83,071 of its 83,274 turns | `--detok`: no space before , . ? ! ; : ) ] and none after ( [, the contractions 's 't 'm 'd 're 've 'll joined when they end the word, ". . ." to "...", a space before "..." kept, "James ' car" kept |
+| the frame inserted the empty block too, and the harness carried a think switch (F5, /think) with nothing to switch | every prompt | tui/cortex.jinja ends the generation prompt at `<|assistant|>`; the switch is gone (a reply that contains a think block is still shown apart) |
+| a system persona in 5.4 % of training conversations (PersonaChat's 8,520) against 100 % of prompts (the harness's identity line) | | not changed: the identity text is the user's to write (identity data human-written); `--system off` in the harness prompts without one |
+
+Not changed either: the mix's sources (the everyday assistant set, 2 x 2,260 conversations = 2.9 %, carries an
+AI-assistant register that pulls against a human-like responder; a content decision) and the coach's sampler, which
+runs its 128 tokens past `<|end|>` and so shows the stream's continuation rather than one answer (the harness is the
+judge).
+
+**The rebuild** (tools/base-format.sh, results/base-format.log, 08:25, 21 s): the same mix.jsonl in the same order
+through `chat-text --no-think-block --detok` (167,048 conversations kept as before, 746,709 answers, 141,211,199
+bytes against 155,598,010), the same 95/5 split (158,696 + 8,352 conversations), encoded with the same vocabulary
+(data/chat-base/vocab-base4096.txt copied to data/chat-base2/, so a run continues from its checkpoint): train.u16
+28,572,518 tokens at 4.696 bytes per token (892,891 chunks; was 29,992,115), valid.u16 1,495,321; the marker ids
+4095 x 158,696, 4094 x 8,520, 4093 and 4092 x 709,533, 4091 x 1,427,586, no 4090 or 4089; the decode round trip
+byte-identical. The floors on the new valid.u16[0..27447) (data/chat-base2/floors.txt): unigram 8.5771, bigram
+5.0386, trigram 4.0769 bits/token, against 8.5276 / 4.8214 / 3.8883 on the old stream: the removed bigram was a
+free prediction for the n-gram models as much as for the Cortex, so the new bars are the honest ones and earlier
+held-out numbers are not comparable to new ones. Where the run continues: `tools/conv-pos OLD.u16 NTOK NEW.u16`
+counts the conversations wholly inside the consumed part of the old stream and prints the new stream's chunk where
+the next one starts.
+
+**The run restarted on the plain stream (08:27).** The MoE run was stopped at its chunk 67,405 (stream chunk 728,422
+of the old stream: 23,309,504 tokens, 123,365 whole conversations); `conv-pos` puts the next conversation at token
+22,205,759 of the new stream, so `--start 693929`. The new run (data/live-moe2/, results/live.log from 08:27):
+`coach data/chat-base2/train.u16 --ckpt data/live-moe/ckpt-67405.bin --pool <the pool of the same chunk> --start
+693929 --lr 0.00025 --halvings 2 --every 100 --window 300 --save-every 5000 --sample-every 2000 --moe --moe-bias
+32.595 --bias-decay 32595 --expert-lr 0.05 --pool-every 50000`, the bonus and its decay continuing the old
+schedule (0 at what was chunk 100,000), the rate as the policy had halved it. The restart point read on the host
+with the pool (`ref-loss --moe`, 27,447 held-out tokens): 7.5946 bits/token on the new stream's held-out (top-1
+0.2863) against 6.0341 on the old one's (top-1 0.3732): the model had never seen an answer start right after
+`<|assistant|>` nor the rejoined punctuation, and the removed bigram had been 2 free tokens in every 40
+(arithmetic: 5.6 bits/token over 40 tokens with 2 at 0 bits is 5.9 over the remaining 38). The first reports on the
+new stream: 5.7488 at chunk 700, 6.0629, 6.2085, 6.1778 at chunk 1,000, against 5.4 to 5.7 on the old stream. The
+bars on the new held-out are the floors above (bigram 5.0386). Each evaluator reading took 176 to 181 s with the
+pool file on the HDD (a random expert read is a seek; 6.4 s with the pool in the page cache), so the evaluator now
+maps the pool populated (one sequential read).

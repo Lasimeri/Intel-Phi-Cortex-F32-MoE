@@ -280,8 +280,6 @@ pub struct Chat {
     pub orchestra_on: bool,
     pub system_on: bool,
     pub system_chars: usize,
-    /// The model opens its think block itself (true), or is given an empty one and answers at once (false).
-    pub think: bool,
     pub fixed_seed: Option<u64>,
     seed_next: u64,
     /// The frame's stops of the turn in flight.
@@ -304,7 +302,6 @@ impl Chat {
             orchestra_on: cfg.orchestra.is_some(),
             system_on: cfg.system.is_some(),
             system_chars,
-            think: true,
             fixed_seed: None,
             seed_next: seed_base,
             stop: Vec::new(),
@@ -393,11 +390,11 @@ impl Chat {
             })
             .collect();
         let name = cfg.name.clone();
-        let base = frame::render(&src, &head, name.as_deref(), self.think)?.prompt.chars().count();
+        let base = frame::render(&src, &head, name.as_deref())?.prompt.chars().count();
         let mut skip = 0;
         loop {
             let all: Vec<Message> = head.iter().chain(&dialogue[skip..]).cloned().collect();
-            let r = frame::render(&src, &all, name.as_deref(), self.think)?;
+            let r = frame::render(&src, &all, name.as_deref())?;
             if r.prompt.chars().count().saturating_sub(base) <= self.ctx_chars || dialogue.len() - skip <= 1 {
                 return Ok(r);
             }
@@ -469,10 +466,6 @@ impl Chat {
             "greedy" => {
                 self.sampling.greedy = on_off(arg).unwrap_or(!self.sampling.greedy);
                 Ok(if self.sampling.greedy { "greedy on: the argmax token every step" } else { "greedy off: sampling" }.to_string())
-            }
-            "think" => {
-                self.think = on_off(arg).unwrap_or(!self.think);
-                Ok(if self.think { "think on: the model reasons in its think block before the answer" } else { "think off: an empty think block is given, the model answers at once" }.to_string())
             }
             "orchestra" => {
                 if cfg.orchestra.is_none() {
@@ -696,7 +689,7 @@ pub mod tests {
         let dir = std::env::temp_dir().join(format!("cortex-tui-think-{}", std::process::id()));
         fs::create_dir_all(&dir).unwrap();
         let tpl = dir.join("frame.jinja");
-        fs::write(&tpl, "{% for m in messages %}{{ m.role }}: {{ m.content }}\n{% endfor %}{% if not think %}[no think]{% endif %}").unwrap();
+        fs::write(&tpl, "{% for m in messages %}{{ m.role }}: {{ m.content }}\n{% endfor %}").unwrap();
         cfg.template = tpl.to_string_lossy().into_owned();
         let mut chat = Chat::new(&cfg);
         chat.turns.push(Turn::new(Who::You, "hi".into()));
@@ -706,8 +699,6 @@ pub mod tests {
         chat.turns.push(c);
         chat.turns.push(Turn::new(Who::You, "and then?".into()));
         assert_eq!(chat.prompt(&cfg).unwrap().prompt, "user: hi\nassistant: Hello.\nuser: and then?\n", "an earlier reply is re-fed without its think block");
-        assert_eq!(chat.setting(&mut cfg, "think", Some("off")).unwrap().is_ok(), true);
-        assert!(chat.prompt(&cfg).unwrap().prompt.ends_with("[no think]"));
         fs::remove_dir_all(&dir).unwrap();
     }
 

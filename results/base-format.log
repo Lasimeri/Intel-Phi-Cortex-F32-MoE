@@ -1,0 +1,20 @@
+=== the plain format (08:25:05)
+chat-text: 167577 rows: 167048 conversations kept (746709 answers, 0 with reasoning in the data, 41779 drawn no-think, 8939 with a system message; 141211199 bytes, 0 of reasoning); skipped 0 malformed, 0 empty turn, 0 code, 0 over 16000 chars, 510 out of order, 19 non-ASCII
+conversations 167048, held out 8352 (the old split: 158696 + 8352); train 134173361 B, valid 7037838 B
+=== the encode with the same vocabulary (08:25:19)
+encode: 134173361 bytes -> 28572518 tokens (4.696 bytes/token, 3013868 special), 160.7 MB/s, cache hits 23873816, data/chat-base2/train.u16 57145036 bytes
+encode: 7037838 bytes -> 1495321 tokens (4.707 bytes/token, 157894 special), 108.4 MB/s, cache hits 1238161, data/chat-base2/valid.u16 2990642 bytes
+round trip byte-identical
+train tokens 28572518 (was 29992115), chunks of 32: 892891; valid tokens 1495321 (was 1569707)
+=== marker ids in train.u16 (4095 eot, 4094 system, 4093 user, 4092 assistant, 4091 end, 4090 think, 4089 /think)
+4095 158696
+4094 8520
+4093 709533
+4092 709533
+4091 1427586
+=== the floors on valid.u16[0..27447) (08:25:25)
+unigram (add-one): 8.5771 bits/token over 27446 predictions; 28572518 training tokens, 3941557 distinct trigrams
+bigram  (interpolated, lambda 0.9): 5.0386 bits/token
+trigram (interpolated, lambda 0.8): 4.0769 bits/token
+=== done 08:25:26
+exit 0

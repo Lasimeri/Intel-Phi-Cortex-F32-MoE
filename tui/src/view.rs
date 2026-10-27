@@ -335,7 +335,7 @@ pub fn conversation(turns: &[Turn], spin: usize, cw: usize) -> Vec<Vec<Span>> {
         conv.push(vec![]);
     }
     if conv.is_empty() {
-        for l in wrap("say something below: the model answers on the card's live weights, thinking first (/think off: at once)", cw) {
+        for l in wrap("say something below: the model answers on the card's live weights", cw) {
             conv.push(vec![dim(l)]);
         }
     }
@@ -417,7 +417,6 @@ fn side_panel(a: &App, w: usize) -> Vec<Vec<Span>> {
         p.push(kv("", format!("top-p {}  min-p {}  rp {}", s.topp, s.minp, s.rp), w));
     }
     p.push(kv("reply", format!("{} tokens at most", c.ngen), w));
-    p.push(kv("think", if c.think { "on: the model reasons first" } else { "off: an empty block, the answer at once" }, w));
     p.push(kv("context", format!("the last {} chars", group(c.ctx_chars as u64)), w));
     let orchestra = match &a.cfg.orchestra {
         Some(n) if c.orchestra_on => format!("on, {}", file_name(n)),
@@ -475,8 +474,7 @@ fn chat(f: &mut Frame, a: &mut App) {
     input_row(f, (h - 3) as u16, " say › ", &mut a.input);
     let orchestra = if a.chat.orchestra_on && a.cfg.orchestra.is_some() { "orchestra off" } else { "orchestra on" };
     let greedy = if a.chat.sampling.greedy { "sampling" } else { "greedy" };
-    let think = if a.chat.think { "think off" } else { "think on" };
-    footer(f, a, &[("enter", "say it"), ("f2", "the run"), ("f3", orchestra), ("f4", greedy), ("f5", think), ("pgup/pgdn", "scroll"), ("ctrl+q", "quit")]);
+    footer(f, a, &[("enter", "say it"), ("f2", "the run"), ("f3", orchestra), ("f4", greedy), ("pgup/pgdn", "scroll"), ("ctrl+q", "quit")]);
 }
 
 /// Seconds as "12 s", "4 min", "2 h".
@@ -557,7 +555,6 @@ const HELP: &[(&str, &str)] = &[
     ("f2", "the run screen: the live run in full, the checkpoints, the coach's log"),
     ("f3", "the orchestra on or off (the host n-gram mix, word filter, repeat block)"),
     ("f4", "greedy or sampling"),
-    ("f5", "the think block on or off: the model reasons first, or is given an empty block and answers at once"),
     ("pgup pgdn ↑ ↓", "scroll the conversation"),
     ("ctrl+a ctrl+e", "the start, the end of the line"),
     ("ctrl+u ctrl+k", "erase to the start, to the end"),
@@ -567,9 +564,9 @@ const HELP: &[(&str, &str)] = &[
     ("/n N", "tokens per reply (1 to 2048)"),
     ("/ctx CHARS", "transcript characters re-fed as the prompt after the system prompt"),
     ("/temp /topk /topp /minp /rp X", "the sampler (llama.cpp's order; defaults 0.5, 75, 0.95, 0.05, 1.2)"),
-    ("/greedy /orchestra /think [on|off]", "as f4, f3, f5"),
+    ("/greedy /orchestra [on|off]", "as f4, f3"),
     ("/system [on|off|FILE]", "the system message: ~/CLAUDE.md unless told otherwise, read at every turn"),
-    ("the frame", "tui/cortex.jinja frames every turn in the trained format (the markers, the think block, the end marker as the stop); an edit applies to the next turn"),
+    ("the frame", "tui/cortex.jinja frames every turn in the trained format (the markers, the end marker as the stop); an edit applies to the next turn"),
     ("/seed N | auto", "a fixed seed (the same prompt gives the same reply), or fresh each turn"),
     ("/retry", "the last reply again"),
     ("/clear", "a new story: the transcript emptied"),

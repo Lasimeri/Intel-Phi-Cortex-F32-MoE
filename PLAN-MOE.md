@@ -547,8 +547,26 @@ so every pool-N.f32 beside its ckpt-N.bin is a readable state of the routed mode
 | piece | state |
 |---|---|
 | the daemon (card/cortexd.c, the MoE build) | serving since 07:36 with the 4 GiB pool; a LOAD with bit 1 fills it, bit 2 keeps a pulled one; the pool moves through the stage in 187 rounds (CX_T_POOL / CX_T_POOL_ACK) |
-| the MoE run | since 07:42:16 (coach pid 1997431): chunks 661,017 to 937,252 of the chat base from data/live-base/ckpt-661017.bin, lr 5e-4, the bonus 100 to 0 over 100,000 chunks, expert lr 0.05; at 08:02 chunk 30,800, 5.684 bits/token, 812 tok/s, bias 69.2, 120 experts updated (expected above a bonus of about 8); ckpt-N.bin every 5,000 chunks, pool-N.f32 every 50,000 and at the end (data/live-moe/, about 21.5 GB of pool files); ends about 10:45 |
+| the MoE run | 07:42:16 to 08:27 on the old stream (data/live-moe/: chunks 661,017 on from data/live-base/ckpt-661017.bin, lr 5e-4 halved once by the policy, the bonus 100 to 0 over 100,000 chunks; stopped at its chunk 67,405, bonus 32.6, 120 experts updated); since 08:27 on the plain stream (data/live-moe2/, coach pid 2141271: data/chat-base2/train.u16 from --start 693,929, the checkpoint 67,405 and its pool pulled, lr 2.5e-4 with 2 halvings left, the bonus 32.6 to 0 over 32,595 chunks, expert lr 0.05, the pool with the checkpoint every 50,000 chunks); 811 tok/s; the section "08:14" below |
 | the gates | all passed and in results/: moe-gate.log (conversion, reference, cost, runs), live-moe-gate.log (the daemon = the batch trainer), live-ng-gate.log (the memory in the live loop), pool-gate.log (the pool's round trip and the evaluator's identity) |
 | reading a state | `build/host/ref-loss data/live-moe/ckpt-N.bin data/chat-base/valid.u16 27447 --moe data/live-moe/pool-N.f32 --moe-bias B`, B the bonus of the report line at chunk N (100 x (1 - N / 100,000), 0 from chunk 100,000) |
 | the harness and the monitor | open on the desktop (tools/chat.sh, tools/watch.sh with --ckdir data/live-moe), both on the routed model, both showing the pool's words (docs/TUI.md) |
 | next, in order | the evicting fetch (clevict1 on the streamed pool lines; the keys stay F32), the expert prefetch of mode B, learned keys, the memory and the pool together in one run, stage 3 |
+
+## 08:14 (10-27, user): "The dataset while training needs to be properly formatted while training for the model to respond as a human would"
+
+The stream, read as text, had three things against a human-like responder (docs/CHAT.md "The plain format" has the
+counts and the fixes): an empty think block in every one of its 709,533 answers (the Opus-era form in a corpus
+without reasoning: 4.7 % of the tokens on a constant bigram), DailyDialog's 83,071 turns tokenised with spaces
+("the United States ." "I ' m"), and a frame that inserted the block too. The plain format: `chat-text
+--no-think-block --detok` (tools/base-format.sh, data/chat-base2/, the same mix, split and vocabulary), the frame's
+generation prompt the assistant marker alone, the harness's think switch removed; the coach now saves the pool with
+the checkpoint of the same chunk (pool-N.f32 beside ckpt-N.bin; pool-50000 had landed one chunk before ckpt-50001).
+The MoE run was stopped at its chunk 67,405 (its final checkpoint and pool of the same chunk) and restarted on the
+new stream at the next whole conversation (tools/conv-pos: 123,365 conversations consumed, --start 693,929), the
+bonus and its decay continuing (32.6 to 0 over 32,595 chunks), lr 2.5e-4 as the policy had it. The restart point:
+7.5946 bits/token on the new held-out against 6.0341 on the old (27,447 tokens): the format is new to the model and
+the free bigram is gone (arithmetic: 5.6 bits/token over 40 tokens with 2 of them free is 5.9 over the 38 that
+remain); the first reports on the new stream: 5.75 at chunk 700, 6.06, 6.21, 6.18 at chunk 1,000 against 5.4 to 5.7
+on the old. Not changed, as content decisions: the mix's sources (the everyday assistant set's AI register) and the
+identity line (human-written identity data is the rule).

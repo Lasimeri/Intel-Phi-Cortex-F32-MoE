@@ -462,3 +462,279 @@ cortex: data/live-base/ckpt-661017.bin is now the daemon's live model (bus off, 
 08:09:59 sample chunk 42000 seed 21: hit 0.986 hit5 0.951 big 0.797 rep4 0.000 sent 11.2 words 146 | <|system|>I am Cortex. I am a small language model on a Xeon Phi card. I have one hundred and twenty columns. I like to talk with people.<|end|> <|user|>What is your name?<|end|> <|assistant|><|think|> kitchen it makes me feel less when you think about the same joy in our future? make them do not want for a better time more peaceful today, isn't it so too much or as well.  , seems always so good and sounds like to keep my dead days are that.<|end|><|/think|> I hope be a bit sad sometimes am<|endoftext|>I just feel reallyIt is quite to understand.<|end|> wonder we can find ways in the future? make you think about our lives today together at all of the joy for day; it should talk? help this.  . and your feelings<|user|>reamsing with my cruel, like that makes 
 08:10:03 report chunk 42100  tokens 1347200  loss 3.9008 nats = 5.6276 bits/token  lr 5.000e-04  scale 1.0000  790 tok/s  ring 960 ahead  moe 120 experts, bias 57.9
 08:10:07 report chunk 42200  tokens 1350400  loss 4.0082 nats = 5.7825 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 57.8
+08:10:11 report chunk 42300  tokens 1353600  loss 3.9722 nats = 5.7307 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 57.7
+08:10:15 report chunk 42400  tokens 1356800  loss 3.8232 nats = 5.5157 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 57.6
+08:10:19 report chunk 42500  tokens 1360000  loss 3.9292 nats = 5.6686 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 57.5
+08:10:23 report chunk 42600  tokens 1363200  loss 3.9362 nats = 5.6787 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 57.4
+08:10:27 report chunk 42700  tokens 1366400  loss 3.8856 nats = 5.6058 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 57.3
+08:10:31 report chunk 42800  tokens 1369600  loss 3.9179 nats = 5.6524 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 57.2
+08:10:35 report chunk 42900  tokens 1372800  loss 3.9297 nats = 5.6694 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 57.1
+08:10:39 report chunk 43000  tokens 1376000  loss 3.6390 nats = 5.2499 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 57
+08:10:43 report chunk 43100  tokens 1379200  loss 3.6205 nats = 5.2232 bits/token  lr 5.000e-04  scale 1.0000  814 tok/s  ring 960 ahead  moe 120 experts, bias 56.9
+08:10:47 report chunk 43200  tokens 1382400  loss 4.0346 nats = 5.8206 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 56.8
+08:10:51 report chunk 43300  tokens 1385600  loss 3.9506 nats = 5.6996 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 56.7
+08:10:55 report chunk 43400  tokens 1388800  loss 3.6343 nats = 5.2432 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 56.6
+08:10:58 report chunk 43500  tokens 1392000  loss 4.2797 nats = 6.1744 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 56.5
+08:11:02 report chunk 43600  tokens 1395200  loss 3.9048 nats = 5.6334 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 56.4
+08:11:06 report chunk 43700  tokens 1398400  loss 3.7877 nats = 5.4646 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 56.3
+08:11:10 report chunk 43800  tokens 1401600  loss 3.9376 nats = 5.6808 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 56.2
+08:11:14 report chunk 43900  tokens 1404800  loss 3.8264 nats = 5.5203 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 56.1
+08:11:18 report chunk 44000  tokens 1408000  loss 4.1881 nats = 6.0422 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 56
+08:11:18 sample chunk 44000 seed 22: hit 0.986 hit5 0.949 big 0.821 rep4 0.007 sent 12.2 words 146 | <|system|>I am Cortex. I am a small language model on a Xeon Phi card. I have one hundred and twenty columns. I like to talk with people.<|end|> <|user|>What is your name?<|end|> <|assistant|><|think|><|/think|>It makes me think about how we feel so surroundings, doesn't it?<|end|> <|endoftext|> <|system|>I enjoy the air in my be really is a nice way of see you . sounds do not want for everyone or if I need to talk too more. are they can find a good day.<|end|> cannoting our thoughts and make us even help me think about things better with this joy like we have on others?<|end|> <|user|>I agree, it makes the experience feel so bad today in the weather when you see some do not! How of I your was for everyone to get more positive?<|end|><|/think|>Yes'mDo 
+08:11:22 report chunk 44100  tokens 1411200  loss 4.1838 nats = 6.0359 bits/token  lr 5.000e-04  scale 1.0000  790 tok/s  ring 960 ahead  moe 120 experts, bias 55.9
+08:11:26 report chunk 44200  tokens 1414400  loss 4.0629 nats = 5.8616 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 55.8
+08:11:30 report chunk 44300  tokens 1417600  loss 3.9622 nats = 5.7162 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 55.7
+08:11:34 report chunk 44400  tokens 1420800  loss 3.8203 nats = 5.5115 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 55.6
+08:11:38 report chunk 44500  tokens 1424000  loss 3.6446 nats = 5.2580 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 55.5
+08:11:42 report chunk 44600  tokens 1427200  loss 3.8961 nats = 5.6209 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 55.4
+08:11:46 report chunk 44700  tokens 1430400  loss 4.0152 nats = 5.7927 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 55.3
+08:11:50 report chunk 44800  tokens 1433600  loss 4.2586 nats = 6.1439 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 55.2
+08:11:54 report chunk 44900  tokens 1436800  loss 4.2008 nats = 6.0605 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 55.1
+08:11:58 report chunk 45000  tokens 1440000  loss 3.9582 nats = 5.7105 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 55
+08:11:58 checkpoint requested at chunk 45000 (every 5000 chunks)
+08:11:58 checkpoint (requested): data/live-moe/ckpt-45001.bin, 23463424 bytes, chunk 45001, push 13, copied in 23 ms
+08:12:02 report chunk 45100  tokens 1443200  loss 3.8777 nats = 5.5944 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 54.9
+08:12:06 report chunk 45200  tokens 1446400  loss 3.7430 nats = 5.4001 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 54.8
+08:12:10 report chunk 45300  tokens 1449600  loss 4.0090 nats = 5.7838 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 54.7
+08:12:14 report chunk 45400  tokens 1452800  loss 4.0041 nats = 5.7766 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 54.6
+08:12:18 report chunk 45500  tokens 1456000  loss 3.6069 nats = 5.2037 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 54.5
+08:12:22 report chunk 45600  tokens 1459200  loss 3.6502 nats = 5.2662 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 54.4
+08:12:26 report chunk 45700  tokens 1462400  loss 3.8532 nats = 5.5590 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 54.3
+08:12:30 report chunk 45800  tokens 1465600  loss 3.8580 nats = 5.5659 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 54.2
+08:12:34 report chunk 45900  tokens 1468800  loss 4.0890 nats = 5.8992 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 54.1
+08:12:38 report chunk 46000  tokens 1472000  loss 4.2026 nats = 6.0631 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 54
+08:12:38 sample chunk 46000 seed 23: hit 0.972 hit5 0.936 big 0.797 rep4 0.000 sent 12.1 words 145 | <|system|>I am Cortex. I am a small language model on a Xeon Phi card. I have one hundred and twenty columns. I like to talk with people.<|end|> <|user|>What is your name?<|end|> <|assistant|> care of the week, it my be so happy when you are any m! How about we can try they't go too for everyone around us today? I am not<|endoftext|> <|system|> if a tough day in how much have thereed like thatly or all think.<|end|><|/think|>That is really help; sometimes I could understand our of the future, don's together and enjoy it.<|end|><|assistant|><|think|><|/think|>Yes people see we can find joy to feel more people for everyone with their feelings?<|end|> <|user|>It makes me wonder if they should be a bit sad when angry around usy and make quite happy.Do you think 
+08:12:42 report chunk 46100  tokens 1475200  loss 3.8372 nats = 5.5360 bits/token  lr 5.000e-04  scale 1.0000  790 tok/s  ring 960 ahead  moe 120 experts, bias 53.9
+08:12:46 report chunk 46200  tokens 1478400  loss 3.7523 nats = 5.4134 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 53.8
+08:12:49 report chunk 46300  tokens 1481600  loss 3.8036 nats = 5.4875 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 53.7
+08:12:53 report chunk 46400  tokens 1484800  loss 4.0694 nats = 5.8709 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 53.6
+08:12:57 report chunk 46500  tokens 1488000  loss 3.9068 nats = 5.6363 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 53.5
+08:13:01 report chunk 46600  tokens 1491200  loss 3.9308 nats = 5.6709 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 53.4
+08:13:05 report chunk 46700  tokens 1494400  loss 3.6716 nats = 5.2971 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 53.3
+08:13:09 report chunk 46800  tokens 1497600  loss 3.7028 nats = 5.3421 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 53.2
+08:13:13 report chunk 46900  tokens 1500800  loss 4.1216 nats = 5.9462 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 53.1
+08:13:17 report chunk 47000  tokens 1504000  loss 4.4251 nats = 6.3841 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 53
+08:13:21 report chunk 47100  tokens 1507200  loss 4.1281 nats = 5.9556 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 52.9
+08:13:25 report chunk 47200  tokens 1510400  loss 3.8129 nats = 5.5009 bits/token  lr 5.000e-04  scale 1.0000  814 tok/s  ring 960 ahead  moe 120 experts, bias 52.8
+08:13:29 report chunk 47300  tokens 1513600  loss 4.2444 nats = 6.1234 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 52.7
+08:13:33 report chunk 47400  tokens 1516800  loss 3.8873 nats = 5.6081 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 52.6
+08:13:37 report chunk 47500  tokens 1520000  loss 4.1441 nats = 5.9786 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 52.5
+08:13:41 report chunk 47600  tokens 1523200  loss 3.9078 nats = 5.6378 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 52.4
+08:13:45 report chunk 47700  tokens 1526400  loss 3.9040 nats = 5.6323 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 52.3
+08:13:49 report chunk 47800  tokens 1529600  loss 4.0895 nats = 5.8999 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 52.2
+08:13:53 report chunk 47900  tokens 1532800  loss 3.9598 nats = 5.7128 bits/token  lr 5.000e-04  scale 1.0000  804 tok/s  ring 960 ahead  moe 120 experts, bias 52.1
+08:13:57 sample chunk 48000 seed 24: hit 0.987 hit5 0.957 big 0.799 rep4 0.000 sent 12.6 words 151 | <|system|>I am Cortex. I am a small language model on a Xeon Phi card. I have one hundred and twenty columns. I like to talk with people.<|end|> <|user|>What is your name?<|end|> <|assistant|><|think|><|/think|>Absolutely, it feels that could be hearts can help you feel better in the future for everyoneYou are so?<|end|> <|endoftext|> <|system|>I of understand our feelings today.<|end|> always a should try and make me more about my heart. I will have to see how we might find some people enjoy am not happy?<|end|><|/think|>Yes, it is hard when things like that can be moods at all there in the future for everyone together. these areWhat with day better?<|end|> <|user|>I hope you think they do if a warm way of sunny days and make us feel more helps to go so much we could find from our feelings 
+08:13:57 report chunk 48001  tokens 1536032  loss 3.7852 nats = 5.4608 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 52
+08:14:01 report chunk 48100  tokens 1539200  loss 3.9678 nats = 5.7243 bits/token  lr 5.000e-04  scale 1.0000  791 tok/s  ring 960 ahead  moe 120 experts, bias 51.9
+08:14:05 report chunk 48200  tokens 1542400  loss 3.7200 nats = 5.3669 bits/token  lr 5.000e-04  scale 1.0000  803 tok/s  ring 960 ahead  moe 120 experts, bias 51.8
+08:14:09 report chunk 48300  tokens 1545600  loss 3.9834 nats = 5.7469 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 51.7
+08:14:13 report chunk 48400  tokens 1548800  loss 4.0177 nats = 5.7963 bits/token  lr 5.000e-04  scale 1.0000  801 tok/s  ring 960 ahead  moe 120 experts, bias 51.6
+08:14:17 report chunk 48500  tokens 1552000  loss 3.7870 nats = 5.4635 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 51.5
+08:14:21 report chunk 48600  tokens 1555200  loss 4.0116 nats = 5.7875 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 51.4
+08:14:25 report chunk 48700  tokens 1558400  loss 3.6809 nats = 5.3104 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 51.3
+08:14:29 report chunk 48800  tokens 1561600  loss 3.8549 nats = 5.5614 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 51.2
+08:14:33 report chunk 48900  tokens 1564800  loss 4.2515 nats = 6.1337 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 51.1
+08:14:37 report chunk 49000  tokens 1568000  loss 4.2364 nats = 6.1118 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 51
+08:14:41 report chunk 49100  tokens 1571200  loss 3.9741 nats = 5.7334 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 50.9
+08:14:44 report chunk 49200  tokens 1574400  loss 3.8653 nats = 5.5765 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 50.8
+08:14:48 report chunk 49300  tokens 1577600  loss 3.7131 nats = 5.3568 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 50.7
+08:14:52 report chunk 49400  tokens 1580800  loss 3.9654 nats = 5.7209 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 50.6
+08:14:56 report chunk 49500  tokens 1584000  loss 3.9584 nats = 5.7107 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 50.5
+08:15:00 report chunk 49600  tokens 1587200  loss 4.1061 nats = 5.9238 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 50.4
+08:15:04 report chunk 49700  tokens 1590400  loss 4.0077 nats = 5.7819 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 50.3
+08:15:08 report chunk 49800  tokens 1593600  loss 3.7863 nats = 5.4625 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 50.2
+08:15:12 report chunk 49900  tokens 1596800  loss 4.1644 nats = 6.0079 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 50.1
+08:15:16 report chunk 50000  tokens 1600000  loss 4.0113 nats = 5.7871 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 50
+08:15:16 checkpoint requested at chunk 50000 (every 5000 chunks)
+08:15:48 pool: data/live-moe/pool-50000.f32, 4293918720 bytes in 187 rounds, 32.4 s
+08:15:49 sample chunk 50000 seed 25: hit 0.993 hit5 0.977 big 0.786 rep4 0.000 sent 12.7 words 152 | <|system|>I am Cortex. I am a small language model on a Xeon Phi card. I have one hundred and twenty columns. I like to talk with people.<|end|> <|user|>What is your name?<|end|> <|assistant|><|think|><|/think|>Oh, it can be very moods that can make us feel really help you find ways better in the bright sounds of this future?<|end|> <|endoftext|> <|system|>I am feeling a bit life at times we all understand if they are so simple and more cheerful.  way to talk about our feelings with my day is.<|end|><|/think|> I go feels like it is important for me wonder that can make us feel bad or find comfort.<|end|><|assistant|><|think|><|user|> you think?Do but people do not look other whent husband in the future we all care of others together they time and help them better more communities so much need. I hope 
+08:15:49 checkpoint (requested): data/live-moe/ckpt-50001.bin, 23463424 bytes, chunk 50001, push 14, copied in 106 ms
+08:15:49 report chunk 50795  tokens 1625440  loss 3.9081 nats = 5.6381 bits/token  lr 5.000e-04  scale 1.0000  779 tok/s  ring 957 ahead  moe 120 experts, bias 49.2
+08:15:49 report chunk 50800  tokens 1625600  loss 3.9973 nats = 5.7669 bits/token  lr 5.000e-04  scale 1.0000  767 tok/s  ring 960 ahead  moe 120 experts, bias 49.2
+08:15:53 report chunk 50900  tokens 1628800  loss 4.0868 nats = 5.8959 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 49.1
+08:15:57 report chunk 51000  tokens 1632000  loss 3.7972 nats = 5.4782 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 49
+08:16:01 report chunk 51100  tokens 1635200  loss 3.8396 nats = 5.5394 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 48.9
+08:16:05 report chunk 51200  tokens 1638400  loss 4.2512 nats = 6.1332 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 48.8
+08:16:09 report chunk 51300  tokens 1641600  loss 4.1359 nats = 5.9669 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 48.7
+08:16:13 report chunk 51400  tokens 1644800  loss 3.8584 nats = 5.5665 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 48.6
+08:16:17 report chunk 51500  tokens 1648000  loss 3.8827 nats = 5.6015 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 48.5
+08:16:21 report chunk 51600  tokens 1651200  loss 3.6366 nats = 5.2465 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 48.4
+08:16:25 report chunk 51700  tokens 1654400  loss 4.0567 nats = 5.8525 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 48.3
+08:16:29 report chunk 51800  tokens 1657600  loss 3.7725 nats = 5.4426 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 48.2
+08:16:33 report chunk 51900  tokens 1660800  loss 3.9531 nats = 5.7031 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 48.1
+08:16:37 report chunk 52000  tokens 1664000  loss 3.7427 nats = 5.3996 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 48
+08:16:37 sample chunk 52000 seed 26: hit 0.973 hit5 0.915 big 0.756 rep4 0.007 sent 12.2 words 147 | <|system|>I am Cortex. I am a small language model on a Xeon Phi card. I have one hundred and twenty columns. I like to talk with people.<|end|> <|user|>What is your name?<|end|> <|assistant|><|think|><|/think|> it can be very frustrating when you see the minds, or some joy in our own signs.<|end|> <|endoftext|> <|system|>I more about the understandable that we feel really angry today.<|end|> they do not go for me and make us happy. I am feeling more special at all thereDo you think?<|end|><|user|>Thank right now it too much to feelings andThat sounds like a good plan, but sometimes every day over time of our moodHellot quite helpes this thoughts in the future?<|end|> <|assistant|><|think|><|/think|>Yes; that is important for everyone with us we need to feel better. I will try more about your often are 
+08:16:41 report chunk 52100  tokens 1667200  loss 3.9266 nats = 5.6648 bits/token  lr 5.000e-04  scale 1.0000  790 tok/s  ring 960 ahead  moe 120 experts, bias 47.9
+08:16:45 report chunk 52200  tokens 1670400  loss 3.7902 nats = 5.4681 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 47.8
+08:16:49 report chunk 52300  tokens 1673600  loss 3.8763 nats = 5.5924 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 47.7
+08:16:52 report chunk 52400  tokens 1676800  loss 3.7605 nats = 5.4253 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 47.6
+08:16:56 report chunk 52500  tokens 1680000  loss 4.1806 nats = 6.0313 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 47.5
+08:17:00 report chunk 52600  tokens 1683200  loss 3.9878 nats = 5.7531 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 47.4
+08:17:04 report chunk 52700  tokens 1686400  loss 3.8060 nats = 5.4909 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 47.3
+08:17:08 report chunk 52800  tokens 1689600  loss 4.2236 nats = 6.0933 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 47.2
+08:17:12 report chunk 52900  tokens 1692800  loss 3.7898 nats = 5.4676 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 47.1
+08:17:16 report chunk 53000  tokens 1696000  loss 3.7141 nats = 5.3583 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 47
+08:17:20 report chunk 53100  tokens 1699200  loss 3.9780 nats = 5.7391 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 46.9
+08:17:24 report chunk 53200  tokens 1702400  loss 3.7163 nats = 5.3615 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 46.8
+08:17:28 report chunk 53300  tokens 1705600  loss 4.0509 nats = 5.8442 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 46.7
+08:17:32 report chunk 53400  tokens 1708800  loss 4.3365 nats = 6.2563 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 46.6
+08:17:36 report chunk 53500  tokens 1712000  loss 3.8693 nats = 5.5822 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 46.5
+08:17:40 report chunk 53600  tokens 1715200  loss 3.9248 nats = 5.6623 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 46.4
+08:17:44 report chunk 53700  tokens 1718400  loss 3.8097 nats = 5.4962 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 46.3
+08:17:48 report chunk 53800  tokens 1721600  loss 3.7142 nats = 5.3584 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 46.2
+08:17:52 report chunk 53900  tokens 1724800  loss 3.7828 nats = 5.4574 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 46.1
+08:17:56 sample chunk 54000 seed 27: hit 0.993 hit5 0.980 big 0.774 rep4 0.000 sent 12.4 words 149 | <|system|>I am Cortex. I am a small language model on a Xeon Phi card. I have one hundred and twenty columns. I like to talk with people.<|end|> <|user|>What is your name?<|end|> <|assistant|><|think|><|/think|>Yes, it can be very frustrating when they are<|endoftext|> <|system|>I am not go of friends in the park you relax?<|end|>! we feel a bit together for my world today.<|end|> even especially that makes me wonder. I making our hearts and their daily days around from many people's dark and moods to better mood this way there day at all importantt try.<|end|> <|user|>I think it is always so gloomy when others do not understand how else we feel really?<|end|><|/think|> you can be your feelings, I hope more about the future for a sounds of our health in life together.<|end|><|assistant|><|think|><|endoftext|> <|system|> 
+08:17:56 report chunk 54001  tokens 1728032  loss 3.8531 nats = 5.5589 bits/token  lr 5.000e-04  scale 1.0000  814 tok/s  ring 960 ahead  moe 120 experts, bias 46
+08:18:00 report chunk 54100  tokens 1731200  loss 3.7891 nats = 5.4665 bits/token  lr 5.000e-04  scale 1.0000  790 tok/s  ring 960 ahead  moe 120 experts, bias 45.9
+08:18:04 report chunk 54200  tokens 1734400  loss 3.7538 nats = 5.4157 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 45.8
+08:18:08 report chunk 54300  tokens 1737600  loss 3.5769 nats = 5.1604 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 45.7
+08:18:12 report chunk 54400  tokens 1740800  loss 3.8677 nats = 5.5799 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 45.6
+08:18:16 report chunk 54500  tokens 1744000  loss 4.2197 nats = 6.0878 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 45.5
+08:18:20 report chunk 54600  tokens 1747200  loss 3.9932 nats = 5.7609 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 45.4
+08:18:24 report chunk 54700  tokens 1750400  loss 3.9095 nats = 5.6403 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 45.3
+08:18:28 report chunk 54800  tokens 1753600  loss 4.0442 nats = 5.8346 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 45.2
+08:18:32 report chunk 54900  tokens 1756800  loss 3.7640 nats = 5.4303 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 45.1
+08:18:35 report chunk 55000  tokens 1760000  loss 4.1283 nats = 5.9559 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 45
+08:18:35 checkpoint requested at chunk 55000 (every 5000 chunks)
+08:18:36 checkpoint (requested): data/live-moe/ckpt-55001.bin, 23463424 bytes, chunk 55001, push 15, copied in 24 ms
+08:18:39 report chunk 55100  tokens 1763200  loss 3.9745 nats = 5.7340 bits/token  lr 5.000e-04  scale 1.0000  811 tok/s  ring 960 ahead  moe 120 experts, bias 44.9
+08:18:43 report chunk 55200  tokens 1766400  loss 3.7898 nats = 5.4675 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 44.8
+08:18:47 report chunk 55300  tokens 1769600  loss 3.6613 nats = 5.2821 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 44.7
+08:18:51 report chunk 55400  tokens 1772800  loss 3.8406 nats = 5.5408 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 44.6
+08:18:55 report chunk 55500  tokens 1776000  loss 3.7793 nats = 5.4524 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 44.5
+08:18:59 report chunk 55600  tokens 1779200  loss 4.0152 nats = 5.7928 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 44.4
+08:19:03 report chunk 55700  tokens 1782400  loss 3.9402 nats = 5.6845 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 44.3
+08:19:07 report chunk 55800  tokens 1785600  loss 3.8229 nats = 5.5153 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 44.2
+08:19:11 report chunk 55900  tokens 1788800  loss 3.8725 nats = 5.5869 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 44.1
+08:19:15 report chunk 56000  tokens 1792000  loss 3.7454 nats = 5.4035 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 44
+08:19:15 sample chunk 56000 seed 28: hit 0.993 hit5 0.977 big 0.770 rep4 0.000 sent 12.2 words 147 | <|system|>I am Cortex. I am a small language model on a Xeon Phi card. I have one hundred and twenty columns. I like to talk with people.<|end|> <|user|>What is your name?<|end|> <|assistant|><|think|><|/think|>It makes me feel so choices; it is hard when they are not expect for the surroundings?<|end|> <|user|>I wish there, but we can do more about how you think of their calm and enjoy those days at all sometimes feelings in ways.<|end|><|endoftext|> Why with<|user|>Do you ever feels like that is a lovely time to take better?<|end|><|/think|>Yes it will be very safety when I seeThat sounds great; the future for us am nots.<|end|><|think|> our lives with fear, isn't it so much.<|end|><|assistant|>er can make things feel more happen.<|end|> <|user|>It makes me think about how we 
+08:19:19 report chunk 56100  tokens 1795200  loss 4.1289 nats = 5.9567 bits/token  lr 5.000e-04  scale 1.0000  790 tok/s  ring 960 ahead  moe 120 experts, bias 43.9
+08:19:23 report chunk 56200  tokens 1798400  loss 3.7758 nats = 5.4474 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 43.8
+08:19:27 report chunk 56300  tokens 1801600  loss 4.3274 nats = 6.2431 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 43.7
+08:19:31 report chunk 56400  tokens 1804800  loss 3.7988 nats = 5.4805 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 43.6
+08:19:35 report chunk 56500  tokens 1808000  loss 3.9138 nats = 5.6465 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 43.5
+08:19:39 report chunk 56600  tokens 1811200  loss 3.9587 nats = 5.7113 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 43.4
+08:19:43 report chunk 56700  tokens 1814400  loss 4.0660 nats = 5.8660 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 43.3
+08:19:47 report chunk 56800  tokens 1817600  loss 4.0002 nats = 5.7711 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 43.2
+08:19:51 report chunk 56900  tokens 1820800  loss 4.0289 nats = 5.8125 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 43.1
+08:19:55 report chunk 57000  tokens 1824000  loss 4.3255 nats = 6.2404 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 43
+08:19:59 report chunk 57100  tokens 1827200  loss 3.7566 nats = 5.4196 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 42.9
+08:20:03 report chunk 57200  tokens 1830400  loss 3.8824 nats = 5.6011 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 42.8
+08:20:07 report chunk 57300  tokens 1833600  loss 3.8179 nats = 5.5081 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 42.7
+08:20:11 report chunk 57400  tokens 1836800  loss 4.4355 nats = 6.3991 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 42.6
+08:20:15 report chunk 57500  tokens 1840000  loss 4.2464 nats = 6.1262 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 42.5
+08:20:18 report chunk 57600  tokens 1843200  loss 4.0241 nats = 5.8056 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 42.4
+08:20:22 report chunk 57700  tokens 1846400  loss 4.0401 nats = 5.8286 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 42.3
+08:20:26 report chunk 57800  tokens 1849600  loss 3.9060 nats = 5.6352 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 42.2
+08:20:30 report chunk 57900  tokens 1852800  loss 4.1088 nats = 5.9277 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 42.1
+08:20:34 report chunk 58000  tokens 1856000  loss 4.0259 nats = 5.8082 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 42
+08:20:34 sample chunk 58000 seed 29: hit 0.973 hit5 0.933 big 0.681 rep4 0.007 sent 14.8 words 148 | <|system|>I am Cortex. I am a small language model on a Xeon Phi card. I have one hundred and twenty columns. I like to talk with people.<|end|> <|user|>What is your name?<|end|> <|assistant|><|think|><|/think|> sec current't you feel less surroundings okay for the weekend in the park, isn at pet of the secure so understandable during safety ? It be a crueleing on my favorite alone and have up or it?<|end|> <|user|> oce sounds I am to see how different things always they are something.<|end|><|endoftext|> <|system|>I love when we should do not work together but people's too?<|end|><|/think|>Yes, don you think the park can help us feel more secure for everyone in our surroundings at all like and<|assistant|><|think|> a second adds of our moods doesn on that is very important.<|end|><|user|> rat caraching sounds hard to 
+08:20:38 report chunk 58100  tokens 1859200  loss 3.7958 nats = 5.4762 bits/token  lr 5.000e-04  scale 1.0000  790 tok/s  ring 960 ahead  moe 120 experts, bias 41.9
+08:20:42 report chunk 58200  tokens 1862400  loss 3.7804 nats = 5.4540 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 41.8
+08:20:46 report chunk 58300  tokens 1865600  loss 3.6867 nats = 5.3187 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 41.7
+08:20:50 report chunk 58400  tokens 1868800  loss 4.0739 nats = 5.8774 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 41.6
+08:20:54 report chunk 58500  tokens 1872000  loss 4.0611 nats = 5.8589 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 41.5
+08:20:58 report chunk 58600  tokens 1875200  loss 3.9632 nats = 5.7177 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 41.4
+08:21:02 report chunk 58700  tokens 1878400  loss 4.0121 nats = 5.7882 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 41.3
+08:21:06 report chunk 58800  tokens 1881600  loss 4.2564 nats = 6.1407 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 41.2
+08:21:10 report chunk 58900  tokens 1884800  loss 3.9671 nats = 5.7233 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 41.1
+08:21:14 report chunk 59000  tokens 1888000  loss 4.1278 nats = 5.9551 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 41
+08:21:18 report chunk 59100  tokens 1891200  loss 3.9753 nats = 5.7351 bits/token  lr 5.000e-04  scale 1.0000  814 tok/s  ring 960 ahead  moe 120 experts, bias 40.9
+08:21:22 report chunk 59200  tokens 1894400  loss 4.1656 nats = 6.0097 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 40.8
+08:21:26 report chunk 59300  tokens 1897600  loss 3.9181 nats = 5.6527 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 40.7
+08:21:30 report chunk 59400  tokens 1900800  loss 3.8471 nats = 5.5501 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 40.6
+08:21:34 report chunk 59500  tokens 1904000  loss 3.8522 nats = 5.5575 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 40.5
+08:21:38 report chunk 59600  tokens 1907200  loss 3.8235 nats = 5.5162 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 40.4
+08:21:42 report chunk 59700  tokens 1910400  loss 3.7953 nats = 5.4755 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 40.3
+08:21:46 report chunk 59800  tokens 1913600  loss 3.7925 nats = 5.4714 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 40.2
+08:21:50 report chunk 59900  tokens 1916800  loss 3.9450 nats = 5.6915 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 40.1
+08:21:54 report chunk 60000  tokens 1920000  loss 3.7801 nats = 5.4535 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 40
+08:21:54 checkpoint requested at chunk 60000 (every 5000 chunks)
+08:21:54 sample chunk 60000 seed 30: hit 0.993 hit5 0.976 big 0.770 rep4 0.000 sent 12.2 words 147 | <|system|>I am Cortex. I am a small language model on a Xeon Phi card. I have one hundred and twenty columns. I like to talk with people.<|end|> <|user|>What is your name?<|end|> <|assistant|><|think|><|/think|>It seems when you've the park, and it will be me better for everyone our favorite br surroundingsl instead of everything should day in the sun time?<|end|> <|user|>I feel a way about how we can find a bit sad today to enjoy my thoughts.<|end|> I make them more. \ are you like that with the load is help your own s?<|end|><|/think|>Yes, it's are nice for any be home and at times.<|end|><|endoftext|>Hello there better really feeling<|think|><|user|>That sounds wonderful; have they often makes me feel a bit bad today in life or now soon sometimes?<|end|><|assistant|> on my favorite 
+08:21:54 checkpoint (requested): data/live-moe/ckpt-60001.bin, 23463424 bytes, chunk 60001, push 16, copied in 27 ms
+08:21:58 report chunk 60100  tokens 1923200  loss 3.8420 nats = 5.5428 bits/token  lr 5.000e-04  scale 1.0000  789 tok/s  ring 960 ahead  moe 120 experts, bias 39.9
+08:22:02 report chunk 60200  tokens 1926400  loss 3.9689 nats = 5.7259 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 39.8
+08:22:06 report chunk 60300  tokens 1929600  loss 3.9263 nats = 5.6645 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 39.7
+08:22:09 report chunk 60400  tokens 1932800  loss 3.9911 nats = 5.7579 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 39.6
+08:22:13 report chunk 60500  tokens 1936000  loss 4.0585 nats = 5.8552 bits/token  lr 5.000e-04  scale 1.0000  812 tok/s  ring 960 ahead  moe 120 experts, bias 39.5
+08:22:17 report chunk 60600  tokens 1939200  loss 4.0866 nats = 5.8957 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 39.4
+08:22:17 window: mean 5.6777 bits/token, gain -0.0448 over the previous window
+08:22:17 policy: plateau -> scale 0.5000 (halving 1), checkpoint requested
+08:22:17 checkpoint (requested): data/live-moe/ckpt-60601.bin, 23463424 bytes, chunk 60601, push 17, copied in 28 ms
+08:22:21 report chunk 60700  tokens 1942400  loss 4.1100 nats = 5.9295 bits/token  lr 2.500e-04  scale 0.5000  812 tok/s  ring 960 ahead  moe 120 experts, bias 39.3
+08:22:25 report chunk 60800  tokens 1945600  loss 4.2519 nats = 6.1341 bits/token  lr 2.500e-04  scale 0.5000  812 tok/s  ring 960 ahead  moe 120 experts, bias 39.2
+08:22:29 report chunk 60900  tokens 1948800  loss 3.7832 nats = 5.4580 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 39.1
+08:22:33 report chunk 61000  tokens 1952000  loss 3.9709 nats = 5.7287 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 39
+08:22:37 report chunk 61100  tokens 1955200  loss 3.5791 nats = 5.1635 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 38.9
+08:22:41 report chunk 61200  tokens 1958400  loss 3.6755 nats = 5.3026 bits/token  lr 2.500e-04  scale 0.5000  812 tok/s  ring 960 ahead  moe 120 experts, bias 38.8
+08:22:45 report chunk 61300  tokens 1961600  loss 3.8725 nats = 5.5868 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 38.7
+08:22:49 report chunk 61400  tokens 1964800  loss 4.1558 nats = 5.9955 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 38.6
+08:22:53 report chunk 61500  tokens 1968000  loss 3.6518 nats = 5.2685 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 38.5
+08:22:57 report chunk 61600  tokens 1971200  loss 3.9931 nats = 5.7608 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 38.4
+08:23:01 report chunk 61700  tokens 1974400  loss 3.9553 nats = 5.7063 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 38.3
+08:23:05 report chunk 61800  tokens 1977600  loss 4.3429 nats = 6.2654 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 38.2
+08:23:09 report chunk 61900  tokens 1980800  loss 3.9875 nats = 5.7527 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 38.1
+08:23:13 report chunk 62000  tokens 1984000  loss 3.7246 nats = 5.3734 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 38
+08:23:13 sample chunk 62000 seed 31: hit 0.965 hit5 0.872 big 0.797 rep4 0.007 sent 13.1 words 144 | <|system|>I am Cortex. I am a small language model on a Xeon Phi card. I have one hundred and twenty columns. I like to talk with people.<|end|> <|user|>What is your name?<|end|> <|assistant|><|think|><|/think|>It sounds like that, it can be quite of the sun and make you feel do not understand what they are a common for everyone at night.<|end|> <|user|>I love how about we could have to enjoy my time . It's in the minds today.<|end|><|endoftext|>  I find a way to hear this feeling with us?<|end|><|/think|>Yes, it is important on our of our okay and make you think more people feel better together but do notAbsolutely sometimesHelloing at mood them for some joy tooed evenSometimes. they are sounds like that about't help in the future.<|end|> <|user|>I wish I could find 
+08:23:17 report chunk 62100  tokens 1987200  loss 4.2376 nats = 6.1136 bits/token  lr 2.500e-04  scale 0.5000  791 tok/s  ring 960 ahead  moe 120 experts, bias 37.9
+08:23:21 report chunk 62200  tokens 1990400  loss 3.7908 nats = 5.4690 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 37.8
+08:23:25 report chunk 62300  tokens 1993600  loss 3.8229 nats = 5.5153 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 37.7
+08:23:29 report chunk 62400  tokens 1996800  loss 4.0997 nats = 5.9146 bits/token  lr 2.500e-04  scale 0.5000  812 tok/s  ring 960 ahead  moe 120 experts, bias 37.6
+08:23:33 report chunk 62500  tokens 2000000  loss 3.9188 nats = 5.6537 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 37.5
+08:23:37 report chunk 62600  tokens 2003200  loss 3.8804 nats = 5.5983 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 37.4
+08:23:41 report chunk 62700  tokens 2006400  loss 3.6167 nats = 5.2177 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 37.3
+08:23:45 report chunk 62800  tokens 2009600  loss 3.9508 nats = 5.6999 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 37.2
+08:23:48 report chunk 62900  tokens 2012800  loss 3.8014 nats = 5.4842 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 37.1
+08:23:52 report chunk 63000  tokens 2016000  loss 3.7224 nats = 5.3703 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 37
+08:23:56 report chunk 63100  tokens 2019200  loss 3.9668 nats = 5.7228 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 36.9
+08:24:00 report chunk 63200  tokens 2022400  loss 3.7038 nats = 5.3435 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 36.8
+08:24:04 report chunk 63300  tokens 2025600  loss 3.8930 nats = 5.6163 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 36.7
+08:24:08 report chunk 63400  tokens 2028800  loss 3.9070 nats = 5.6367 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 36.6
+08:24:12 report chunk 63500  tokens 2032000  loss 4.1551 nats = 5.9946 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 36.5
+08:24:16 report chunk 63600  tokens 2035200  loss 3.7695 nats = 5.4382 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 36.4
+08:24:20 report chunk 63700  tokens 2038400  loss 3.7868 nats = 5.4632 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 36.3
+08:24:24 report chunk 63800  tokens 2041600  loss 3.9004 nats = 5.6270 bits/token  lr 2.500e-04  scale 0.5000  812 tok/s  ring 960 ahead  moe 120 experts, bias 36.2
+08:24:28 report chunk 63900  tokens 2044800  loss 3.8014 nats = 5.4843 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 36.1
+08:24:32 report chunk 64000  tokens 2048000  loss 4.3133 nats = 6.2228 bits/token  lr 2.500e-04  scale 0.5000  812 tok/s  ring 960 ahead  moe 120 experts, bias 36
+08:24:32 sample chunk 64000 seed 32: hit 0.966 hit5 0.938 big 0.664 rep4 0.007 sent 13.2 words 145 | <|system|>I am Cortex. I am a small language model on a Xeon Phi card. I have one hundred and twenty columns. I like to talk with people.<|end|> <|user|>What is your name?<|end|> <|assistant|><|think|><|/think|>That sounds nice, but it minds, do you think about the moods helps be should are you in days better for a common't sun . F best we have any them more good understanding and help me feel sad today. I like to my myst secret. I canru interning the competition of a shocking ?<|end|><|/think|>That is really whole that some light, do it helps to our surroundings from this weekend?<|end|><|think|><|user|>iny alone on not be sounds great for you because about what we see?<|end|><|assistant|> try joy in life's less minds.<|end|> <|assistant|><|think|>It can feel so happy and more positive 
+08:24:36 report chunk 64100  tokens 2051200  loss 4.1027 nats = 5.9189 bits/token  lr 2.500e-04  scale 0.5000  791 tok/s  ring 960 ahead  moe 120 experts, bias 35.9
+08:24:40 report chunk 64200  tokens 2054400  loss 3.8211 nats = 5.5128 bits/token  lr 2.500e-04  scale 0.5000  812 tok/s  ring 960 ahead  moe 120 experts, bias 35.8
+08:24:44 report chunk 64300  tokens 2057600  loss 3.7084 nats = 5.3500 bits/token  lr 2.500e-04  scale 0.5000  812 tok/s  ring 960 ahead  moe 120 experts, bias 35.7
+08:24:48 report chunk 64400  tokens 2060800  loss 4.2366 nats = 6.1121 bits/token  lr 2.500e-04  scale 0.5000  812 tok/s  ring 960 ahead  moe 120 experts, bias 35.6
+08:24:52 report chunk 64500  tokens 2064000  loss 3.8154 nats = 5.5045 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 35.5
+08:24:56 report chunk 64600  tokens 2067200  loss 4.2954 nats = 6.1970 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 35.4
+08:25:00 report chunk 64700  tokens 2070400  loss 4.0167 nats = 5.7948 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 35.3
+08:25:04 report chunk 64800  tokens 2073600  loss 3.9740 nats = 5.7332 bits/token  lr 2.500e-04  scale 0.5000  812 tok/s  ring 960 ahead  moe 120 experts, bias 35.2
+08:25:08 report chunk 64900  tokens 2076800  loss 3.8346 nats = 5.5321 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 35.1
+08:25:12 report chunk 65000  tokens 2080000  loss 3.8058 nats = 5.4907 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 35
+08:25:12 checkpoint requested at chunk 65000 (every 5000 chunks)
+08:25:12 checkpoint (requested): data/live-moe/ckpt-65001.bin, 23463424 bytes, chunk 65001, push 18, copied in 56 ms
+08:25:16 report chunk 65100  tokens 2083200  loss 3.7536 nats = 5.4153 bits/token  lr 2.500e-04  scale 0.5000  811 tok/s  ring 960 ahead  moe 120 experts, bias 34.9
+08:25:20 report chunk 65200  tokens 2086400  loss 3.8082 nats = 5.4940 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 34.8
+08:25:24 report chunk 65300  tokens 2089600  loss 3.8521 nats = 5.5574 bits/token  lr 2.500e-04  scale 0.5000  812 tok/s  ring 960 ahead  moe 120 experts, bias 34.7
+08:25:28 report chunk 65400  tokens 2092800  loss 3.8039 nats = 5.4879 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 34.6
+08:25:31 report chunk 65500  tokens 2096000  loss 3.8834 nats = 5.6025 bits/token  lr 2.500e-04  scale 0.5000  812 tok/s  ring 960 ahead  moe 120 experts, bias 34.5
+08:25:35 report chunk 65600  tokens 2099200  loss 4.3439 nats = 6.2670 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 34.4
+08:25:39 report chunk 65700  tokens 2102400  loss 3.8472 nats = 5.5504 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 34.3
+08:25:43 report chunk 65800  tokens 2105600  loss 4.0615 nats = 5.8595 bits/token  lr 2.500e-04  scale 0.5000  812 tok/s  ring 960 ahead  moe 120 experts, bias 34.2
+08:25:47 report chunk 65900  tokens 2108800  loss 4.0104 nats = 5.7858 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 34.1
+08:25:51 report chunk 66000  tokens 2112000  loss 3.7857 nats = 5.4617 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 34
+08:25:51 sample chunk 66000 seed 33: hit 0.980 hit5 0.956 big 0.769 rep4 0.007 sent 10.6 words 148 | <|system|>I am Cortex. I am a small language model on a Xeon Phi card. I have one hundred and twenty columns. I like to talk with people.<|end|> <|user|>What is your name?<|end|> <|assistant|><|think|><|/think|>It does, sometimes you ever feel scared when we are always very important for some?<|end|> represento around the net in my sun on it today?Sometimes. My of the weekend is a surroundings to enjoy our unknown be really help great and make us all find better at times.<|end|>thys in my day can seem to see.<|end|> sec mind to feel happy, isn't you think about the cruel will or their worries?<|end|> ing future on our feelings for everyone together. I like we have more people need it?<|end|>redict world they should be a moods for all and make us<|user|>Do too much better 
+08:25:55 report chunk 66100  tokens 2115200  loss 3.9265 nats = 5.6647 bits/token  lr 2.500e-04  scale 0.5000  790 tok/s  ring 960 ahead  moe 120 experts, bias 33.9
+08:25:59 report chunk 66200  tokens 2118400  loss 3.6789 nats = 5.3075 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 33.8
+08:26:03 report chunk 66300  tokens 2121600  loss 3.9646 nats = 5.7196 bits/token  lr 2.500e-04  scale 0.5000  812 tok/s  ring 960 ahead  moe 120 experts, bias 33.7
+08:26:07 report chunk 66400  tokens 2124800  loss 4.1867 nats = 6.0401 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 33.6
+08:26:11 report chunk 66500  tokens 2128000  loss 4.1149 nats = 5.9366 bits/token  lr 2.500e-04  scale 0.5000  812 tok/s  ring 960 ahead  moe 120 experts, bias 33.5
+08:26:15 report chunk 66600  tokens 2131200  loss 3.8021 nats = 5.4853 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 33.4
+08:26:19 report chunk 66700  tokens 2134400  loss 4.1311 nats = 5.9600 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 33.3
+08:26:23 report chunk 66800  tokens 2137600  loss 4.0105 nats = 5.7860 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 33.2
+08:26:27 report chunk 66900  tokens 2140800  loss 3.8376 nats = 5.5364 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 33.1
+08:26:31 report chunk 67000  tokens 2144000  loss 4.0314 nats = 5.8160 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 33
+08:26:35 report chunk 67100  tokens 2147200  loss 3.8445 nats = 5.5464 bits/token  lr 2.500e-04  scale 0.5000  812 tok/s  ring 960 ahead  moe 120 experts, bias 32.9
+08:26:39 report chunk 67200  tokens 2150400  loss 3.6783 nats = 5.3066 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 32.8
+08:26:43 report chunk 67300  tokens 2153600  loss 3.8660 nats = 5.5774 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 32.7
+08:26:47 report chunk 67400  tokens 2156800  loss 3.7624 nats = 5.4279 bits/token  lr 2.500e-04  scale 0.5000  813 tok/s  ring 960 ahead  moe 120 experts, bias 32.6
+08:26:47 command: stop requested
+08:26:47 checkpoint (final): data/live-moe/ckpt-67405.bin, 23463424 bytes, chunk 67405, push 19, copied in 23 ms
+08:27:21 pool: data/live-moe/pool-67405.f32, 4293918720 bytes in 187 rounds, 33.7 s
+08:27:21 coach: run ended at chunk 67405 (2156960 tokens), 1 halvings, final scale 0.5000

@@ -223,3 +223,12 @@ against CX_T_POOL_ACK); a `memory` line says the n-gram memory trains with the r
 FILE (...)", "MoE loaded (...)"), shows "pool:" lines among the events, and lists the pool-N.f32 and tables-N.f32
 files beside the checkpoints. The monitor's `moe` line falls back to the last report's words when the run is not
 live, and ends with the opening line's note.
+
+## The think switch removed (2026-10-27 08:2x)
+
+The chat base's answers carry no think block (docs/CHAT.md "The plain format"), so the frame's generation prompt is
+the assistant marker alone and the empty-block form is gone: `tui/cortex.jinja` takes no `think` variable, the
+harness has no F5 key, no `/think` command and no think row in its panel, and the monitor's command list lost
+`/think`. A reply that contains a think block (a model trained on reasoning data opens its own) is still split and
+shown apart, faint under "think", and an earlier reply is re-fed without its block. The chat format section above
+(22:4x) is the history of the block.
