@@ -168,3 +168,27 @@ section showed them all; ctrl+q exits 0 with an empty stderr. The same run verif
 passing): the log parse, the live words' offsets, an unreadable part, the talk's finish reasons, the frame over
 system and dialogue, the knobs and the coach lines, every size from 40 x 10 to 200 x 60 with and without a run and
 each chart choice, the say line present and the talk shown from 80 x 24, the say line's refusal without a client.
+
+## The chat format and the think block (2026-10-26 22:4x, "Add a reasoning state to the model just like Claude or Qwen models have")
+
+The model trained from scratch (docs/CHAT.md) answers in `<|assistant|><|think|>REASONING<|/think|>ANSWER<|end|>`,
+each marker one token. `tui/cortex.jinja` is now that format: an optional `<|system|>` message first (a short
+identity line stands in when none is given), `<|user|>` and `<|assistant|>` turns each closed by `<|end|>` and a
+newline, then `<|assistant|>` for the reply, with `<|think|><|/think|>` appended when the think mode is off; the
+export `stop` is `<|end|>`, so the client ends the reply before the marker. `frame::render` takes `think`;
+`chat::split_think` cuts a reply into its thinking and its answer (an open block streams as thinking); the prompt
+builder re-feeds earlier replies without their think block; `/think on|off` (f5 in the harness) sets the mode and
+the side panel shows it; `--vocab FILE` passes the chat vocabulary to the client (the side panel names it). The
+conversation draws the thinking faint and italic under "think" and the answer bold under "cortex"; a reply's note
+says "the end marker" when it stopped at `<|end|>`.
+
+Checked 22:5x in tmux (120 x 42; the session's think-check.sh and think-check2.sh) against the run from scratch,
+fifteen minutes old: the client encodes `<|user|>Hi<|end|>\n<|assistant|>` as 6 tokens (the four markers, "Hi",
+the newline); a turn from the say line with the CLAUDE.md system prompt = 103 tokens in 1.07 s at 2,672 tok/s
+overall (prompt 2,769 tokens, card 374 us and host 11 us a token), ending at the end marker; with the stories'
+orchestra forced on, 38 tokens in 1.06 s (host 141 us a token). A first attempt at 22:47 produced nothing for 16 s
+and did not reproduce afterwards (both variants under 1.1 s); the one difference between the attempts was the page
+cache, which the data work had just churned, with the harness loading the 470 MB stories' count model and the 23 MB
+word list from the disk per turn. Those tables are indexed by the stories' token ids in any case, so a `--vocab`
+of its own now switches the default orchestra off (`chat::Config::check`; `--orchestra NGC` keeps one on purpose).
+Tests: 22 in the library, 2 in the monitor.

@@ -1,0 +1,2 @@
+# the run from scratch (data/chat-scratch/train.u16, 31.55M tokens of Gryphe/Opus-4.6-Reasoning-24k in the chat format, lr 3e-3, window 100, halvings 3): data/live-scratch/ckpt-N.bin on data/chat-scratch/valid.u16[0..27447) per 25,000 chunks; the final on 82,334 tokens
+ref-loss: data/live-scratch/ckpt-init.bin on data/chat-scratch/valid.u16[0..27447): 8.5218 nats = 12.2944 bits/token over 27446 predictions, top-1 0.0003, 107.6 s

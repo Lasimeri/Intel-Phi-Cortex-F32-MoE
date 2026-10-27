@@ -363,3 +363,12 @@ this model, and a chat fine-tune on more conversational data in the frame's shap
 run. The user's direction at 22:09: no more story training; the model is to be a chat model. The chat-only run
 (four epochs of the 4,822 conversations at 1e-3, docs/CHAT.md) runs from the chat pass's final checkpoint; its
 held-out curve decides whether more epochs or more conversations come next.
+
+## 22:4x: from scratch, chat format with a think block
+
+The user's directions at 22:18 to 22:22: a chat model from the Opus 4.6 distills from scratch (no stories, not even
+their tokenizer), a well-rated set, a reasoning state like Claude's or Qwen's. Built: the marker format with seven
+special tokens in the BPE, the converter for reasoning fields and the no-think share, a fresh-init checkpoint
+writer, the chat vocabulary, the frame and the talk with the think block, `--vocab`. Running: the one-epoch run on
+Gryphe's 24k set (31.55M tokens, lr 3e-3, 100-report windows) with its held-out curve in results/scratch-loss.log.
+docs/CHAT.md has the numbers.

@@ -47,6 +47,8 @@ pub struct Request {
     pub cortex: String,
     /// The orchestrator's count model and word list, both relative to the tree, or none for the plain model.
     pub orchestra: Option<(String, String)>,
+    /// The BPE vocabulary file, relative to the tree, when not the client's default.
+    pub vocab: Option<String>,
     pub prompt: String,
     /// The reply ends before this string (the frame's next speaker label), when the frame exports one.
     pub stop: Option<String>,
@@ -79,6 +81,9 @@ pub fn args_of(r: &Request) -> Vec<String> {
     }
     if let Some(stop) = &r.stop {
         a.extend(["--stop".into(), stop.clone()]);
+    }
+    if let Some(vocab) = &r.vocab {
+        a.extend(["--vocab".into(), vocab.clone()]);
     }
     a
 }
@@ -150,7 +155,7 @@ mod tests {
 
     #[test]
     fn builds_the_client_arguments() {
-        let r = Request { tree: ".".into(), cortex: "c".into(), orchestra: Some(("n.ngc".into(), "w.txt".into())), prompt: "Once".into(), stop: Some("\nHuman:".into()), ngen: 64, seed: 5, sampling: Sampling::default() };
-        assert_eq!(args_of(&r).join(" "), "--live Once 64 --no-echo --stop-eot --seed 5 --temp 0.5 --topk 75 --topp 0.95 --minp 0.05 --rp 1.2 --orchestra n.ngc --words w.txt --stop \nHuman:");
+        let r = Request { tree: ".".into(), cortex: "c".into(), orchestra: Some(("n.ngc".into(), "w.txt".into())), vocab: Some("v.txt".into()), prompt: "Once".into(), stop: Some("\nHuman:".into()), ngen: 64, seed: 5, sampling: Sampling::default() };
+        assert_eq!(args_of(&r).join(" "), "--live Once 64 --no-echo --stop-eot --seed 5 --temp 0.5 --topk 75 --topp 0.95 --minp 0.05 --rp 1.2 --orchestra n.ngc --words w.txt --stop \nHuman: --vocab v.txt");
     }
 }

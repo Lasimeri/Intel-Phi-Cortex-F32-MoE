@@ -16,12 +16,27 @@ use crate::frame::{self, Message, Rendered};
 
 /// The story separator of the BPE (tools/bpe.c): one token; its literal in a prompt tokenises back to it.
 pub const EOT: &str = "<|endoftext|>";
+/// The think block's markers, one token each in the chat vocabulary: a reply is `<|think|>REASONING<|/think|>ANSWER`.
+pub const THINK_OPEN: &str = "<|think|>";
+pub const THINK_CLOSE: &str = "<|/think|>";
 pub const NGEN_MAX: u32 = 2048;
+
+/// A reply split into its thinking and its answer: the text between the think markers (to the end when the block
+/// is still open) and what follows the close; a reply without the markers is all answer.
+pub fn split_think(text: &str) -> (&str, &str) {
+    let Some(open) = text.find(THINK_OPEN) else { return ("", text) };
+    let body = &text[open + THINK_OPEN.len()..];
+    match body.find(THINK_CLOSE) {
+        Some(close) => (body[..close].trim(), body[close + THINK_CLOSE.len()..].trim_start()),
+        None => (body.trim_start(), ""),
+    }
+}
 
 const OPTIONS: &str = "  --tree DIR        the Cortex tree the paths are relative to (default: the current directory)
   --cortex PATH     the host client (build/host/cortex)
   --orchestra NGC   the orchestrator's n-gram count model (data/stories-10m.ngc), or off for the plain model
   --words LIST      the orchestrator's word list (data/wordlist-stories.txt)
+  --vocab FILE      the BPE vocabulary the client encodes and decodes with (its own default: data/bpe/vocab4096.txt)
   --system FILE     the system message of every turn (~/CLAUDE.md when it exists), or off
   --template FILE   the frame of every turn, a Jinja template (tui/cortex.jinja): the identity, the labels, the stop
   --name NAME       the identity's name in the frame (the template's own default when not given)
@@ -34,9 +49,9 @@ const OPTIONS: &str = "  --tree DIR        the Cortex tree the paths are relativ
 
 pub fn usage(program: &str) -> String {
     format!(
-        "usage: {program} [--tree DIR] [--cortex PATH] [--orchestra NGC|off] [--words LIST] [--system FILE|off]
-                  [--template FILE] [--name NAME] [--cmd FILE] [--log FILE] [--ckdir DIR] [--part FILE]
-                  [--ngen N] [--ctx CHARS]\n{OPTIONS}"
+        "usage: {program} [--tree DIR] [--cortex PATH] [--orchestra NGC|off] [--words LIST] [--vocab FILE]
+                  [--system FILE|off] [--template FILE] [--name NAME] [--cmd FILE] [--log FILE] [--ckdir DIR]
+                  [--part FILE] [--ngen N] [--ctx CHARS]\n{OPTIONS}"
     )
 }
 
@@ -46,7 +61,12 @@ pub struct Config {
     pub tree: String,
     pub cortex: String,
     pub orchestra: Option<String>,
+    /// `--orchestra` was given: the count model is meant for this model (the default one belongs to the stories'
+    /// vocabulary and is switched off for a model with its own).
+    pub orchestra_given: bool,
     pub words: String,
+    /// The client's BPE vocabulary, when not its default (a model trained with its own tokenizer).
+    pub vocab: Option<String>,
     pub system: Option<PathBuf>,
     pub template: String,
     pub name: Option<String>,
@@ -73,7 +93,9 @@ impl Config {
             tree: ".".into(),
             cortex: "build/host/cortex".into(),
             orchestra: Some("data/stories-10m.ngc".into()),
+            orchestra_given: false,
             words: "data/wordlist-stories.txt".into(),
+            vocab: None,
             system: home_claude,
             template: "tui/cortex.jinja".into(),
             name: None,
@@ -92,8 +114,10 @@ impl Config {
                 "--orchestra" => {
                     let v = value("--orchestra")?;
                     c.orchestra = if v == "off" { None } else { Some(v) };
+                    c.orchestra_given = true;
                 }
                 "--words" => c.words = value("--words")?,
+                "--vocab" => c.vocab = Some(value("--vocab")?),
                 "--system" => {
                     let v = value("--system")?;
                     c.system = if v == "off" { None } else { Some(PathBuf::from(expand_home(&v))) };
@@ -122,12 +146,22 @@ impl Config {
             return Err(format!("{} not found: run ./build.sh in the tree, or pass --tree /mnt/Phi-Cortex-F32-MoE", bin.display()));
         }
         self.cortex = bin.to_string_lossy().into_owned();
+        if self.vocab.is_some() && !self.orchestra_given {
+            // the default count model and word list are the stories' vocabulary's: on other ids they mix and filter
+            // the wrong tokens
+            self.orchestra = None;
+        }
         if let Some(ngc) = &self.orchestra {
             if !self.in_tree(ngc).is_file() {
                 return Err(format!("orchestra file {ngc} not found in {}: pass --orchestra off or another count model", self.tree));
             }
             if !self.in_tree(&self.words).is_file() {
                 return Err(format!("word list {} not found in {}: pass --words LIST", self.words, self.tree));
+            }
+        }
+        if let Some(v) = &self.vocab {
+            if !self.in_tree(v).is_file() {
+                return Err(format!("vocabulary {v} not found in {}: pass --vocab FILE", self.tree));
             }
         }
         if let Some(s) = &self.system {
@@ -220,6 +254,8 @@ pub struct Chat {
     pub orchestra_on: bool,
     pub system_on: bool,
     pub system_chars: usize,
+    /// The model opens its think block itself (true), or is given an empty one and answers at once (false).
+    pub think: bool,
     pub fixed_seed: Option<u64>,
     seed_next: u64,
     /// The frame's stop of the turn in flight.
@@ -242,6 +278,7 @@ impl Chat {
             orchestra_on: cfg.orchestra.is_some(),
             system_on: cfg.system.is_some(),
             system_chars,
+            think: true,
             fixed_seed: None,
             seed_next: seed_base,
             stop: None,
@@ -281,7 +318,7 @@ impl Chat {
         self.turns.push(turn);
         let orchestra = if self.orchestra_on { cfg.orchestra.clone().map(|n| (n, cfg.words.clone())) } else { None };
         cortex::start(
-            Request { tree: cfg.tree.clone(), cortex: cfg.cortex.clone(), orchestra, prompt, stop, ngen: self.ngen, seed, sampling: self.sampling.clone() },
+            Request { tree: cfg.tree.clone(), cortex: cfg.cortex.clone(), orchestra, vocab: cfg.vocab.clone(), prompt, stop, ngen: self.ngen, seed, sampling: self.sampling.clone() },
             tx,
         );
         Ok(())
@@ -311,8 +348,8 @@ impl Chat {
     }
 
     /// The prompt of a turn: the frame rendered with the system message (the system prompt file as it is now), the
-    /// dialogue and the model's label last; the oldest exchanges are dropped until the dialogue's characters fit
-    /// `ctx_chars`.
+    /// dialogue (earlier replies without their think blocks) and the assistant marker last; the oldest exchanges are
+    /// dropped until the dialogue's characters fit `ctx_chars`.
     pub fn prompt(&mut self, cfg: &Config) -> Result<Rendered, String> {
         let path = cfg.in_tree(&cfg.template);
         let src = fs::read_to_string(&path).map_err(|e| format!("the frame {}: {e}", path.display()))?;
@@ -324,14 +361,17 @@ impl Chat {
         let dialogue: Vec<Message> = self
             .turns
             .iter()
-            .map(|t| Message { role: if t.who == Who::You { "user" } else { "assistant" }, content: t.text.clone() })
+            .map(|t| match t.who {
+                Who::You => Message { role: "user", content: t.text.clone() },
+                Who::Cortex => Message { role: "assistant", content: split_think(&t.text).1.to_string() },
+            })
             .collect();
         let name = cfg.name.clone();
-        let base = frame::render(&src, &head, name.as_deref())?.prompt.chars().count();
+        let base = frame::render(&src, &head, name.as_deref(), self.think)?.prompt.chars().count();
         let mut skip = 0;
         loop {
             let all: Vec<Message> = head.iter().chain(&dialogue[skip..]).cloned().collect();
-            let r = frame::render(&src, &all, name.as_deref())?;
+            let r = frame::render(&src, &all, name.as_deref(), self.think)?;
             if r.prompt.chars().count().saturating_sub(base) <= self.ctx_chars || dialogue.len() - skip <= 1 {
                 return Ok(r);
             }
@@ -402,6 +442,10 @@ impl Chat {
             "greedy" => {
                 self.sampling.greedy = on_off(arg).unwrap_or(!self.sampling.greedy);
                 Ok(if self.sampling.greedy { "greedy on: the argmax token every step" } else { "greedy off: sampling" }.to_string())
+            }
+            "think" => {
+                self.think = on_off(arg).unwrap_or(!self.think);
+                Ok(if self.think { "think on: the model reasons in its think block before the answer" } else { "think off: an empty think block is given, the model answers at once" }.to_string())
             }
             "orchestra" => {
                 if cfg.orchestra.is_none() {
@@ -545,7 +589,9 @@ pub mod tests {
             tree: ".".into(),
             cortex: "c".into(),
             orchestra: None,
+            orchestra_given: false,
             words: "w".into(),
+            vocab: None,
             system: None,
             template: "cortex.jinja".into(),
             name: None,
@@ -602,6 +648,53 @@ pub mod tests {
         assert_eq!(chat.system_chars, 10);
         chat.ctx_chars = 20; // the oldest exchange is dropped: the dialogue is then "user: and then?\n"
         assert_eq!(chat.prompt(&cfg).unwrap().prompt, "system: Be brief.\nuser: and then?\nA:");
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_reply_splits_into_its_thinking_and_its_answer() {
+        assert_eq!(split_think("<|think|>Let me see.<|/think|>Thirty."), ("Let me see.", "Thirty."));
+        assert_eq!(split_think("<|think|><|/think|>Thirty."), ("", "Thirty."));
+        assert_eq!(split_think("<|think|>Let me"), ("Let me", ""));
+        assert_eq!(split_think("Thirty."), ("", "Thirty."));
+        let mut cfg = test_config();
+        let dir = std::env::temp_dir().join(format!("cortex-tui-think-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let tpl = dir.join("frame.jinja");
+        fs::write(&tpl, "{% for m in messages %}{{ m.role }}: {{ m.content }}\n{% endfor %}{% if not think %}[no think]{% endif %}").unwrap();
+        cfg.template = tpl.to_string_lossy().into_owned();
+        let mut chat = Chat::new(&cfg);
+        chat.turns.push(Turn::new(Who::You, "hi".into()));
+        let mut c = Turn::new(Who::Cortex, String::new());
+        c.append(b"<|think|>A greeting.<|/think|>Hello.");
+        c.finish(None, false);
+        chat.turns.push(c);
+        chat.turns.push(Turn::new(Who::You, "and then?".into()));
+        assert_eq!(chat.prompt(&cfg).unwrap().prompt, "user: hi\nassistant: Hello.\nuser: and then?\n", "an earlier reply is re-fed without its think block");
+        assert_eq!(chat.setting(&mut cfg, "think", Some("off")).unwrap().is_ok(), true);
+        assert!(chat.prompt(&cfg).unwrap().prompt.ends_with("[no think]"));
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_vocabulary_of_its_own_switches_the_default_orchestra_off() {
+        let dir = std::env::temp_dir().join(format!("cortex-tui-vocab-{}", std::process::id()));
+        fs::create_dir_all(dir.join("build/host")).unwrap();
+        fs::write(dir.join("build/host/cortex"), "").unwrap();
+        fs::write(dir.join("v.txt"), "cxbpe 4096 specials 7\n").unwrap();
+        fs::write(dir.join("t.jinja"), "").unwrap();
+        fs::write(dir.join("n.ngc"), "").unwrap();
+        let args = |extra: &[&str]| {
+            let mut a = vec!["--tree".to_string(), dir.to_string_lossy().into_owned(), "--template".into(), "t.jinja".into(), "--vocab".into(), "v.txt".into(), "--system".into(), "off".into()];
+            a.extend(extra.iter().map(|s| s.to_string()));
+            a.into_iter()
+        };
+        let mut c = Config::from_args("t", args(&[])).unwrap();
+        c.check().unwrap();
+        assert_eq!(c.orchestra, None, "the stories' count model is off for a model with its own vocabulary");
+        let mut c = Config::from_args("t", args(&["--orchestra", "n.ngc", "--words", "v.txt"])).unwrap();
+        c.check().unwrap();
+        assert_eq!(c.orchestra.as_deref(), Some("n.ngc"), "an orchestra named explicitly stays");
         fs::remove_dir_all(&dir).unwrap();
     }
 

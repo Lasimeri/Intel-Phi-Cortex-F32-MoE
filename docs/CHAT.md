@@ -164,3 +164,77 @@ conversations.
 Files: the token streams are `.u16` because a BPE id of the 4,096-word vocabulary is one 16-bit unsigned integer
 (two bytes per token); the weights are F32 everywhere, on the card's VPU and in the checkpoints (23,463,424 bytes =
 5,865,856 parameters x 4).
+
+## From scratch, with a think block (22:18 to 22:4x)
+
+22:18, the user: a chat model from the Opus 4.6 distills, from scratch, nothing of the stories as a base. 22:20: a
+better, well-rated set instead of the fabricated scenarios. 22:22: a reasoning state like Claude's or Qwen's, the
+ingest formatting the headers and footers properly. Three decisions follow.
+
+**The data.** The Hub's Opus 4.6 sets ranked by likes (22:21): nohurry's filtered 3,000-row copy (662 likes; its own
+card says to use the original), angrygiraffe's 8.7k (460), Roman1111111's 10,000 (403, math only), Crownelius's
+3,300 (338), TeichAI's 887 (94), Jackrong's 9,000 (88), Gryphe's 24k (21 likes, 309 downloads), HelioAI's 50,000 (5,
+Russian). Taken: **Gryphe/Opus-4.6-Reasoning-24k**, the verified, deduplicated, normalised union of the best-rated
+ones (angrygiraffe 8,695 rows, Roman1111111 7,382, voidful 3,698, CompactAI 2,056, ...), 24,138 rows, English, one
+schema with the reasoning trace in its own field: `data/opus46/gryphe-24k/Opus-4.6-Reasoning-24k.jsonl` (141 MB).
+Every distill is synthetic by nature (model outputs); the gain over the earlier sets is curation and real prompt
+sources (GSM8K, MATH, categorised instruction prompts). The relational and merged sets are dropped.
+
+**The format**, the model's reasoning state. Seven markers, each one token of the chat vocabulary (`tools/bpe.c`:
+`<|endoftext|>` 4095, `<|system|>` 4094, `<|user|>` 4093, `<|assistant|>` 4092, `<|end|>` 4091, `<|think|>` 4090,
+`<|/think|>` 4089; a vocabulary file says how many it holds, `cxbpe 4096 specials 7`, the stories' file keeps its one):
+
+    <|system|>TEXT<|end|>
+    <|user|>TEXT<|end|>
+    <|assistant|><|think|>REASONING<|/think|>ANSWER<|end|>
+    <|endoftext|>
+
+`tools/chat-text.c` (rewritten) reads the reasoning from `reasoning_content` | `thinking` | `reasoning` or from
+inline `<think>` blocks, keeps the system message (first only), brings typography and common math symbols to ASCII,
+and writes a quarter of the conversations (`--no-think 250`, drawn by a hash of the first user turn) and every
+answer without reasoning in the no-think form, an empty think block, so the model learns both modes as Qwen3 does.
+On the 24,138 rows: 23,463 conversations kept (28,951 answers, all with reasoning in the data, 5,898 drawn
+no-think, 16,637 with a system message; 106,842,461 bytes, 29,751,611 of reasoning); skipped 265 over 16,000
+characters in a field and 410 non-ASCII. Four literal "<|system|>" strings inside turns (a conversation about chat
+templates) encode as the marker; left as they are.
+
+**The tokenizer**, trained on this text (nothing of the stories): 258,940 unique words, 3,833 merges in 51.1 s,
+`data/chat-scratch/vocab-chat4096.txt`. A trap found by counting the markers in the ids: a marker glued to the
+punctuation before it (`answer.<|end|>`) was scanned as part of that punctuation run, so the first vocabulary had
+1,830 `<|end|>` tokens where 72,193 belong; the pre-tokeniser now stops any run where a marker starts, and the
+counts match exactly (`<|end|>` 72,193 = 16,637 + 2 x 27,778; `<|/think|>` 27,778 = the answers). The stories'
+vocabulary tokenizes identically to the old binary (`cmp` of 1,632,283 ids). The split holds out the last 5 % of the
+conversations (1,173): `train.txt` 99,113,343 bytes -> `train.u16` 31,553,352 tokens (3.141 bytes/token, 222,236
+markers); `valid.txt` 7,729,118 bytes -> 2,590,939 tokens; the decode round trip byte-identical.
+
+**The run.** `tools/init-ckpt.c` writes a fresh initialisation (cx_col_init per column, cg = 1, cx_emb_init, the
+embedding in the card's blocks) as a checkpoint: `data/live-scratch/ckpt-init.bin`, 12.27 bits/token on 2,000
+held-out ids, top-1 0 (untrained). Loaded by `cortex --load` (confirmed in the output) and trained by
+
+    build/host/coach data/chat-scratch/train.u16 --lr 0.003 --every 100 --window 100 --halvings 3 --no-stop \
+        --save-every 5000 --sample-every 2000 --vocab data/chat-scratch/vocab-chat4096.txt \
+        --prompt $'<|user|>What is your name?<|end|>\n<|assistant|>' --cmd results/live.cmd --log results/live.log \
+        --ckdir data/live-scratch
+
+from 22:40:00: 986,042 chunks = 31,553,344 tokens, one epoch, about 7.2 hours at 1,207 to 1,213 tok/s; the policy
+halves the rate on a plateau of 100-report windows (320,000 tokens each; the first start with 10-report windows
+halved at chunk 3,090 on the noise between conversations, so it was restarted) and never stops; a checkpoint every
+5,000 chunks; the samples are the plain model answering the prompt. The first windows: 10.10 bits/token at chunk
+100, 9.52 to 9.77 over chunks 300 to 500. Measured as it runs (results/scratch-loss.log): the fresh checkpoint and
+every 25,000th-chunk checkpoint on the first 27,447 held-out tokens, the final checkpoint on 82,334. The loss is
+the same bit for bit at the same chunk across the starts (9.5593 at chunk 400): the init and the stream are
+deterministic.
+
+**The harness and the monitor.** `tui/cortex.jinja` frames every turn in this format (the system message as
+`<|system|>`, a short identity line when none is given, the reply ending before `<|end|>`), `/think on|off` (f5 in
+the harness) gives the model its think block to fill or an empty one, earlier replies are re-fed without their
+think block (as Qwen's template does), the talk shows the thinking faint under "think" and the answer bold under
+"cortex", and `--vocab FILE` hands the client the chat vocabulary: `tools/watch.sh --ckdir data/live-scratch
+--vocab data/chat-scratch/vocab-chat4096.txt`, the same for `tools/chat.sh`. The windows opened before 22:4x run
+the stories' vocabulary against this model and are stale.
+
+As of 22:5x: chunk 20,000 of 986,042 (640,000 tokens), 8.1 to 8.9 bits/token on the training windows at 1,204 to
+1,215 tok/s; the fresh checkpoint on the first 27,447 held-out tokens 12.2944 bits/token, top-1 0.0003
+(results/scratch-loss.log, the next points at every 25,000th-chunk checkpoint). The model's own words at fifteen
+minutes are gibberish with the markers in the right places (a think block opened and closed, an answer, the end
+marker): the format is learned before the language.

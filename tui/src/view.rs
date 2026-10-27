@@ -5,7 +5,7 @@
 //! the header and footer, the charts) are public.
 
 use crate::app::{App, Screen};
-use crate::chat::{Ended, Turn, Who, EOT};
+use crate::chat::{split_think, Ended, Turn, Who, EOT};
 use crate::editor::Editor;
 use crate::term::{theme, Frame, Span};
 use crate::wrap::wrap;
@@ -281,7 +281,7 @@ fn turn_note(t: &Turn) -> String {
     parts.push(
         match t.ended {
             Some(Ended::Story) => "the story's end",
-            Some(Ended::Label) => "the next speaker's label",
+            Some(Ended::Label) => "the end marker",
             _ => "the token limit",
         }
         .to_string(),
@@ -289,8 +289,9 @@ fn turn_note(t: &Turn) -> String {
     parts.join("  · ")
 }
 
-/// The conversation as rows of spans, `cw` wide: your lines, the model's (bold) with their note under them, the
-/// reply in flight with the spinner after its last row; a hint when there is nothing yet.
+/// The conversation as rows of spans, `cw` wide: your lines; the model's thinking (faint, under "think") and its
+/// answer (bold, under "cortex") with their note under them, the reply in flight with the spinner after its last
+/// row; a hint when there is nothing yet.
 pub fn conversation(turns: &[Turn], spin: usize, cw: usize) -> Vec<Vec<Span>> {
     let tw = cw.saturating_sub(LABEL).max(1);
     let mut conv: Vec<Vec<Span>> = Vec::new();
@@ -302,13 +303,21 @@ pub fn conversation(turns: &[Turn], spin: usize, cw: usize) -> Vec<Vec<Span>> {
                 }
             }
             Who::Cortex => {
-                let shown = t.text.replace(EOT, " ∎");
-                let shown = if shown.is_empty() && t.done { "(no words)".to_string() } else { shown };
-                let mut rows: Vec<Vec<Span>> = wrap(&shown, tw)
+                let (thinking, answer) = split_think(&t.text);
+                let mut rows: Vec<Vec<Span>> = wrap(thinking, tw)
                     .into_iter()
+                    .filter(|l| !l.is_empty() || !thinking.is_empty())
                     .enumerate()
-                    .map(|(i, l)| vec![dim(if i == 0 { "cortex " } else { "       " }), text(l).bold()])
+                    .map(|(i, l)| vec![faint(if i == 0 { "think  " } else { "       " }), faint(l).italic()])
                     .collect();
+                let answer = answer.replace(EOT, " ∎");
+                let answer = if answer.is_empty() && thinking.is_empty() && t.done { "(no words)".to_string() } else { answer };
+                if !answer.is_empty() || t.text.contains(crate::chat::THINK_CLOSE) {
+                    rows.extend(wrap(&answer, tw).into_iter().enumerate().map(|(i, l)| vec![dim(if i == 0 { "cortex " } else { "       " }), text(l).bold()]));
+                }
+                if rows.is_empty() {
+                    rows.push(vec![dim("cortex "), text("")]);
+                }
                 if !t.done {
                     if let Some(last) = rows.last_mut() {
                         last.push(dim(format!(" {}", SPIN[spin % SPIN.len()])));
@@ -327,7 +336,7 @@ pub fn conversation(turns: &[Turn], spin: usize, cw: usize) -> Vec<Vec<Span>> {
         conv.push(vec![]);
     }
     if conv.is_empty() {
-        for l in wrap("say something below: the model continues your text on the card's live weights; a ∎ marks a story's end", cw) {
+        for l in wrap("say something below: the model answers on the card's live weights, thinking first (/think off: at once)", cw) {
             conv.push(vec![dim(l)]);
         }
     }
@@ -388,6 +397,7 @@ fn side_panel(a: &App, w: usize) -> Vec<Vec<Span>> {
         p.push(kv("", format!("top-p {}  min-p {}  rp {}", s.topp, s.minp, s.rp), w));
     }
     p.push(kv("reply", format!("{} tokens at most", c.ngen), w));
+    p.push(kv("think", if c.think { "on: the model reasons first" } else { "off: an empty block, the answer at once" }, w));
     p.push(kv("context", format!("the last {} chars", group(c.ctx_chars as u64)), w));
     let orchestra = match &a.cfg.orchestra {
         Some(n) if c.orchestra_on => format!("on, {}", file_name(n)),
@@ -405,6 +415,7 @@ fn side_panel(a: &App, w: usize) -> Vec<Vec<Span>> {
         None => file_name(&a.cfg.template).to_string(),
     };
     p.push(kv("frame", frame, w));
+    p.push(kv("vocabulary", a.cfg.vocab.as_deref().map_or("the client's default".to_string(), |v| file_name(v).to_string()), w));
     p.push(kv("seed", c.fixed_seed.map_or("fresh each turn".to_string(), |s| s.to_string()), w));
     if let Some(s) = &c.last_stats {
         p.push(kv("last reply", format!("{} tok/s, card {:.0} us", group(s.tok_s.round().max(0.0) as u64), s.card_us), w));
@@ -443,7 +454,8 @@ fn chat(f: &mut Frame, a: &mut App) {
     input_row(f, (h - 3) as u16, " say › ", &mut a.input);
     let orchestra = if a.chat.orchestra_on && a.cfg.orchestra.is_some() { "orchestra off" } else { "orchestra on" };
     let greedy = if a.chat.sampling.greedy { "sampling" } else { "greedy" };
-    footer(f, a, &[("enter", "say it"), ("f2", "the run"), ("f3", orchestra), ("f4", greedy), ("pgup/pgdn", "scroll"), ("ctrl+q", "quit")]);
+    let think = if a.chat.think { "think off" } else { "think on" };
+    footer(f, a, &[("enter", "say it"), ("f2", "the run"), ("f3", orchestra), ("f4", greedy), ("f5", think), ("pgup/pgdn", "scroll"), ("ctrl+q", "quit")]);
 }
 
 /// Seconds as "12 s", "4 min", "2 h".
@@ -515,6 +527,7 @@ const HELP: &[(&str, &str)] = &[
     ("f2", "the run screen: the live run in full, the checkpoints, the coach's log"),
     ("f3", "the orchestra on or off (the host n-gram mix, word filter, repeat block)"),
     ("f4", "greedy or sampling"),
+    ("f5", "the think block on or off: the model reasons first, or is given an empty block and answers at once"),
     ("pgup pgdn ↑ ↓", "scroll the conversation"),
     ("ctrl+a ctrl+e", "the start, the end of the line"),
     ("ctrl+u ctrl+k", "erase to the start, to the end"),
@@ -524,9 +537,9 @@ const HELP: &[(&str, &str)] = &[
     ("/n N", "tokens per reply (1 to 2048)"),
     ("/ctx CHARS", "transcript characters re-fed as the prompt after the system prompt"),
     ("/temp /topk /topp /minp /rp X", "the sampler (llama.cpp's order; defaults 0.5, 75, 0.95, 0.05, 1.2)"),
-    ("/greedy /orchestra [on|off]", "as f4, f3"),
+    ("/greedy /orchestra /think [on|off]", "as f4, f3, f5"),
     ("/system [on|off|FILE]", "the system message: ~/CLAUDE.md unless told otherwise, read at every turn"),
-    ("the frame", "tui/cortex.jinja frames every turn (the identity, the labels, the stop); an edit applies to the next turn"),
+    ("the frame", "tui/cortex.jinja frames every turn in the trained format (the markers, the think block, the end marker as the stop); an edit applies to the next turn"),
     ("/seed N | auto", "a fixed seed (the same prompt gives the same reply), or fresh each turn"),
     ("/retry", "the last reply again"),
     ("/clear", "a new story: the transcript emptied"),
@@ -604,5 +617,17 @@ mod tests {
         assert_eq!(texts[0], "you    Once");
         assert_eq!(texts[2], "cortex the end. ∎"); // a piece's leading space is dropped at a row's start
         assert!(texts[3].contains("seed 0") && texts[3].contains("the story's end"));
+        let mut c = Turn::new(Who::Cortex, String::new());
+        c.append(b"<|think|>A right triangle: 5-12-13.<|/think|>Yes, and its area is 30.");
+        c.finish(Some("<|end|>"), false);
+        let rows = conversation(&[Turn::new(Who::You, "Is 5, 12, 13 a right triangle?".into()), c], 0, 60);
+        let texts: Vec<String> = rows.iter().map(|r| r.iter().map(|s| s.text.as_str()).collect()).collect();
+        assert_eq!(texts[2], "think  A right triangle: 5-12-13.");
+        assert_eq!(texts[3], "cortex Yes, and its area is 30.");
+        assert!(texts[4].contains("the end marker"), "{}", texts[4]);
+        let mut open = Turn::new(Who::Cortex, String::new());
+        open.append(b"<|think|>Let me");
+        let rows = conversation(&[open], 0, 60);
+        assert_eq!(rows[0].iter().map(|s| s.text.as_str()).collect::<String>(), "think  Let me ⠋", "an open think block streams as thinking");
     }
 }

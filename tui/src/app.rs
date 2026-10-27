@@ -112,6 +112,7 @@ impl App {
             KeyCode::Esc => self.input.set_text(""),
             KeyCode::F(3) => self.toggle("orchestra"),
             KeyCode::F(4) => self.toggle("greedy"),
+            KeyCode::F(5) => self.toggle("think"),
             KeyCode::PageUp => self.back += self.page.max(1),
             KeyCode::PageDown => self.back = self.back.saturating_sub(self.page.max(1)),
             KeyCode::Up => self.back += 1,

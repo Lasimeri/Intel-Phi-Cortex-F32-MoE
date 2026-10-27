@@ -23,12 +23,17 @@ terminal programs Rust. Public since 2026-10-26 21:5x at https://github.com/Lasi
     phi run sh -c 'echo 2700 > /proc/sys/vm/nr_hugepages; mkdir -p /tmp/cortex'   # after a card boot: it has none
     phi put build/card/cortexd /tmp/cortex/cortexd
     phi run sh -c 'cd /tmp/cortex && (CX_DMA_CHAN=3 setsid ./cortexd > cortexd.log 2>&1 < /dev/null &)'
-    build/host/cortex --load data/live/ckpt-18069.bin            # a checkpoint into the daemon (bus off)
-    build/host/coach data/chat/chat2-x4.u16 --lr 0.001 --every 100 --window 10 --halvings 0 --no-stop \
-        --save-every 5000 --sample-every 2000 --prompt $'Human: What is your name?\nCortex:' \
-        --cmd results/live.cmd --log results/live.log --ckdir data/live    # the chat-only run on the live weights
-    tools/watch.sh                     # the monitor: the run, the charts, a say line to talk and steer (or --here)
-    tools/chat.sh                      # the chat harness, in a konsole window (or --here)
+    build/host/chat-text data/opus46/gryphe-24k/Opus-4.6-Reasoning-24k.jsonl data/chat-scratch/opus24k.txt
+    build/host/bpe train data/chat-scratch/opus24k.txt 120000000 data/chat-scratch/vocab-chat4096.txt
+    build/host/bpe encode data/chat-scratch/vocab-chat4096.txt data/chat-scratch/train.txt data/chat-scratch/train.u16
+    build/host/init-ckpt data/live-scratch/ckpt-init.bin                  # fresh F32 weights, nothing trained
+    build/host/cortex --load data/live-scratch/ckpt-init.bin --vocab data/chat-scratch/vocab-chat4096.txt
+    build/host/coach data/chat-scratch/train.u16 --lr 0.003 --every 100 --window 100 --halvings 3 --no-stop \
+        --save-every 5000 --sample-every 2000 --vocab data/chat-scratch/vocab-chat4096.txt \
+        --prompt $'<|user|>What is your name?<|end|>\n<|assistant|>' \
+        --cmd results/live.cmd --log results/live.log --ckdir data/live-scratch   # the run from scratch
+    tools/watch.sh --ckdir data/live-scratch --vocab data/chat-scratch/vocab-chat4096.txt   # the monitor + say line
+    tools/chat.sh --ckdir data/live-scratch --vocab data/chat-scratch/vocab-chat4096.txt    # the chat harness
     echo stop >> results/live.cmd                                # ends the run after the current chunk, final checkpoint
     build/host/cortex --live "Once upon a time" 64 --no-echo --stop-eot --orchestra data/stories-10m.ngc
 
@@ -46,7 +51,8 @@ chunks, a framed turn of the harness 2,706 tok/s overall; the live trajectory by
 | live training: the daemon trains between clients' bursts (training context) and serves inference on the live weights (inference context); the host coach feeds the stream, reports, samples with the orchestrator, applies the plateau policy, takes commands from a file; `cortex --live` chats with the model while it trains | GATED 10-26 17:3x: trajectory and final checkpoint byte-identical to the batch trainer (also with clients generating, also under preemption); checkpoints pushed by DMA to the host; knobs verified; first live run from the 10M checkpoint (results/live.log) | card/cortexd.c, host/coach.c, host/cortex.c, card/cluster.h (cl_adam_schedule), docs/LIVE.md, tools/live-gate.sh |
 | the harness: `cortex-tui` (Rust, crossterm only, the visual style of MechJev's TUI), a chat on the live weights with the card's and the live run's numbers beside it, the coach steered from the run screen, every turn framed by `tui/cortex.jinja` (the identity, the labels, the stop) over ~/CLAUDE.md as the system message | DONE 10-26 19:3x: a framed turn 2,706 tok/s overall with 3,820 prompt tokens (1.4 s before the first generated token, the system message's cost); the coach's resume/save/pause/scale/stop verified from the run screen against a real coach session; the daemon's heartbeat added (10 Hz); `tools/chat.sh` opens it in a konsole window | tui/, tui/cortex.jinja, tools/chat.sh, docs/TUI.md, host/cortex.c (`--no-echo`, `--stop-eot`, `--stop`), card/cortexd.c (CX_HEART_S) |
 | the training monitor `cortex-watch` (the same crate and style): progress and time left, the run's numbers, the loss and the speed per report as column charts, the policy's window, the last sample, events, checkpoints; since 22:10 a say line too: the model on its live weights between chunks (the talk shared with the harness, tui/src/chat.rs) and the coach steered in the moment (/pause /resume /save /sample /scale /lr /every /stop-run; f2 to f6) | DONE 10-26 20:15 read-only, 22:10 interactive: checked in tmux against the live run (a turn of 60 tokens in 1.44 s at 2,699 tok/s; save, scale, cadence, pause and resume seen in the coach's log and the part's state word); `tools/watch.sh` opens it in a konsole window | tui/src/bin/cortex-watch.rs, tui/src/chat.rs, tui/src/live.rs (LiveState), tui/src/run.rs, tools/watch.sh, docs/TUI.md |
-| chat: Opus 4.6 conversations from the Hub (the relational set; the merged 17k set through the datasets-server API) in the frame's Human:/Cortex: shape, trained live by the coach, F32 weights throughout (a checkpoint is 23,463,424 bytes = 5,865,856 parameters x 4; the `.u16` files are token ids, two bytes each) | MEASURED 10-26 20:20: a 50/50 pass with stories (599k tokens, lr 1e-3) took the held-out chat loss from 10.6185 to 8.4801 bits/token and the stories' from 5.7531 to 6.1197 (results/chat-loss.log); a 73.5 % stories pass at 5e-4 followed (6.2M tokens; results/chat2-loss.log); since 22:09 no more stories: the chat-only run, four epochs of the 4,822 conversations at 1e-3 from the chat pass's final checkpoint (results/chat3-loss.log); 3-bit weights measured and rejected (50 bits/token) | tools/chat-text.c, tools/hubrows.c, tools/ref-loss.c, data/chat, docs/CHAT.md |
+| chat fine-tunes of the story model (superseded): Opus 4.6 conversations (the relational set; the merged 17k set through the datasets-server API) in a Human:/Cortex: shape, trained live on the stories' weights | MEASURED 10-26 20:20: a 50/50 pass with stories (599k tokens, lr 1e-3) took the held-out chat loss from 10.6185 to 8.4801 bits/token and the stories' from 5.7531 to 6.1197 (results/chat-loss.log); a 73.5 % stories pass and a chat-only pass followed; 3-bit weights measured and rejected (50 bits/token); abandoned at 22:18 by the user's direction | tools/hubrows.c, tools/ref-loss.c, docs/CHAT.md |
+| the chat model from scratch with a think block: Gryphe/Opus-4.6-Reasoning-24k (the verified union of the best-rated Opus 4.6 sets, 24,138 rows) in the marker format `<|system|>`/`<|user|>`/`<|assistant|><|think|>...<|/think|>...<|end|>` (seven special tokens in the BPE, a quarter of the conversations in the no-think form), its own 4,096-token vocabulary, fresh F32 weights from `tools/init-ckpt`, F32 throughout (a checkpoint is 23,463,424 bytes = 5,865,856 parameters x 4; the `.u16` files are token ids) | RUNNING since 10-26 22:40:00: one epoch of 31,553,352 tokens at lr 3e-3 with 100-report plateau windows, 1,207 to 1,213 tok/s, about 7.2 h; the fresh weights 12.27 bits/token, 9.5 to 9.8 over the first 500 chunks; held-out curve in results/scratch-loss.log; the pre-tokeniser trap (a marker glued to punctuation) found by counting the markers and fixed | tools/chat-text.c, tools/bpe.c, tools/init-ckpt.c, data/chat-scratch/vocab-chat4096.txt, tui/cortex.jinja, docs/CHAT.md |
 
 Card tools added on the way: tools/cdma-test.c (both DMA directions on a channel), tools/partpoll.c (the part as the
 daemon maps it), tools/dma-coh.c (a DMA write into GDDR invalidates every core's L2 copy: 0 stale words on 120
@@ -56,31 +62,32 @@ enabled by a killed owner stays unusable until the card reboots); card/cdma.c's 
 cost the card kernel's 50 us timer slack on every completion: the row DMA went from 69 to 3 us, the logits DMA from
 about 70 to 10 us per step).
 
-## The training loop as it runs (2026-10-26 22:1x)
+## The training loop as it runs (2026-10-26 22:4x)
 
 ```
 ╔═ desktop ════════════════════════════════════════════════════════════════════════════════╗
-║ Hub Opus 4.6 sets ─▶ hf download, datasets-server pages ─▶ tools/hubrows ─▶ JSONL        ║
-║ ─▶ tools/chat-text (Human:/Cortex: lines, think blocks out, ASCII) ─▶ bpe encode ─▶ .u16 ║
-║ 4,822 conversations x 4 epochs = data/chat/chat2-x4.u16, 6,199,796 tokens; no stories    ║
+║ Gryphe/Opus-4.6-Reasoning-24k, 24,138 rows ─▶ tools/chat-text ─▶ chat format (106.8 MB)  ║
+║ <|system|> <|user|> <|assistant|> <|think|> <|/think|> <|end|> ─▶ bpe train (4,096 ids)  ║
+║ ─▶ data/chat-scratch/train.u16: 31.55M tokens at 3.141 bytes/token; valid 2.59M held out ║
+║ tools/init-ckpt ─▶ ckpt-init.bin (fresh F32 weights, 12.27 bits/token) ─▶ cortex --load  ║
 ║ ┌─ cortex-watch (konsole): the run, the charts, the talk, the say line ────────────────┐ ║
 ║ │ progress + time left, loss and tok/s column charts, the window, the sample, events,  │ ║
 ║ │ checkpoints; /pause /resume /save /sample /scale /lr /every /stop-run ─▶ live.cmd    │ ║
-║ │ a line ─▶ a cortex --live turn on the live weights: 60 tokens, 1.44 s, 2,699 tok/s   │ ║
+║ │ a line ─▶ a cortex --live turn: markers in, think and answer shown, stop at <|end|>  │ ║
 ║ └──────────────────────────────────────────────────────────────────────────────────────┘ ║
-║ ┌─ cortex-tui (konsole): the chat harness, the same talk (tui/src/chat.rs) ────────────┐ ║
-║ │ turns framed by tui/cortex.jinja over ~/CLAUDE.md; its run screen steers the coach   │ ║
+║ ┌─ cortex-tui (konsole): the chat harness, the same talk, /think on|off ───────────────┐ ║
+║ │ frames turns with tui/cortex.jinja (<|system|> = ~/CLAUDE.md); steers the coach      │ ║
 ║ └──────────────────────────────────────────────────────────────────────────────────────┘ ║
 ║ ┌─ host/coach ─────────────────────────────────────────────────────────────────────────┐ ║
-║ │ chunks of 33 ids into the ring (part + 56 MiB), reports every 100 chunks, lr 1e-3    │ ║
-║ │ --halvings 0 --no-stop --save-every 5000, samples every 2,000 chunks, DMA checkpoints│ ║
+║ │ chunks of 33 ids into the ring (part + 56 MiB), reports every 100 chunks, lr 3e-3    │ ║
+║ │ windows of 100 reports, 3 halvings, --no-stop --save-every 5000, a sample per 2,000  │ ║
 ║ └──────────────────────────────────────┬───────────────────────────────────────────────┘ ║
 ╚════════════════════════════════════════╪═════════════════════════════════════════════════╝
                                          │ PCIe, DMA channel 3: the ring in; the words,
                                          │ the logits and the checkpoints (F32, 23.5 MB) out
 ╔═ Xeon Phi 7120A: cortexd (build 19:14) ╪═════════════════════════════════════════════════╗
-║ 120 threads, F32 on the VPU: 32 forwards + backward + Adam a chunk, 1,224 to 1,225 tok/s ║
-║ a client's STEP 369 us a token between chunks; CX_C_HEART every 100 ms; 2,700 huge pages ║
+║ 120 threads, F32 on the VPU: 32 forwards + backward + Adam a chunk, 1,207 to 1,213 tok/s ║
+║ a client's STEP ~369 us a token between chunks; CX_C_HEART every 100 ms; 2,700 huge pages║
 ╚══════════════════════════════════════════════════════════════════════════════════════════╝
 ```
 

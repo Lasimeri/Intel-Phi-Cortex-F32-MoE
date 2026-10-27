@@ -1,5 +1,9 @@
-# the data and checkpoints stay local (docs/CHAT.md, docs/LIVE.md and PLAN-MOE.md say how each was made)
-data/
+# the data and checkpoints stay local (docs/CHAT.md, docs/LIVE.md and PLAN-MOE.md say how each was made); the chat
+# vocabulary is the one data file in the tree, since the model is unusable without it
+data/*
+!data/chat-scratch/
+data/chat-scratch/*
+!data/chat-scratch/vocab-chat4096.txt
 results/live-gate-*/
 results/*.bin
 results/*.done

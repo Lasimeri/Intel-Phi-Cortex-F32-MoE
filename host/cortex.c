@@ -206,7 +206,7 @@ static int tokenise(const char *prompt, uint32_t *ids)
 	while (pos < n) {
 		int sp;
 		const int len = next_word(p + pos, n - pos, &sp);
-		if (sp) ids[nid++] = EOT;
+		if (sp) ids[nid++] = (uint16_t)sp;   /* a special token as its own id */
 		else { const int m = encode_word(p + pos, len, tmp); for (int i = 0; i < m; i++) ids[nid++] = tmp[i]; }
 		pos += len;
 	}

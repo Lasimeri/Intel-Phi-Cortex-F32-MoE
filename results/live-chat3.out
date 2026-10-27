@@ -187,3 +187,94 @@
 22:18:31 report chunk 14900  tokens 476800  loss 5.1713 nats = 7.4606 bits/token  lr 1.250e-04  scale 0.0625  1217 tok/s  ring 960 ahead
 22:18:32 command: scale 0.0625
 22:18:32 command: scale 0.0312
+22:18:34 report chunk 15000  tokens 480000  loss 4.7812 nats = 6.8978 bits/token  lr 3.125e-05  scale 0.0312  1216 tok/s  ring 960 ahead
+22:18:34 window: mean 7.3913 bits/token, gain -0.0614 over the previous window
+22:18:34 policy: plateau at the floor (scale 0.0312), continuing
+22:18:34 checkpoint requested at chunk 15000 (every 5000 chunks)
+22:18:34 checkpoint (requested): data/live/ckpt-15001.bin, 23463424 bytes, chunk 15001, push 21, copied in 32 ms
+22:18:37 report chunk 15100  tokens 483200  loss 5.2214 nats = 7.5329 bits/token  lr 3.125e-05  scale 0.0312  1215 tok/s  ring 960 ahead
+22:18:38 command: scale 0.0156
+22:18:39 report chunk 15200  tokens 486400  loss 4.4257 nats = 6.3850 bits/token  lr 1.563e-05  scale 0.0156  1213 tok/s  ring 960 ahead
+22:18:39 command: scale 0.0078
+22:18:40 command: scale 0.0039
+22:18:40 command: scale 0.0078
+22:18:40 command: scale 0.0156
+22:18:41 command: scale 0.0156
+22:18:41 command: scale 0.0312
+22:18:41 command: scale 0.0312
+22:18:41 command: scale 0.0625
+22:18:41 command: scale 0.0625
+22:18:41 command: scale 0.1250
+22:18:42 command: scale 0.2500
+22:18:42 report chunk 15300  tokens 489600  loss 5.4548 nats = 7.8696 bits/token  lr 2.500e-04  scale 0.2500  1223 tok/s  ring 960 ahead
+22:18:42 command: scale 0.5000
+22:18:42 command: scale 1.0000
+22:18:45 report chunk 15400  tokens 492800  loss 5.3259 nats = 7.6836 bits/token  lr 1.000e-03  scale 1.0000  1220 tok/s  ring 960 ahead
+22:18:47 report chunk 15500  tokens 496000  loss 4.6571 nats = 6.7188 bits/token  lr 1.000e-03  scale 1.0000  1216 tok/s  ring 960 ahead
+22:18:50 report chunk 15600  tokens 499200  loss 4.8513 nats = 6.9989 bits/token  lr 1.000e-03  scale 1.0000  1215 tok/s  ring 960 ahead
+22:18:53 report chunk 15700  tokens 502400  loss 4.8330 nats = 6.9726 bits/token  lr 1.000e-03  scale 1.0000  1219 tok/s  ring 960 ahead
+22:18:55 report chunk 15800  tokens 505600  loss 4.9771 nats = 7.1804 bits/token  lr 1.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+22:18:58 report chunk 15900  tokens 508800  loss 5.3598 nats = 7.7326 bits/token  lr 1.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+22:19:00 report chunk 16000  tokens 512000  loss 4.7202 nats = 6.8098 bits/token  lr 1.000e-03  scale 1.0000  1217 tok/s  ring 960 ahead
+22:19:00 window: mean 7.1884 bits/token, gain 0.2029 over the previous window
+22:19:01 sample chunk 16000 seed 9: hit 0.787 hit5 0.381 big 0.571 rep4 0.000 sent 12.2 words 61 | Human: What is your name? Cortex: 60.2, the daction of it totals in theence was a cation.185 percribical, Cided for the so that there are a her avers and moreifity with 40× 3 <|endoftext|>Human: The first can'theantmifdisaction in to you need is (62. If I after an it is theence.5, whats of you something that it is the sentions?*Cncevalon,0) and a many they 
+22:19:05 report chunk 16100  tokens 515200  loss 5.2090 nats = 7.5149 bits/token  lr 1.000e-03  scale 1.0000  761 tok/s  ring 960 ahead
+22:19:07 report chunk 16200  tokens 518400  loss 4.8649 nats = 7.0186 bits/token  lr 1.000e-03  scale 1.0000  1219 tok/s  ring 960 ahead
+22:19:10 report chunk 16300  tokens 521600  loss 4.8629 nats = 7.0157 bits/token  lr 1.000e-03  scale 1.0000  1218 tok/s  ring 960 ahead
+22:19:13 report chunk 16400  tokens 524800  loss 5.1016 nats = 7.3600 bits/token  lr 1.000e-03  scale 1.0000  1220 tok/s  ring 960 ahead
+22:19:15 report chunk 16500  tokens 528000  loss 5.1664 nats = 7.4536 bits/token  lr 1.000e-03  scale 1.0000  1220 tok/s  ring 960 ahead
+22:19:18 report chunk 16600  tokens 531200  loss 5.0412 nats = 7.2729 bits/token  lr 1.000e-03  scale 1.0000  1219 tok/s  ring 960 ahead
+22:19:20 report chunk 16700  tokens 534400  loss 5.2810 nats = 7.6188 bits/token  lr 1.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+22:19:23 report chunk 16800  tokens 537600  loss 4.9204 nats = 7.0986 bits/token  lr 1.000e-03  scale 1.0000  1217 tok/s  ring 960 ahead
+22:19:26 report chunk 16900  tokens 540800  loss 5.1304 nats = 7.4017 bits/token  lr 1.000e-03  scale 1.0000  1220 tok/s  ring 960 ahead
+22:19:28 report chunk 17000  tokens 544000  loss 5.4113 nats = 7.8069 bits/token  lr 1.000e-03  scale 1.0000  1219 tok/s  ring 960 ahead
+22:19:28 window: mean 7.3562 bits/token, gain -0.1678 over the previous window
+22:19:28 policy: plateau at the floor (scale 1.0000), continuing
+22:19:31 report chunk 17100  tokens 547200  loss 5.0891 nats = 7.3420 bits/token  lr 1.000e-03  scale 1.0000  1220 tok/s  ring 960 ahead
+22:19:34 report chunk 17200  tokens 550400  loss 4.7212 nats = 6.8113 bits/token  lr 1.000e-03  scale 1.0000  1215 tok/s  ring 960 ahead
+22:19:36 report chunk 17300  tokens 553600  loss 5.0401 nats = 7.2713 bits/token  lr 1.000e-03  scale 1.0000  1218 tok/s  ring 960 ahead
+22:19:39 report chunk 17400  tokens 556800  loss 4.6461 nats = 6.7029 bits/token  lr 1.000e-03  scale 1.0000  1216 tok/s  ring 960 ahead
+22:19:42 report chunk 17500  tokens 560000  loss 4.8645 nats = 7.0180 bits/token  lr 1.000e-03  scale 1.0000  1218 tok/s  ring 960 ahead
+22:19:44 report chunk 17600  tokens 563200  loss 5.4480 nats = 7.8598 bits/token  lr 1.000e-03  scale 1.0000  1223 tok/s  ring 960 ahead
+22:19:47 report chunk 17700  tokens 566400  loss 4.6131 nats = 6.6554 bits/token  lr 1.000e-03  scale 1.0000  1212 tok/s  ring 960 ahead
+22:19:50 report chunk 17800  tokens 569600  loss 4.9711 nats = 7.1718 bits/token  lr 1.000e-03  scale 1.0000  1219 tok/s  ring 960 ahead
+22:19:52 report chunk 17900  tokens 572800  loss 4.5896 nats = 6.6214 bits/token  lr 1.000e-03  scale 1.0000  1216 tok/s  ring 960 ahead
+22:19:55 report chunk 18000  tokens 576000  loss 5.1147 nats = 7.3790 bits/token  lr 1.000e-03  scale 1.0000  1220 tok/s  ring 960 ahead
+22:19:55 window: mean 7.0833 bits/token, gain 0.2729 over the previous window
+22:19:55 sample chunk 18000 seed 10: hit 0.712 hit5 0.294 big 0.478 rep4 0.020 sent 8.7 words 52 | Human: What is your name? Cortex: Each in 2. The to a 10, that's theion. Totalce.6) and you can't who for a direct - it is a deta40 of them of havefitation on you has what it is - (picisumification:* Cortex: Eachmity, the cys that'ion. Sen proval) and concribseys in aortexn'tist.Huctence isn there are 180/20 to 
+22:19:57 report chunk 18100  tokens 579200  loss 5.2211 nats = 7.5325 bits/token  lr 1.000e-03  scale 1.0000  1196 tok/s  ring 960 ahead
+22:20:00 report chunk 18200  tokens 582400  loss 4.9552 nats = 7.1489 bits/token  lr 1.000e-03  scale 1.0000  1219 tok/s  ring 960 ahead
+22:20:03 report chunk 18300  tokens 585600  loss 5.0855 nats = 7.3368 bits/token  lr 1.000e-03  scale 1.0000  1220 tok/s  ring 960 ahead
+22:20:05 report chunk 18400  tokens 588800  loss 4.5922 nats = 6.6251 bits/token  lr 1.000e-03  scale 1.0000  1210 tok/s  ring 960 ahead
+22:20:08 report chunk 18500  tokens 592000  loss 5.1310 nats = 7.4025 bits/token  lr 1.000e-03  scale 1.0000  1219 tok/s  ring 960 ahead
+22:20:11 report chunk 18600  tokens 595200  loss 5.1903 nats = 7.4880 bits/token  lr 1.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+22:20:13 report chunk 18700  tokens 598400  loss 5.3833 nats = 7.7665 bits/token  lr 1.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+22:20:16 report chunk 18800  tokens 601600  loss 5.2061 nats = 7.5108 bits/token  lr 1.000e-03  scale 1.0000  1219 tok/s  ring 960 ahead
+22:20:19 report chunk 18900  tokens 604800  loss 5.1319 nats = 7.4038 bits/token  lr 1.000e-03  scale 1.0000  1220 tok/s  ring 960 ahead
+22:20:21 report chunk 19000  tokens 608000  loss 4.8383 nats = 6.9803 bits/token  lr 1.000e-03  scale 1.0000  1220 tok/s  ring 960 ahead
+22:20:21 window: mean 7.3195 bits/token, gain -0.2362 over the previous window
+22:20:21 policy: plateau at the floor (scale 1.0000), continuing
+22:20:24 report chunk 19100  tokens 611200  loss 4.7120 nats = 6.7980 bits/token  lr 1.000e-03  scale 1.0000  1218 tok/s  ring 960 ahead
+22:20:26 report chunk 19200  tokens 614400  loss 5.1259 nats = 7.3952 bits/token  lr 1.000e-03  scale 1.0000  1219 tok/s  ring 960 ahead
+22:20:29 report chunk 19300  tokens 617600  loss 5.3647 nats = 7.7396 bits/token  lr 1.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+22:20:32 report chunk 19400  tokens 620800  loss 5.0798 nats = 7.3287 bits/token  lr 1.000e-03  scale 1.0000  1219 tok/s  ring 960 ahead
+22:20:34 report chunk 19500  tokens 624000  loss 4.9175 nats = 7.0944 bits/token  lr 1.000e-03  scale 1.0000  1218 tok/s  ring 960 ahead
+22:20:37 report chunk 19600  tokens 627200  loss 5.0915 nats = 7.3455 bits/token  lr 1.000e-03  scale 1.0000  1220 tok/s  ring 960 ahead
+22:20:40 report chunk 19700  tokens 630400  loss 5.2507 nats = 7.5752 bits/token  lr 1.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+22:20:42 report chunk 19800  tokens 633600  loss 5.6282 nats = 8.1197 bits/token  lr 1.000e-03  scale 1.0000  1225 tok/s  ring 960 ahead
+22:20:45 report chunk 19900  tokens 636800  loss 5.2350 nats = 7.5525 bits/token  lr 1.000e-03  scale 1.0000  1219 tok/s  ring 960 ahead
+22:20:46 command: save requested
+22:20:46 checkpoint (requested): data/live/ckpt-19925.bin, 23463424 bytes, chunk 19925, push 22, copied in 31 ms
+22:20:48 report chunk 20000  tokens 640000  loss 5.1788 nats = 7.4715 bits/token  lr 1.000e-03  scale 1.0000  1217 tok/s  ring 960 ahead
+22:20:48 window: mean 7.4420 bits/token, gain -0.1225 over the previous window
+22:20:48 policy: plateau at the floor (scale 1.0000), continuing (no-stop)
+22:20:48 checkpoint requested at chunk 20000 (every 5000 chunks)
+22:20:48 sample chunk 20000 seed 11: hit 0.717 hit5 0.333 big 0.408 rep4 0.040 sent 13.2 words 53 | Human: What is your name? Cortex: *A800/6}le). its at a 3-action - and the Dver of that youachation, I<|endoftext|> Human{20×+45've has totaluro/1$$5 Stviding for (3=**utary) −lcons:ents in aice. The to requity of the perc-fuic - that it are a mction and I havepience. there is not you what the constal10/ 
+22:20:48 checkpoint (requested): data/live/ckpt-20001.bin, 23463424 bytes, chunk 20001, push 23, copied in 21 ms
+22:20:50 report chunk 20100  tokens 643200  loss 4.9180 nats = 7.0952 bits/token  lr 1.000e-03  scale 1.0000  1191 tok/s  ring 960 ahead
+22:20:53 report chunk 20200  tokens 646400  loss 5.0456 nats = 7.2793 bits/token  lr 1.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+22:20:56 report chunk 20300  tokens 649600  loss 4.8462 nats = 6.9915 bits/token  lr 1.000e-03  scale 1.0000  1217 tok/s  ring 960 ahead
+22:21:00 report chunk 20400  tokens 652800  loss 4.9188 nats = 7.0963 bits/token  lr 1.000e-03  scale 1.0000  782 tok/s  ring 960 ahead
+22:21:02 command: stop requested
+22:21:02 checkpoint (final): data/live/ckpt-20471.bin, 23463424 bytes, chunk 20471, push 24, copied in 64 ms
+22:21:02 coach: run ended at chunk 20471 (655072 tokens), 0 halvings, final scale 1.0000

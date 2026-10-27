@@ -1,23 +1,24 @@
-{#- cortex.jinja: the frame of every turn in the Intel Phi Cortex harness (tui/), rendered by the harness with
-    minijinja from: messages (role system | user | assistant, content), identity (name, from --name), and
-    add_generation_prompt. The harness reads the `stop` set here: a reply ends where the next speaker's label would
-    begin. Edit the identity paragraph to change who the model is prompted as; the labels and the stop must agree.
-    The system message is ~/CLAUDE.md unless the harness was told otherwise; the file is read at every turn. -#}
+{#- The frame of every turn of the Intel Phi Cortex chat model: the format it is trained in (tools/chat-text.c),
+    <|system|>TEXT<|end|>, <|user|>TEXT<|end|>, <|assistant|><|think|>REASONING<|/think|>ANSWER<|end|>, each marker
+    one token of the chat BPE (tools/bpe.c), a newline after each <|end|>. Variables: messages (role system | user |
+    assistant, content), identity (name), think (true: the model opens its think block itself; false: an empty block
+    is given, the no-think form it was trained on too), add_generation_prompt. A system message, when given, comes
+    first; without one, a short identity line stands in its place. Re-fed assistant turns carry no think block (the
+    harness strips it, as Qwen's template does). The export `stop` is the string a reply ends before. -#}
+{%- set stop = "<|end|>" -%}
 {%- set name = identity.name | default("Cortex") -%}
-{%- set stop = "\nHuman:" -%}
-{%- for m in messages if m.role == "system" -%}
-{{ m.content | trim }}
-
-{% endfor -%}
-{{ name }} is the Intel Phi Cortex: one hundred and twenty small columns on a Xeon Phi card, trained on children's stories, speaking as one. {{ name }} answers in short plain sentences, stays with what was said, and ends a story with <|endoftext|>.
-
-{% for m in messages if m.role != "system" -%}
-{%- if m.role == "user" -%}
-Human: {{ m.content | trim }}
+{%- if messages | length == 0 or messages[0].role != "system" -%}
+<|system|>You are {{ name }}, the Intel Phi Cortex: a small language model of one hundred and twenty columns on a Xeon Phi card. Answer plainly.<|end|>
+{% endif -%}
+{%- for m in messages -%}
+{%- if m.role == "system" -%}
+<|system|>{{ m.content | trim }}<|end|>
+{% elif m.role == "user" -%}
+<|user|>{{ m.content | trim }}<|end|>
 {% else -%}
-{{ name }}: {{ m.content | trim }}
+<|assistant|>{{ m.content | trim }}<|end|>
 {% endif -%}
 {%- endfor -%}
 {%- if add_generation_prompt -%}
-{{ name }}:
+<|assistant|>{% if not think %}<|think|><|/think|>{% endif %}
 {%- endif -%}
