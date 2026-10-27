@@ -1,0 +1,4 @@
+ref-loss: data/live/ckpt-10021.bin on data/bpe/valid.u16[0..20000): 3.9877 nats = 5.7531 bits/token over 19999 predictions, top-1 0.3418, 80.4 s
+ref-loss: data/live/ckpt-10021.bin on data/chat/chat-valid.u16[0..27447): 7.3602 nats = 10.6185 bits/token over 27446 predictions, top-1 0.0820, 113.2 s
+ref-loss: data/live/ckpt-18069.bin on data/bpe/valid.u16[0..20000): 4.2419 nats = 6.1197 bits/token over 19999 predictions, top-1 0.3184, 82.9 s
+ref-loss: data/live/ckpt-18069.bin on data/chat/chat-valid.u16[0..27447): 5.8779 nats = 8.4801 bits/token over 27446 predictions, top-1 0.1384, 112.8 s

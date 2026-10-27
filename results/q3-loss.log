@@ -1,0 +1,7 @@
+ref-loss: data/live/ckpt-10021.bin on data/bpe/valid.u16[0..20000): 3.9877 nats = 5.7531 bits/token over 19999 predictions, top-1 0.3418, 80.4 s
+ref-loss: data/quant/ckpt-10021-q3g32.bin on data/bpe/valid.u16[0..20000): 34.6868 nats = 50.0425 bits/token over 19999 predictions, top-1 0.0272, 80.5 s
+ref-loss: data/quant/ckpt-10021-q3g64.bin on data/bpe/valid.u16[0..20000): 40.9150 nats = 59.0278 bits/token over 19999 predictions, top-1 0.0272, 80.6 s
+ref-loss: data/quant/ckpt-10021-q3g128.bin on data/bpe/valid.u16[0..20000): 37.1221 nats = 53.5559 bits/token over 19999 predictions, top-1 0.0257, 80.4 s
+ref-loss: data/quant/ckpt-10021-q3g256.bin on data/bpe/valid.u16[0..20000): 34.6651 nats = 50.0111 bits/token over 19999 predictions, top-1 0.0035, 80.3 s
+ref-loss: data/live/ckpt-10021.bin on data/chat/chat-valid.u16[0..27447): 7.3602 nats = 10.6185 bits/token over 27446 predictions, top-1 0.0820, 109.4 s
+done 20:06:02

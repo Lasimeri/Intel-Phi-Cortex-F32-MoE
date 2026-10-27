@@ -85,3 +85,26 @@ the forgetting, the chat's number the gain.
 Decision (20:08, the user): "Don't quantize to 3bit, no point, keep with F32". The model stays F32; tools/quant3.c and
 the dequantised checkpoints were removed, the measurement above stands as the record. tools/ref-loss.c stays: it
 measures the fine-tune.
+
+## The fine-tune measured (20:14 to 20:20, host reference, results/chat-loss.log)
+
+| checkpoint | stories valid, 20,000 tokens | chat valid, 27,447 tokens |
+|---|---|---|
+| ckpt-10021, before the chat run | 5.7531 bits/token, top-1 0.3418 | 10.6185 bits/token, top-1 0.0820 |
+| ckpt-18069, after one pass of the 50/50 chat mix (578,208 + 20,736 tokens, lr 1e-3, 3 halvings) | 6.1197 bits/token, top-1 0.3184 | 8.4801 bits/token, top-1 0.1384 |
+
+The chat loss fell 2.14 bits/token; the stories' rose 0.37 bits/token (forgetting, with the 50/50 mix and lr 1e-3
+from a fresh Adam state). Consequences for the next pass: stories 75 % of the stream (the interleave with the stories
+slice as A and as a second B beside the chat), the rate halved to 5e-4. Training was put back online at 20:20:5x on
+fresh stories from chunk 372,520 at lr 1e-3 (1,224 to 1,225 tok/s; 5.71 to 6.11 bits/token on its windows) until the
+larger chat stream is ready.
+
+## More conversations: the merged 17,260-row set (20:17 on)
+
+someoneatemylastsliceofpizza/claude-opus-4.6-merged is parquet only; without DuckDB (not installed, and pacman stays
+off while the RAM question is open) the rows come through the Hub's datasets-server API, 100 per page, decoded by
+`tools/hubrows.c` into the converter's JSONL shape. The first fetch got 39 of 173 pages (the server throttles; the
+script retries the missing pages at 1.2 s per request). Those 3,900 rows converted to 2,203 conversations (2,382
+exchanges, 1,886,040 bytes) with a 2,000-character turn limit: persona role-play (the first is a Wheel of Time scene
+with stage directions in asterisks) and assistant answers; 2,085 of the rows carried "You are a helpful AI
+assistant." as the system prompt, dropped by the converter.
