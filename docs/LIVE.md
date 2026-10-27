@@ -14,8 +14,8 @@ pauses, the checkpoints and the stop, and measures the samples.
 | piece | where | role |
 |---|---|---|
 | `card/cortexd.c` | card, 120 threads for its whole life | each round thread 0 decides: a session's command (LOAD, RESET, BUS, STEP, EXIT), a training chunk, a checkpoint save, or nothing. Two contexts share the live weights: the training context (each column's hot-block fast weights T and the training bus) and the inference context (a second T per column, its own bus and step count). A STEP runs on the inference context; a chunk trains on the training context. |
-| `host/coach.c` | host | feeds the ring from a token file (up to 960 chunks ahead), logs the reports, samples the live model through the mailbox every N chunks (sampled decoding with the orchestrator, scored by `tools/coherence.h`), applies policy v2 to the learning rate, takes commands from a file, requests checkpoints, ends the run. |
-| `host/cortex.c --live` | host, anyone | a session on the live weights: no checkpoint staged; the bus defaults to off (the trained configuration). `--load CKPT` loads a checkpoint into the daemon and leaves. |
+| `host/coach.c` | host | feeds the ring from a token file (up to 960 chunks ahead), logs the reports, samples the live model through the mailbox every N chunks (sampled decoding with the orchestrator, scored by `tools/coherence.h`), applies policy v2 to the learning rate, takes commands from a file, requests checkpoints, ends the run; with `--ngram` serves the memory's row ring and saves the tables, with `--moe` writes the pool's knobs and pushes the pool (the two sections at the end). |
+| `host/cortex.c --live` | host, anyone | a session on the live weights: no checkpoint staged; the bus defaults to off (the trained configuration); `--ngram TABLES` reads the memory's rows from the run's file. `--load CKPT [--gates FILE] [--moe [--moe-keep]]` loads a checkpoint (and the memory's gates, and the pool filled from it or kept from a pull) into the daemon and leaves. |
 | ring and knobs | `lib/cx-proto.h` CX_T_* at part + 55 MiB, the ring at 56 MiB | 1,024 slots of 128 B, each the 33 ids of a chunk (its inputs and the next token); host words: magic "TRNR", chunks published, base rate, scale, flags (save bit 0 with an acknowledge handshake, stop bit 1, pause bit 2), report cadence; card words: chunks trained, report count, loss, rate in effect, tokens/s, the flags acknowledged, the last checkpoint's chunk, the state. |
 
 ## The daemon's round
@@ -53,15 +53,19 @@ reference, `phi get` a tar of checkpoints).
 Inference steps happen only between chunks: the forward's per-step saves belong to the chunk's backward. A LOAD
 replaces the live weights and zeroes every training buffer (each thread's arena past the column: per-step saves,
 gradients, Adam moments, both contexts' T; the activations; the shared block after cg's moments), so a live run
-starts exactly as a fresh batch-trainer process does; the n-gram memory of a loaded checkpoint serves inference only
-(C.ng is set for a session's commands and cleared for a chunk: training in live mode is the plain model, bus off
-unless the daemon was started with CX_BUS=1).
+starts exactly as a fresh batch-trainer process does; the n-gram memory of a loaded checkpoint serves the steps of a
+session whose client writes the rows, and trains with a run whose coach serves the row ring (the section below);
+the bus is off unless the daemon was started with CX_BUS=1. The daemon is the MoE build: it allocates the 4 GiB
+expert pool (2,048 huge pages) at start, so the card needs the 2,700 huge pages of the first command above (2,299
+in use with the daemon up, measured 2026-10-27 07:36); the pool is used only once a LOAD carries the MoE bit.
 
 ## Commands (appended as lines to the coach's `--cmd` file)
 
 `scale X` (learning-rate multiplier from the next chunk), `lr X` (base rate), `every N` (report cadence), `pause`,
-`resume`, `save` (a checkpoint now), `sample` (a sample now), `stop` (the run ends after the current chunk with a
-final checkpoint; the daemon keeps serving). The coach reads only lines appended after it started.
+`resume`, `save` (a checkpoint now; with `--ngram` the tables too), `sample` (a sample now), `stop` (the run ends
+after the current chunk with a final checkpoint, and with `--moe` the pool; the daemon keeps serving); with `--moe`
+also `bias X` (the home bonus from the next chunk), `exlr X` (the experts' step) and `save-pool` (the pool now, the
+chunks flowing between its rounds). The coach reads only lines appended after it started.
 
 ## Policy v2 (from the F64 coach, measured there: 6.0940 against 6.2813 bits/token uncoached at 320k tokens)
 
@@ -124,7 +128,7 @@ First live run (17:33, results/live.log): from data/ts10m/ckpt-312500.bin at chu
 - **The runs of the day** (results/live.log): the first live run from ckpt-312500 (10,021 chunks, ended by the
   policy), the chat passes and the stories runs of docs/CHAT.md.
 
-## The memory in the live loop (2026-10-27 06:3x: built; its gate tools/live-ng-gate.sh not yet run)
+## The memory in the live loop (2026-10-27 06:3x built, 07:18 gated)
 
 The n-gram memory (MoE stage 1, the chunk layer of PLAN-MOE.md) trains with a live run when the coach is given
 `--ngram FILE`. FILE holds the tables (host/ngtables.h: 2 orders x 2^21 rows x 128 F32 = 2 GiB, created zeroed when
@@ -140,8 +144,11 @@ coach's own sampler), so inference reads the rows as they are trained.
 | checkpoints | ckpt-N.bin as before, ckpt-N-gates.f32 beside it, and the tables as tables-N.f32 every `--tables-every` chunks (default 100,000, at a `--save-every` checkpoint), on a `save` line and at the end (2 GiB each; the final copy is exact, the others trail the last row updates by the copy's seconds) |
 | clients | CX_OP_NGRAM tells the daemon whether the session writes rows (a client without `--ngram` gets the plain model, never stale rows); `cortex --ngram TABLES` maps the file in milliseconds (the 2 GiB read of the earlier form is gone); `tools/ref-loss.c --ngram TABLES GATES` measures a checkpoint with its memory on the host |
 
-Not measured yet: the gate (losses, final checkpoint, gates and tables identical to cluster-gate + ngserve over
-2,000 chunks) and the cost of the ring thread beside the coach's main loop.
+Gate (tools/live-ng-gate.sh, results/live-ng-gate.log, 07:18): `coach --ngram /dev/shm/cortex-gate-tables.f32
+--row-lr 0.1 --gates ones` over 2,000 chunks of the chat base against `cluster-gate` (CX_NG=1) with ngserve: the 20
+per-report losses identical, the final checkpoint's md5 identical (8661a86075745520e67345179b274264), the gates and
+the full 2 GiB of tables identical. The batch reference ran at 1,262 to 1,270 tok/s with the ring (its step 338 to
+339 + 452 to 453 us), so the ring thread costs nothing visible beside the step.
 
 ## The MoE model in the live loop (2026-10-27 07:1x, gated)
 
@@ -151,9 +158,9 @@ mod 120) and every head routes from then on, in training chunks and in clients' 
 "Stage 2 build"). The bonus and the experts' step are host words the daemon reads with every chunk and every session
 command (CX_M_BIAS, CX_M_LR): the coach writes them at start, `bias X` and `exlr X` lines change them, and
 `--bias-decay N` lowers the bonus linearly to 0 over the run's first N chunks at each report. A save puts each head's
-home expert into its slot before the push, so the checkpoints keep the dense format; the pool itself lives for the
-daemon's life (a LOAD without the bit returns to the dense model), its save is the next piece. The report line
-carries the experts updated so far (CX_T_MOE_DISTINCT) and the bonus in effect. Gate (results/live-moe-gate.log):
+home expert into its slot before the push, so the checkpoints keep the dense format; the pool itself is pushed and
+pulled through the stage (the section below), so a run resumes with its experts (a LOAD without the bits returns to
+the dense model). The report line carries the experts updated so far (CX_T_MOE_DISTINCT) and the bonus in effect. Gate (results/live-moe-gate.log):
 2,000 chunks from data/live-base/ckpt-661017.bin with bonus 100 and expert lr 0.05: the 20 per-report losses and the
 final checkpoint's md5 identical to `cluster-gate-moe run` with the same knobs, 824 against 822 tok/s. A client
 needs nothing new: `cortex --live` and the harness talk to the MoE model as they did to the dense one.

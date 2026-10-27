@@ -1,7 +1,9 @@
 /*
  * cx-moe.h: the shapes and the part layout of MoE stages 2 (experts in GDDR) and 3 (context in host RAM), from the
  * sizing in PLAN-MOE.md (2026-10-26). Shared by the card benches (tools/expert-bench.c, tools/ctx-bench.c), the host
- * context server (host/ctxserve.c) and, when the stages are built, the daemon and the trainer. Layout only; the
+ * context server (host/ctxserve.c), and since 2026-10-27 by stage 2 as built: the daemon (card/cortexd.c), the
+ * trainer (card/cluster.h, card/moe.h), the double reference (tools/cref.h), the coach and the evaluator. Layout
+ * and the stage-2 constants (the expert, the pool, the keys, the bonus, the pool's transfer rounds); the
  * measurements that decide the sizes live in results/ and PLAN-MOE.md.
  */
 #ifndef CX_MOE_H

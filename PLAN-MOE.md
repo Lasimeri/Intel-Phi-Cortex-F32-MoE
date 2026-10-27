@@ -47,15 +47,17 @@ rows, two 64 KB key scans), 16 GB/s aggregate at 1 ms per step, latency hidden b
 
 | stage | what | gate | measure |
 |---|---|---|---|
-| 0 | this plan, branch `moe`, host reference extended as each piece lands | | |
-| 1a | n-gram memory, small tables (-DCX_NG_ROWS=4096 on both sides) | card vs host double: e', loss, row and gate gradients | |
-| 1b | n-gram memory at 2^21 rows, training 320k tokens from `run4off` | | tok/s, L2 misses, validation vs 6.4369, samples |
-| 2 | experts, E = 16, expert 0 = trained MLP | gate: converted model == trained model at step 0 (bit-identical logits), then gradients vs reference | tok/s, validation, expert usage histogram |
-| 3 | sparse attention memory, top-4 | gradients vs reference | tok/s, validation |
-| 4 | the whole model under the coach (`docs/COACH.md` in the F64 repository), then the chat set | | validation, coherence scores |
+| 0 | this plan, branch `moe`, host reference extended as each piece lands | | done |
+| 1a | n-gram memory, small tables (-DCX_NG_ROWS=4096 on both sides) | card vs host double: e', loss, row and gate gradients | PASSED 10-26 (loss 9.1e-7, gradients 6.4e-7) |
+| 1b | n-gram memory at 2^21 rows, training 320k tokens from `run4off` | | measured 10-26: training -0.205, validation -0.041 bits/token (mix run B); the daemon's ring gated |
+| 1c | the memory trained in the live loop (the chunk layer, 10-27 01:31) | the coach's ring thread against cluster-gate + ngserve | PASSED 10-27 07:18: losses, checkpoint, gates and tables identical |
+| 2 | experts in GDDR: 61,440 in one pool (revised 06:32 from E = 16 per core), product-key routing, sparse upcycling | converted model == dense model with the bonus (byte-identical), then the experts' updates and the head gradients vs the double reference | PASSED 10-27 07:1x (9.0e-7 / 5.2e-7 / 1.0e-6); 821 to 825 tok/s; validation 6.2707 at home routing vs 6.2476 dense on 2,000 chunks; the experts updated in the report line; the pool persistent and the routed model read on the host (07:41); the run since 07:42 |
+| 3 | sparse attention memory, top-4 | gradients vs reference | sized, the round trip measured (36 to 39 us per step at a 256-step window); not built |
+| 4 | the whole model under the coach (`docs/COACH.md` in the F64 repository), then the chat set | | the live coach runs every stage (docs/LIVE.md); the chat base measured (docs/CHAT.md) |
 
-Checkpoints: the dense part as today (`ckpt.bin`), the GDDR parts in their own files (`ckpt-ng.bin`, `ckpt-ex.bin`)
-so a run can restart with or without them.
+Checkpoints: the dense part as today (`ckpt-N.bin`, with the home experts in the MLP regions), the memory's gates
+beside it (`ckpt-N-gates.f32`) and its tables on a schedule (`tables-N.f32`, 2 GiB), the pool on a schedule and at
+the end (`pool-N.f32`, 4 GiB); a run restarts with or without each (`--gates`, `--ngram`, `--pool`).
 
 ## Revision (06:12, user): heads per VPU, experts in GDDR, n-grams in host RAM over DMA
 
@@ -168,8 +170,9 @@ gates grew from 1.0 to a mean of 4.88 (order 2) and 5.59 (order 3) (data/mix/b-n
 amplifies rows that plain SGD at lr 0.1 moves slowly, so the row learning rate is the first knob to search. Both
 runs are deterministic (same initial weights, same stream), so the 0.041 is not sampling noise, but it is one pair
 on one stream order; the spread over stream orders is not measured. The tables after B are in data/mix/b-ngtables.f32
-(2,147,483,648 B), the checkpoints in data/mix/{a,b}-ckpt.bin; cortexd does not yet read the tables, so the B
-checkpoint cannot generate with its memory until the daemon gets the ring (next in stage 1).
+(2,147,483,648 B), the checkpoints in data/mix/{a,b}-ckpt.bin; cortexd did not yet read the tables then, so the B
+checkpoint could not generate with its memory until the daemon got the ring (12:4x below; since 10-27 06:3x a client
+maps the tables file itself, `cortex --ngram`, and tells the daemon with CX_OP_NGRAM).
 
 ### The orchestrator on the mixed model (07:3x, docs/ORCHESTRA.md, results/orchestra-mix.log)
 
@@ -490,8 +493,9 @@ its slot before the push (the file keeps the dense format), the report carries t
 (CX_T_MOE_DISTINCT). Gate: `coach --ckpt data/live-base/ckpt-661017.bin --moe --moe-bias 100 --expert-lr 0.05` over
 2,000 chunks of the chat base equals `cluster-gate-moe run` with the same knobs: 20 of 20 per-report losses
 identical, the final checkpoint's md5 identical (27f3328c8a8710b3eaf39d937a9fa137), 824 against 822 tok/s. The
-pool lives for the daemon's life (a LOAD without the bit returns to the dense model); its save through the stage in
-pieces is the next piece of stage 2, with the evicting fetch and the expert prefetch.
+pool lived for the daemon's life at this point (a LOAD without the bit returns to the dense model); its save through
+the stage in pieces was the next piece of stage 2 (done 07:41, "The pool persistent and measurable" below), then the
+evicting fetch and the expert prefetch.
 
 ### The chunk layer's gate and the first MoE run (07:15 to 07:19)
 
@@ -504,12 +508,13 @@ tok/s with the ring, so the ring costs nothing visible beside the dense step.
 The first MoE training run started at 07:18:52: the unseen rest of the chat-base epoch (chunks 661,017 to 937,252,
 276,236 chunks) from data/live-base/ckpt-661017.bin at lr 5e-4 (a gentle restart of Adam: at 3e-3 the gate runs lost
 0.5 bits/token at the start), the home bonus falling from 100 to 0 over the first 100,000 chunks, the experts at
-lr 0.05, a checkpoint every 5,000 chunks into data/live-moe/, 824 to 825 tok/s, about 3.0 hours. What is not yet
-measurable: the held-out loss of the routed model on the host (ref-loss reads the dense-format checkpoint, which
-holds the heads and the home experts, and the pool is not saved yet), so the run is read by its training loss, the
-expert count in the report line and the harness until the pool save and a MoE-aware evaluator exist (next, with the
-the evicting fetch (the keys stay F32), the expert prefetch of mode B, learned keys, and the memory and the pool
-together in one run).
+lr 0.05, a checkpoint every 5,000 chunks into data/live-moe/, 824 to 825 tok/s, about 3.0 hours. What was not yet
+measurable at that point: the held-out loss of the routed model on the host (ref-loss read the dense-format
+checkpoint, which holds the heads and the home experts, and the pool was not saved), so that run was read by its
+training loss, the expert count in the report line and the harness, until the pool save and a MoE-aware evaluator
+existed (07:41, the next section; the run was then ended at chunk 26,472 and restarted with the pool saved). After
+them, in order: the evicting fetch (the keys stay F32), the expert prefetch of mode B, learned keys, and the memory
+and the pool together in one run.
 
 ### The pool persistent and measurable (07:3x to 07:41, user: "Start working on training the MoE model")
 
@@ -536,3 +541,14 @@ was provisional (ended 07:36:07 at chunk 26,472, its pool lost with the daemon's
 
 The MoE run restarts from data/live-base/ckpt-661017.bin with the pool pushed every 50,000 chunks and at the end,
 so every pool-N.f32 beside its ckpt-N.bin is a readable state of the routed model.
+
+## State of the tree at 2026-10-27 08:0x
+
+| piece | state |
+|---|---|
+| the daemon (card/cortexd.c, the MoE build) | serving since 07:36 with the 4 GiB pool; a LOAD with bit 1 fills it, bit 2 keeps a pulled one; the pool moves through the stage in 187 rounds (CX_T_POOL / CX_T_POOL_ACK) |
+| the MoE run | since 07:42:16 (coach pid 1997431): chunks 661,017 to 937,252 of the chat base from data/live-base/ckpt-661017.bin, lr 5e-4, the bonus 100 to 0 over 100,000 chunks, expert lr 0.05; at 08:02 chunk 30,800, 5.684 bits/token, 812 tok/s, bias 69.2, 120 experts updated (expected above a bonus of about 8); ckpt-N.bin every 5,000 chunks, pool-N.f32 every 50,000 and at the end (data/live-moe/, about 21.5 GB of pool files); ends about 10:45 |
+| the gates | all passed and in results/: moe-gate.log (conversion, reference, cost, runs), live-moe-gate.log (the daemon = the batch trainer), live-ng-gate.log (the memory in the live loop), pool-gate.log (the pool's round trip and the evaluator's identity) |
+| reading a state | `build/host/ref-loss data/live-moe/ckpt-N.bin data/chat-base/valid.u16 27447 --moe data/live-moe/pool-N.f32 --moe-bias B`, B the bonus of the report line at chunk N (100 x (1 - N / 100,000), 0 from chunk 100,000) |
+| the harness and the monitor | open on the desktop (tools/chat.sh, tools/watch.sh with --ckdir data/live-moe), both on the routed model, both showing the pool's words (docs/TUI.md) |
+| next, in order | the evicting fetch (clevict1 on the streamed pool lines; the keys stay F32), the expert prefetch of mode B, learned keys, the memory and the pool together in one run, stage 3 |

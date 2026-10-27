@@ -11,6 +11,12 @@
  * Bus modes: CREF_BUS_LIVE (the columns' own bc, as cortexd runs) or CREF_BUS_EXT (an external matrix per step, for the
  * finite-difference check: with the live bus the analytic gradient drops the path through the bus by design, and FD
  * would measure that dropped path).
+ *
+ * The n-gram memory (cref_ng_tables: the tables as F32 like the card's) and the MoE model of stage 2 (lib/cx-moe.h)
+ * are reference modes too: cref_moe_init routes every column through the keys with the home bonus, copies the
+ * expert into the column's MLP region before the MLP, collects each column's MLP gradient apart and applies all
+ * columns' SGD updates in column order after every column's products (the card's order); cref_moe_pool reads the
+ * experts from a saved pool file instead (evaluation, no updates: tools/ref-loss.c --moe).
  */
 #ifndef CX_CREF_H
 #define CX_CREF_H

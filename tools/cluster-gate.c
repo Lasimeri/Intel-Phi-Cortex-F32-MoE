@@ -6,6 +6,14 @@
  * one chunk of L steps (fwd) or that chunk's backward too (bwd: no Adam, gradients dumped). Dumps in OUTDIR:
  * cl-loss.f32 (L), cl-hc.f32 (L x 128), cl-u<k>.f32 (L x 160: u, bc, g) per dumped column; bwd adds cl-gprm<k>.f32,
  * cl-gcg.f32, cl-get.f32 (ETB layout). The host side: tools/ctrain-check.c.
+ *
+ * Env: CX_NG=1 trains with the n-gram memory served by host/ngserve.c over the DMA ring (MoE stage 1; the gates
+ * dumped as cl-gates.f32). The -DCX_MOE=1 build (cluster-gate-moe) runs the MoE model of stage 2: the pool (4 GiB
+ * of huge pages) filled from the columns' MLPs (expert e = column e mod 120) after the warm-up or the checkpoint,
+ * the heads routing through it with the home bonus CX_MOE_BIAS (default CX_EX_HOME_BIAS) and the experts' step
+ * CX_MOE_LR (default CX_EX_LR); CX_MOE=0 keeps the dense model in that build. Dumps added: cl-route.f32 (u32 route
+ * [k * CX_LMAX + t] after the forward) and cl-ex<k>.f32 (the expert of step 0 of each dumped head after the chunk);
+ * a run's checkpoint holds the home experts in the MLP regions and the run prints the experts touched.
  */
 #include "../card/cluster.h"
 #include <fcntl.h>

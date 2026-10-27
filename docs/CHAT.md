@@ -363,8 +363,9 @@ linear multiword chunks akin to parts-of-speech sequences are a basic representa
 constituents).** Of the three paths above, this picks the first and names its form: the chunk layer. The trigram
 table is a linear-chunk statistic and sits 3.2 bits/token below the model; the tree's hashed n-gram memory (stage 1,
 PLAN-MOE.md) is that layer as a trainable component, gated and run once in the batch trainer (training loss -0.205,
-validation -0.041 bits/token at 320,000 tokens from zero tables), and not yet trained in the live loop. The bar for
-it is the trigram number on the same held-out tokens. The data for identity and plain English communication is a
+validation -0.041 bits/token at 320,000 tokens from zero tables); since 07:18 it trains in the live loop as well
+(docs/LIVE.md "The memory in the live loop": `coach --ngram`, gated against the batch trainer to the last bit). The
+bar for it is the trigram number on the same held-out tokens. The data for identity and plain English communication is a
 separate decision: the Opus distills carry Claude's identity and Opus's register; identity dialogues for the Cortex
 have to be human-written (nothing I write is trained on).
 
@@ -475,3 +476,18 @@ like to talk with people."), and data/chat-base/persona.txt holds the same text 
 the harness were reopened with `--ckdir data/live-base --vocab data/chat-base/vocab-base4096.txt --system
 data/chat-base/persona.txt` (tools/watch.sh, tools/chat.sh). The CLAUDE.md system prompt is out of this model's
 distribution and is not the default for it.
+
+**The run's end and its measurements (06:51 to 07:1x).** The run was ended with a `stop` line at 06:51:16, at chunk
+661,017 of 937,253 (21,152,544 tokens of the 29,992,115), for the MoE work; its final checkpoint is
+data/live-base/ckpt-661017.bin. The held-out curve (results/base-loss.log, `ref-loss CKPT data/chat-base/valid.u16
+82334` every 25,000 chunks): 8.49 bits/token fresh, 5.95 at chunk 125,001, then between 5.66 and 5.95 to the end;
+the final checkpoint 5.6284 bits/token on 82,333 predictions (top-1 0.3821), against the bars unigram 8.5276, bigram
+4.8214 and trigram 3.8883 on the same tokens: the bigram bar was not reached, the dense architecture's ceiling on
+this data as on the stories (docs above, "Incoherent, and why"). One checkpoint on the curve, 550,001, measured
+10.0761 while its neighbours measured 5.9585 and 5.7001: not a corrupt push (the file's bytes are a valid state; a
+fresh fast-weight state over its weights gives 7.08 to 7.27), but the carried fast-weight state diverging along the
+held-out stream, and mixes of two checkpoints 5,000 chunks apart score worse than either parent (the scratchpad's
+ckdiff/ckmix tools; the finding is in the memory note phi-cortex-fastweight-instability). In the harness the model
+answered in fluent English without an identity ("What is your name?": "I am feeling very fun, it really have many
+people do to make our unique things like that."). The MoE run (PLAN-MOE.md "06:32" on) continues this epoch from
+ckpt-661017 with the pool, from 07:42:16.

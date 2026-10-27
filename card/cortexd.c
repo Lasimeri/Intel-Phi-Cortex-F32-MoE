@@ -1,7 +1,20 @@
 /*
- * cortexd: the Intel Phi Cortex daemon on the card: generation (Stage 5), the n-gram memory at generation (MoE stage
- * 1) and live training (2026-10-26: "the model can run inference while training, and get actively interacted with
- * while weights are tuning"). usage: cortexd [PART_MIB]   (env CX_DMA_CHAN channel, CX_BUS training bus 0|1)
+ * cortexd: the Intel Phi Cortex daemon on the card: generation (Stage 5), the n-gram memory at generation and in
+ * training (MoE stage 1), live training (2026-10-26: "the model can run inference while training, and get actively
+ * interacted with while weights are tuning") and the expert pool (MoE stage 2, 2026-10-27). This is the MoE build
+ * (-DCX_MOE=1, build.sh). usage: cortexd [PART_MIB]   (env CX_DMA_CHAN channel, CX_BUS training bus 0|1)
+ *
+ * The pool (lib/cx-moe.h, card/moe.h): 61,440 experts x 69,888 B in 4 GiB of huge pages allocated at start (2,048
+ * pages, their physical addresses kept for the transfers). A LOAD with arg bit 1 fills it from the checkpoint's MLP
+ * blocks (expert e = column e mod 120) and every head routes from then on, in training chunks and in sessions'
+ * steps alike: the router picks the expert from x with the home bonus (CX_M_BIAS) and the fetch puts it into the
+ * head's MLP slot; the chunk backward applies each head's rank-1 SGD update (CX_M_LR) through the lowest head
+ * sharing the expert and stores it back (card/cluster.h cl_moe_update_step). Arg bit 2 keeps a pool the host pulled
+ * in before the LOAD instead of filling. A checkpoint push puts each head's home expert into its slot first, so the
+ * file keeps the dense layout. The pool itself moves through the stage in rounds of eleven 2 MiB pages on the
+ * host's request word CX_T_POOL (direction and round; answered in CX_T_POOL_ACK: a push by the last DMA line's
+ * status write, a pull once the DMA has landed), as an action between chunks (pool_round, ACT_POOL), with or
+ * without a run. The report writes the experts updated since the fill (CX_T_MOE_DISTINCT).
  *
  * 120 column threads (card/cluster.h) run for the daemon's life. Thread 0 decides each round what the team does next:
  *   a session's command   LOAD, RESET, BUS, STEP, EXIT through the mailbox (lib/cx-proto.h), as before; STEP runs on

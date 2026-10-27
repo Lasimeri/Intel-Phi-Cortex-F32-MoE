@@ -2,6 +2,9 @@
  * ctrain-check: Stage 4, host side. usage: ctrain-check fwd|bwd DIR TOKENS.u16 L WARM [DUMP_COL...]
  * Replays the card's cluster run (tools/cluster-gate.c) through tools/cref.h (120 columns, double, live bus from
  * zero) and compares: per-step loss, hc, and u / bc / g of the dumped columns; bwd: their parameter gradients, cg, E.
+ * Env CX_NG=1 replays the memory (host/ngserve.c's tables); CX_MOE=1 replays the MoE model (the seeded keys, the
+ * bonus CX_MOE_BIAS, the step CX_MOE_LR): the routes (cl-route.f32) and each dumped head's updated expert of step 0
+ * (cl-ex<k>.f32) are compared, and the head gradients exclude the MLP region.
  */
 #include "cref.h"
 

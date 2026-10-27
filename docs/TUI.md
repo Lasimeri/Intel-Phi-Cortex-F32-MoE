@@ -20,10 +20,13 @@ tools/chat.sh --here     # the same in this terminal
 ```
 
 Options (`cortex-tui --help`): `--tree DIR` (the Cortex tree, where `build/host/cortex` and the data live), `--orchestra
-NGC|off`, `--words LIST`, `--system FILE|off` (default `~/CLAUDE.md` when it exists), `--cmd FILE` (the coach's command
-file, results/live.cmd), `--log FILE` (results/live.log), `--ckdir DIR` (data/live), `--part FILE`
-(/dev/shm/phi-hostmem), `--ngen N` (128), `--ctx CHARS` (4000). Colours: truecolor by default, `CORTEX_COLOR=256` for a
-terminal without it, `NO_COLOR` or `CORTEX_COLOR=none` for none.
+NGC|off`, `--words LIST`, `--system FILE|off` (default `~/CLAUDE.md` when it exists), `--template FILE` (the frame,
+tui/cortex.jinja), `--name NAME` (the identity in the frame), `--vocab FILE` (the run's vocabulary), `--ngram FILE`
+(the memory's tables the client reads its rows from: the live run's file in /dev/shm or a saved tables-N.f32; none =
+the plain model), `--cmd FILE` (the coach's command file, results/live.cmd), `--log FILE` (results/live.log), `--ckdir
+DIR` (data/live), `--part FILE` (/dev/shm/phi-hostmem), `--ngen N` (128), `--ctx CHARS` (4000). The same options drive
+`cortex-watch`. Colours: truecolor by default, `CORTEX_COLOR=256` for a terminal without it, `NO_COLOR` or
+`CORTEX_COLOR=none` for none.
 
 ## Pieces
 
@@ -33,8 +36,8 @@ terminal without it, `NO_COLOR` or `CORTEX_COLOR=none` for none.
 | `tui/src/app.rs` | the state: screens (chat, run, help), keys, the `/` commands, the prompt of a turn, the coach's command file, the live poll |
 | `tui/src/view.rs` | the screens as frames: header (where you are; the card or the turn on the right), the conversation, the side panel (from 100 columns), the run screen, the help, the footer (status row, keys row) |
 | `tui/src/cortex.rs` | one turn: `build/host/cortex --live PROMPT N --no-echo --stop-eot --seed S [sampling] [--orchestra NGC --words LIST]` as a child in the tree, its stdout streamed as bytes, its closing stderr line parsed for the numbers |
-| `tui/src/live.rs` | the live words of the part (lib/cx-proto.h CX_T_*, CX_C_HEART, the sessions) by two positioned reads every 250 ms |
-| `tui/src/run.rs` | the coach's log tail (the loss by report), the checkpoints in `--ckdir` |
+| `tui/src/live.rs` | the live words of the part (lib/cx-proto.h CX_T_* through CX_T_POOL_ACK: the run, the memory's acknowledgement, the pool's bonus, step, experts updated and transfer; CX_C_HEART, the sessions) by two positioned reads every 250 ms |
+| `tui/src/run.rs` | the coach's log, read whole once and then by its appended bytes: the current run's header (with its memory and MoE notes), reports (with the experts and the bonus), windows, samples, events (commands, policy, checkpoints, tables, pool), the end; the checkpoints and the pool and tables files in `--ckdir` |
 | `tui/src/term.rs`, `editor.rs`, `wrap.rs` | the palette and the frame, the line editor, word wrap |
 
 ## What a turn is
@@ -118,7 +121,8 @@ it is; the turn in flight with its seconds, else the run's state and tok/s, or "
 run** (a progress bar of chunks with the time left at the live rate; state, chunk, tokens, ring, elapsed by the
 log's own clock, the start time; the loss in nats and bits with the policy's window mean, its gain over the previous
 window and the plateau threshold; the rate in effect as base x scale, halvings of the allowed, checkpoints pushed and
-the last one's chunk, the sample cadence); **loss, bits per token**, a column chart with one column per report
+the last one's chunk, the sample cadence; on a MoE run a moe line and with the memory a memory line, the last
+section of this document); **loss, bits per token**, a column chart with one column per report
 (`view::column_chart`: eighth-block resolution, the largest and smallest values and the middle labelled, the last
 column lit); **speed, tokens per second**, the same chart; **the last sample** with its coherence numbers and its
 text; **events** (the last five); **checkpoints** (the last three with size and age); **talk**, the conversation

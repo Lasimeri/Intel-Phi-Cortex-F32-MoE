@@ -3,10 +3,13 @@
 The F32 Cortex (its description is the second half of this file) carried on: a live trainer on the card (the daemon
 trains between the clients' turns and serves inference on the live weights), a host coach that feeds, reports,
 samples and takes commands, a chat harness and a training monitor in Rust, a host orchestrator over the generated
-tokens, an n-gram memory in host RAM reached over DMA, the sizing of the mixture-of-experts stages, and chat data
-from the Hub's Opus 4.6 sets. Everything on the card is C on the 512-bit vector unit; the host side is C, the two
-terminal programs Rust. Public since 2026-10-26 21:5x at https://github.com/Lasimeri/Intel-Phi-Cortex-F32-MoE
-(branch `moe`; the data and checkpoints stay local, each document says how its data was made).
+tokens, an n-gram memory (the chunk layer) in host RAM trained in the live loop, the mixture-of-experts stage 2 on
+the card (61,440 experts in 4 GiB of GDDR, one pool read by every head, product-key routing, the pool saved and
+restored through the stage, the routed model measured on the host), and a chat base of human and BASIC-English
+dialogue. Everything is F32: on the card C on the 512-bit vector unit, on the host C, the two terminal programs
+Rust. Since 2026-10-27 07:42 the MoE model trains on the rest of the chat base's epoch while both terminal programs
+talk to it. Public since 2026-10-26 21:5x at https://github.com/Lasimeri/Intel-Phi-Cortex-F32-MoE (branch `moe`;
+the data, the checkpoints and the pool files stay local, each document says how its data was made).
 
 | document | what |
 |---|---|
@@ -18,27 +21,38 @@ terminal programs Rust. Public since 2026-10-26 21:5x at https://github.com/Lasi
 
 ## Running it
 
-    ./build.sh                                                   # host tools (gcc), card programs (KNC clang), ISA audit
+    ./build.sh                                                   # host tools (gcc), card programs (KNC clang, cortexd = the MoE build), ISA audit
     cd tui && cargo build --release && cd ..                     # the harness and the monitor
     phi run sh -c 'echo 2700 > /proc/sys/vm/nr_hugepages; mkdir -p /tmp/cortex'   # after a card boot: it has none
     phi put build/card/cortexd /tmp/cortex/cortexd
     phi run sh -c 'cd /tmp/cortex && (CX_DMA_CHAN=3 setsid ./cortexd > cortexd.log 2>&1 < /dev/null &)'
-    build/host/chat-text data/opus46/gryphe-24k/Opus-4.6-Reasoning-24k.jsonl data/chat-scratch/opus24k.txt
-    build/host/bpe train data/chat-scratch/opus24k.txt 120000000 data/chat-scratch/vocab-chat4096.txt
-    build/host/bpe encode data/chat-scratch/vocab-chat4096.txt data/chat-scratch/train.txt data/chat-scratch/train.u16
-    build/host/init-ckpt data/live-scratch/ckpt-init.bin                  # fresh F32 weights, nothing trained
-    build/host/cortex --load data/live-scratch/ckpt-init.bin --vocab data/chat-scratch/vocab-chat4096.txt
-    build/host/coach data/chat-scratch/train.u16 --lr 0.003 --every 100 --window 100 --halvings 3 --no-stop \
-        --save-every 5000 --sample-every 2000 --vocab data/chat-scratch/vocab-chat4096.txt \
-        --prompt $'<|user|>What is your name?<|end|>\n<|assistant|>' \
-        --cmd results/live.cmd --log results/live.log --ckdir data/live-scratch   # the run from scratch
-    tools/watch.sh --ckdir data/live-scratch --vocab data/chat-scratch/vocab-chat4096.txt   # the monitor + say line
-    tools/chat.sh --ckdir data/live-scratch --vocab data/chat-scratch/vocab-chat4096.txt    # the chat harness
-    echo stop >> results/live.cmd                                # ends the run after the current chunk, final checkpoint
-    build/host/cortex --live "Once upon a time" 64 --no-echo --stop-eot --orchestra data/stories-10m.ngc
+    # the chat base (data/chat-base/: train.u16, valid.u16, vocab-base4096.txt, persona.txt) is made as docs/CHAT.md
+    # "The base dataset" says; a dense run from fresh weights:
+    build/host/init-ckpt data/chat-base/ckpt-init.bin                     # fresh F32 weights, nothing trained
+    build/host/coach data/chat-base/train.u16 --ckpt data/chat-base/ckpt-init.bin --start 0 --lr 0.003 --every 100 \
+        --window 300 --halvings 3 --no-stop --save-every 5000 --sample-every 2000 \
+        --vocab data/chat-base/vocab-base4096.txt --words data/wordlist-mix.txt --prompt "$(cat data/chat-base/persona.txt)" \
+        --cmd results/live.cmd --log results/live.log --ckdir data/live-base
+    # the MoE run from a dense checkpoint: the pool filled from it, the home bonus lowered to 0 over 100,000 chunks,
+    # the experts at lr 0.05, a checkpoint every 5,000 chunks and the pool (4 GiB) every 50,000 and at the end
+    build/host/coach data/chat-base/train.u16 --ckpt data/live-base/ckpt-661017.bin --start 661017 --lr 0.0005 \
+        --every 100 --window 300 --halvings 3 --no-stop --save-every 5000 --sample-every 2000 \
+        --vocab data/chat-base/vocab-base4096.txt --words data/wordlist-mix.txt --prompt "$(cat data/chat-base/persona.txt)" \
+        --cmd results/live.cmd --log results/live.log --ckdir data/live-moe \
+        --moe --moe-bias 100 --bias-decay 100000 --expert-lr 0.05 --pool-every 50000
+    tools/watch.sh --ckdir data/live-moe --vocab data/chat-base/vocab-base4096.txt --system data/chat-base/persona.txt   # the monitor
+    tools/chat.sh --ckdir data/live-moe --vocab data/chat-base/vocab-base4096.txt --system data/chat-base/persona.txt    # the harness
+    echo 'bias 20' >> results/live.cmd                           # the bonus now; also exlr X, save-pool, pause, resume, save, sample, scale, lr, every
+    echo stop >> results/live.cmd                                # ends the run after the current chunk: final checkpoint + pool-N.f32
+    build/host/ref-loss data/live-moe/ckpt-50000.bin data/chat-base/valid.u16 27447 --moe data/live-moe/pool-50000.f32 --moe-bias 50
+    build/host/coach ... --ckpt data/live-moe/ckpt-50000.bin --pool data/live-moe/pool-50000.f32 --moe --moe-bias 50 ...   # resumes with its experts
+    build/host/cortex --live "Once upon a time" 64 --no-echo --stop-eot --orchestra data/stories-10m.ngc   # a client, routed through the pool
 
-Measured on 2026-10-26: the live trainer 1,219 to 1,294 tok/s, a client's STEP 367 to 376 us per token between
-chunks, a framed turn of the harness 2,706 tok/s overall; the live trajectory byte-identical to the batch trainer's.
+Measured on 2026-10-26: the dense live trainer 1,219 to 1,294 tok/s, a client's STEP 367 to 376 us per token
+between chunks, a framed turn of the harness 2,706 tok/s overall; the live trajectory byte-identical to the batch
+trainer's. On 2026-10-27: the MoE trainer 812 to 825 tok/s (540 + 672 us per step against the dense 326 + 454), a
+client's step on the routed model 593 us (the router and the expert fetch), a pool push 33.8 to 36.2 s and a pull
+1.9 s, the evaluator's reading of a fresh pool at bonus 100 equal to the dense reading to the last digit.
 
 | stage | state | where |
 |---|---|---|
@@ -46,12 +60,12 @@ chunks, a framed turn of the harness 2,706 tok/s overall; the live trajectory by
 | 1b the daemon's ring: a memory-trained checkpoint generates with its 2 GiB tables (the host writes each step's two rows, the card pulls them by DMA before the forward) | gated (every step's logits within 5.9e-7 of the double reference over 97 steps, argmax 97 of 97); the memory costs 10 to 15 us per token | card/cortexd.c, host/cortex.c, tools/gen-check.c, results/moe-1-daemon-gate.log |
 | orchestrator: AVX2 FMA log-softmax, trigram backoff from human counts, the word filter over every piece, 4-gram repeat block | measured on three models: hit 1.000 and hit5 1.000 on all nine samples with the repaired filter; big and rep4 inside the human bands with lambda 0.30 and the block; +50 to 80 us per token | host/orchestra.h, tools/ngcount.c, tools/orch-eval.sh, tools/misses.c, results/orchestra-6-*.log |
 | second dataset: BabyLM 2024 text-only 100M words, tokenised with the TinyStories BPE, mixed in 2,048-token blocks | three runs measured: the run4off model 8.4101 bits/token on the mix, plain training 7.6649, with the memory 7.6237 (320,000 tokens each) | tools/textprep.c, tools/interleave.c, tools/mix-runs.sh, data/mix, results/mix-*.log |
-| 2 experts in GDDR (61,440 x 17,472 F32 in 4 GiB, one pool for all heads, product-key routing): an expert is the column's MLP block, the head's MLP region is the slot the routed expert is fetched into, the pool filled from the dense checkpoint (sparse upcycling, expert e = column e mod 120), the home expert favoured by a bonus the run lowers, fixed seeded keys, plain SGD on the experts in the chunk backward (the lowest head sharing an expert applies every head's update) | GATED 10-27 07:1x: with the bonus the MoE build is byte-identical to the dense build; against the double reference the loss within 9.0e-7, the updated experts within 5.2e-7 (home) and 3e-7 (free routing, 8,101 experts touched in a chunk, routes identical), head gradients within 1.0e-6; the daemon's live run identical to the batch trainer (20 of 20 losses, the checkpoint's md5); cost 540 + 672 us per step against the dense 326 + 454 (821 to 825 tok/s against 1,280); on 2,000 chunks from the chat base at home routing: validation 6.2707 against the dense 6.2476 (expert lr 0.05), free routing from the start 8.7562 | lib/cx-moe.h, card/moe.h, card/col.h, card/train.h, card/cluster.h, tools/cluster-gate.c (-DCX_MOE=1), tools/cref.h, tools/ctrain-check.c, tools/moe-gate.sh, tools/live-moe-gate.sh, card/cortexd.c, host/coach.c (--moe, --moe-bias, --bias-decay, --expert-lr), results/moe-gate.log, results/live-moe-gate.log, PLAN-MOE.md "Stage 2 build" |
+| 2 experts in GDDR (61,440 x 17,472 F32 in 4 GiB, one pool for all heads, product-key routing): an expert is the column's MLP block, the head's MLP region is the slot the routed expert is fetched into, the pool filled from the dense checkpoint (sparse upcycling, expert e = column e mod 120), the home expert favoured by a bonus the run lowers, fixed seeded keys, plain SGD on the experts in the chunk backward (the lowest head sharing an expert applies every head's update) | GATED 10-27 07:1x: with the bonus the MoE build is byte-identical to the dense build; against the double reference the loss within 9.0e-7, the updated experts within 5.2e-7 (home) and 3e-7 (free routing, 8,101 experts touched in a chunk, routes identical), head gradients within 1.0e-6; the daemon's live run identical to the batch trainer (20 of 20 losses, the checkpoint's md5); cost 540 + 672 us per step against the dense 326 + 454 (821 to 825 tok/s against 1,280); on 2,000 chunks from the chat base at home routing: validation 6.2707 against the dense 6.2476 (expert lr 0.05), free routing from the start 8.7562. PERSISTENT 07:41: the pool pushed and pulled through the stage in 187 rounds of eleven 2 MiB pages (a push 33.8 to 36.2 s, a pull 1.9 s; the round trip byte-identical; `coach --pool FILE` resumes with the experts, `--pool-every N` and a `save-pool` line save them), `ref-loss --moe POOL --moe-bias B` reads the routed model on the host (a fresh pool at bonus 100 equals the dense reading exactly). TRAINING since 07:42:16: the rest of the chat-base epoch, the bonus 100 to 0 over 100,000 chunks (results/live.log, data/live-moe/) | lib/cx-moe.h, card/moe.h, card/col.h, card/train.h, card/cluster.h, tools/cluster-gate.c (-DCX_MOE=1), tools/cref.h, tools/ctrain-check.c, tools/moe-gate.sh, tools/live-moe-gate.sh, tools/pool-gate.sh, card/cortexd.c, host/coach.c (--moe, --moe-bias, --bias-decay, --expert-lr, --pool, --pool-every), host/cortex.c (--moe, --moe-keep), tools/ref-loss.c (--moe), results/moe-gate.log, results/live-moe-gate.log, results/pool-gate.log, PLAN-MOE.md "Stage 2 build", docs/LIVE.md "The MoE model in the live loop" |
 | 1c the memory in the live loop (the chunk layer of PLAN-MOE.md "01:31"): `coach --ngram FILE --row-lr X --gates FILE|ones`, the tables a 2 GiB file in /dev/shm mapped shared and trained in place by the coach's ring thread in the batch trainer's lockstep, every client of the live model mapping the same file for its rows (`cortex --ngram`, the harness's `--ngram`), the gates pushed with every checkpoint, the tables copied beside it on a schedule | GATED 10-27 07:18: 2,000 chunks from the chat base against `cluster-gate` with ngserve: the 20 per-report losses, the final checkpoint's md5 (8661a86075745520e67345179b274264), the gates and the full 2 GiB of tables identical; `ref-loss --ngram TABLES GATES` measures a checkpoint with its memory | host/ngtables.h, host/coach.c, host/cortex.c, card/cortexd.c, tools/ref-loss.c, tools/live-ng-gate.sh, results/live-ng-gate.log, docs/LIVE.md "The memory in the live loop" |
 | 3 context in host RAM over DMA (sparse attention) | sized; the round trip measured: with a 256-step window the host answers in 36 to 39 us per step and the card spends 56 us per step with one step of lag; a 1,024-step window costs the host 256 to 275 us | lib/cx-moe.h, tools/ctx-bench.c, host/ctxserve.c, results/moe-3-ctx-bench.log |
 | live training: the daemon trains between clients' bursts (training context) and serves inference on the live weights (inference context); the host coach feeds the stream, reports, samples with the orchestrator, applies the plateau policy, takes commands from a file; `cortex --live` chats with the model while it trains | GATED 10-26 17:3x: trajectory and final checkpoint byte-identical to the batch trainer (also with clients generating, also under preemption); checkpoints pushed by DMA to the host; knobs verified; first live run from the 10M checkpoint (results/live.log) | card/cortexd.c, host/coach.c, host/cortex.c, card/cluster.h (cl_adam_schedule), docs/LIVE.md, tools/live-gate.sh |
-| the harness: `cortex-tui` (Rust, crossterm only, the visual style of MechJev's TUI), a chat on the live weights with the card's and the live run's numbers beside it, the coach steered from the run screen, every turn framed by `tui/cortex.jinja` (the identity, the labels, the stop) over ~/CLAUDE.md as the system message | DONE 10-26 19:3x: a framed turn 2,706 tok/s overall with 3,820 prompt tokens (1.4 s before the first generated token, the system message's cost); the coach's resume/save/pause/scale/stop verified from the run screen against a real coach session; the daemon's heartbeat added (10 Hz); `tools/chat.sh` opens it in a konsole window | tui/, tui/cortex.jinja, tools/chat.sh, docs/TUI.md, host/cortex.c (`--no-echo`, `--stop-eot`, `--stop`), card/cortexd.c (CX_HEART_S) |
-| the training monitor `cortex-watch` (the same crate and style): progress and time left, the run's numbers, the loss and the speed per report as column charts, the policy's window, the last sample, events, checkpoints; since 22:10 a say line too: the model on its live weights between chunks (the talk shared with the harness, tui/src/chat.rs) and the coach steered in the moment (/pause /resume /save /sample /scale /lr /every /stop-run; f2 to f6) | DONE 10-26 20:15 read-only, 22:10 interactive: checked in tmux against the live run (a turn of 60 tokens in 1.44 s at 2,699 tok/s; save, scale, cadence, pause and resume seen in the coach's log and the part's state word); `tools/watch.sh` opens it in a konsole window | tui/src/bin/cortex-watch.rs, tui/src/chat.rs, tui/src/live.rs (LiveState), tui/src/run.rs, tools/watch.sh, docs/TUI.md |
+| the harness: `cortex-tui` (Rust, crossterm only, the visual style of MechJev's TUI), a chat on the live weights with the card's and the live run's numbers beside it, the coach steered from the run screen, every turn framed by `tui/cortex.jinja` (the identity, the labels, the stop) over ~/CLAUDE.md as the system message | DONE 10-26 19:3x: a framed turn 2,706 tok/s overall with 3,820 prompt tokens (1.4 s before the first generated token, the system message's cost); the coach's resume/save/pause/scale/stop verified from the run screen against a real coach session; the daemon's heartbeat added (10 Hz); `tools/chat.sh` opens it in a konsole window. 10-27 07:5x: on a MoE run its replies are the routed model's (the daemon routes every step), and the side panel and the run screen show the bonus and the experts' step the daemon routes with, the experts updated of 61,440, a pool transfer's round, and the memory when it trains | tui/, tui/cortex.jinja, tools/chat.sh, docs/TUI.md, host/cortex.c (`--no-echo`, `--stop-eot`, `--stop`), card/cortexd.c (CX_HEART_S) |
+| the training monitor `cortex-watch` (the same crate and style): progress and time left, the run's numbers, the loss and the speed per report as column charts, the policy's window, the last sample, events, checkpoints; since 22:10 a say line too: the model on its live weights between chunks (the talk shared with the harness, tui/src/chat.rs) and the coach steered in the moment (/pause /resume /save /sample /scale /lr /every /stop-run; f2 to f6) | DONE 10-26 20:15 read-only, 22:10 interactive: checked in tmux against the live run (a turn of 60 tokens in 1.44 s at 2,699 tok/s; save, scale, cadence, pause and resume seen in the coach's log and the part's state word); `tools/watch.sh` opens it in a konsole window. 10-27 07:0x: the log read whole once and then by its appended bytes (a fixed tail lost a six-hour run's opening line); 07:5x: the run block's moe and memory lines, the pool lines among the events, pool-N.f32 beside the checkpoints | tui/src/bin/cortex-watch.rs, tui/src/chat.rs, tui/src/live.rs (LiveState), tui/src/run.rs, tools/watch.sh, docs/TUI.md |
 | chat fine-tunes of the story model (superseded): Opus 4.6 conversations (the relational set; the merged 17k set through the datasets-server API) in a Human:/Cortex: shape, trained live on the stories' weights | MEASURED 10-26 20:20: a 50/50 pass with stories (599k tokens, lr 1e-3) took the held-out chat loss from 10.6185 to 8.4801 bits/token and the stories' from 5.7531 to 6.1197 (results/chat-loss.log); a 73.5 % stories pass and a chat-only pass followed; 3-bit weights measured and rejected (50 bits/token); abandoned at 22:18 by the user's direction | tools/hubrows.c, tools/ref-loss.c, docs/CHAT.md |
 | the chat model from scratch with a think block: Gryphe/Opus-4.6-Reasoning-24k (the verified union of the best-rated Opus 4.6 sets, 24,138 rows) in the marker format `<|system|>`/`<|user|>`/`<|assistant|><|think|>...<|/think|>...<|end|>` (seven special tokens in the BPE, a quarter of the conversations in the no-think form), its own 4,096-token vocabulary, fresh F32 weights from `tools/init-ckpt`, F32 throughout (a checkpoint is 23,463,424 bytes = 5,865,856 parameters x 4; the `.u16` files are token ids) | INCOHERENT, measured 10-27 01:2x (run started 10-26 22:40:00, one epoch of 31,553,352 tokens at lr 3e-3, 100-report plateau windows, 1,225 tok/s, ends by itself about 06:00): held-out 9.3458 bits/token at its best (chunk 100,001) and 10.0421 at chunk 325,001 against unigram 9.9789, bigram 6.9650 and trigram 6.1843 on the same tokens (`tools/ngram-base.c`); training loss flat at 8.87 to 8.97 since chunk 120,000; the harness shows word salad with `<|user|>` leaking into the answers; the fault is the architecture's (it never beat a bigram on the stories either: 6.11 against 5.11), details in docs/CHAT.md "Incoherent, and why"; the pre-tokeniser trap (a marker glued to punctuation) found by counting the markers and fixed; stopped 10-27 02:00:45 at chunk 455,246 for the chat base below | tools/chat-text.c, tools/bpe.c, tools/init-ckpt.c, data/chat-scratch/vocab-chat4096.txt, tui/cortex.jinja, docs/CHAT.md |
 | the chat base: ten chat corpora researched (Exa, the Hub) and measured by their n-gram floors on their own 4k BPE; the base is starhopp3r/TinyChat (1M BASIC-English chats, trigram 3.647 bits/token at 5.137 bytes per token), with PersonaChat (human, personas as first-person system messages), DailyDialog (human) and the everyday assistant set mixed in and shuffled; the frame's identity line in the persona form | RAN 10-27 02:00:48 to 06:51:16 (ended for the MoE work at chunk 661,017 of 937,253 = 21,152,544 tokens): 29,992,115 tokens, floors on its held-out unigram 8.5276 / bigram 4.8214 / trigram 3.8883 (the bar), lr 3e-3 with 300-report plateau windows (three halvings by 03:19, at the floor since), 1,215 to 1,222 tok/s; the final checkpoint data/live-base/ckpt-661017.bin measures 5.6284 bits/token on 82,333 held-out predictions (top-1 0.3821); the 25,000-chunk curve was flat between 5.66 and 5.95 from chunk 125,001 (results/base-loss.log), the bigram bar not reached: the dense architecture's ceiling on this data; one checkpoint (550,001) measured 10.08 because its carried fast-weight state diverges along the stream while a fresh state gives 7.1 to 7.3 (docs/CHAT.md); in the harness the model answers in fluent English without an identity ("What is your name?" gave "I am feeling very fun, it really have many people do to make our unique things like that.") | data/chat-base/, data/cand/, tools/ngram-base.c, docs/CHAT.md "The base dataset" |
@@ -64,50 +78,61 @@ enabled by a killed owner stays unusable until the card reboots); card/cdma.c's 
 cost the card kernel's 50 us timer slack on every completion: the row DMA went from 69 to 3 us, the logits DMA from
 about 70 to 10 us per step).
 
-## The training loop as it runs (2026-10-26 22:4x)
+## The training loop as it runs (2026-10-27 08:0x)
 
 ```
-╔═ desktop ════════════════════════════════════════════════════════════════════════════════╗
-║ Gryphe/Opus-4.6-Reasoning-24k, 24,138 rows ─▶ tools/chat-text ─▶ chat format (106.8 MB)  ║
-║ <|system|> <|user|> <|assistant|> <|think|> <|/think|> <|end|> ─▶ bpe train (4,096 ids)  ║
-║ ─▶ data/chat-scratch/train.u16: 31.55M tokens at 3.141 bytes/token; valid 2.59M held out ║
-║ tools/init-ckpt ─▶ ckpt-init.bin (fresh F32 weights, 12.27 bits/token) ─▶ cortex --load  ║
-║ ┌─ cortex-watch (konsole): the run, the charts, the talk, the say line ────────────────┐ ║
-║ │ progress + time left, loss and tok/s column charts, the window, the sample, events,  │ ║
-║ │ checkpoints; /pause /resume /save /sample /scale /lr /every /stop-run ─▶ live.cmd    │ ║
-║ │ a line ─▶ a cortex --live turn: markers in, think and answer shown, stop at <|end|>  │ ║
-║ └──────────────────────────────────────────────────────────────────────────────────────┘ ║
-║ ┌─ cortex-tui (konsole): the chat harness, the same talk, /think on|off ───────────────┐ ║
-║ │ frames turns with tui/cortex.jinja (<|system|> = ~/CLAUDE.md); steers the coach      │ ║
-║ └──────────────────────────────────────────────────────────────────────────────────────┘ ║
-║ ┌─ host/coach ─────────────────────────────────────────────────────────────────────────┐ ║
-║ │ chunks of 33 ids into the ring (part + 56 MiB), reports every 100 chunks, lr 3e-3    │ ║
-║ │ windows of 100 reports, 3 halvings, --no-stop --save-every 5000, a sample per 2,000  │ ║
-║ └──────────────────────────────────────┬───────────────────────────────────────────────┘ ║
-╚════════════════════════════════════════╪═════════════════════════════════════════════════╝
-                                         │ PCIe, DMA channel 3: the ring in; the words,
-                                         │ the logits and the checkpoints (F32, 23.5 MB) out
-╔═ Xeon Phi 7120A: cortexd (build 19:14) ╪═════════════════════════════════════════════════╗
-║ 120 threads, F32 on the VPU: 32 forwards + backward + Adam a chunk, 1,207 to 1,213 tok/s ║
-║ a client's STEP ~369 us a token between chunks; CX_C_HEART every 100 ms; 2,700 huge pages║
+╔═ desktop: the MoE run (2026-10-27 07:42:16 on) ══════════════════════════════════════════╗
+║ data/chat-base/train.u16: TinyChat + PersonaChat + DailyDialog + everyday, 29.99M tokens ║
+║ host/coach --ckpt data/live-base/ckpt-661017.bin --start 661017 --lr 5e-4 --moe          ║
+║ --moe-bias 100 --bias-decay 100000 --expert-lr 0.05 --pool-every 50000 --save-every 5000 ║
+║   chunks of 33 ids into the ring (part + 56 MiB), 960 ahead; a report every 100 chunks   ║
+║   checkpoints data/live-moe/ckpt-N.bin (23,463,424 B) + pool-N.f32 (4,293,918,720 B)     ║
+║   pause/resume/save/sample/scale/lr/every/stop/bias/exlr/save-pool ─▶ results/live.cmd   ║
+║ tools/ref-loss CKPT valid.u16 N --moe pool-N.f32 --moe-bias B: the routed model's loss   ║
+║ ┌─ cortex-watch + cortex-tui (konsole): the run, the charts, the talk, the say line ───┐ ║
+║ │ moe on: bias B, expert lr 0.05 · experts N of 61,440 · pool push round R of 187      │ ║
+║ │ a say line ─▶ one cortex --live turn on the live weights, routed through the pool    │ ║
+║ └─ live.rs: the part every 250 ms; run.rs: results/live.log by appended bytes ─────────┘ ║
+╚═╪════════════════════════════════════════════════════════════════════════════════════════╝
+  │ PCIe DMA channel 3: chunks of 33 ids in; checkpoints and pool rounds out, pool rounds in
+╔═╪═ Xeon Phi 7120A: cortexd (MoE build), 120 heads on 60 cores ═══════════════════════════╗
+║ ┌─ head k: the 44,512-F32 block in L2, its MLP region the slot of the routed expert ───┐ ║
+║ │ pre: e ─▶ p, qb, bus r, x = RMSNorm gain, fast weights T, [o;x]; router: x . KA, KB  │ ║
+║ │   + home bonus ─▶ e = (a*248 + b) mod 61,440, 9 us; fetch expert e: 69,888 B, 94 us  │ ║
+║ │ mlp: h = [o;x] W1 + b1, z = SiLU(h), u = z Wu, g, bc; backward: rank-1 SGD lr 0.05   │ ║
+║ │   on the expert by the lowest head sharing it, stored back; the heads train by Adam  │ ║
+║ └─ 540 + 672 us per step (dense 326 + 454): 812 to 825 tok/s; a reply 593 us per step ─┘ ║
+║ GDDR pool: 61,440 experts x 69,888 B = 4,293,918,720 B in 2,048 huge pages; filled from  ║
+║   the checkpoint (expert e = column e mod 120) or a pulled file; pushed in 187 rounds    ║
 ╚══════════════════════════════════════════════════════════════════════════════════════════╝
 ```
 
 ## Layout of this tree
 
     PLAN-MOE.md, docs/      the plan and the documents listed above
-    card/cortexd.c          the train-and-serve daemon (two contexts over the live weights, the mailbox, DMA channel 3)
-    card/cluster.h          the 120-column cluster, the shared Adam schedule (cl_adam_schedule), the n-gram ring
-    host/coach.c            the coach: feeds the ring, reports, samples, policy, commands, checkpoints
-    host/cortex.c           the client: a checkpoint or the live weights, one STEP per token, sampler, orchestrator
-    host/orchestra.h        the orchestrator (AVX2 FMA); host/ngserve.c, host/ctxserve.c the memory and context servers
+    lib/cx-proto.h          the mailbox, the ring, the live-training words, the pool transfer words, the stage layout
+    lib/cx-moe.h            stage 2's shapes: the expert, the pool, the product keys, the home bonus, the pool rounds
+    card/cortexd.c          the train-and-serve daemon (two contexts over the live weights, the mailbox, DMA channel 3,
+                            the 4 GiB pool, the pool rounds); the MoE build (-DCX_MOE=1)
+    card/cluster.h          the 120-column cluster, the shared Adam schedule (cl_adam_schedule), the n-gram ring,
+                            the experts' SGD in the chunk backward
+    card/moe.h, col.h, train.h   the router, the fetch and the store; the column step split at the MLP; the head's step
+    host/coach.c            the coach: feeds the ring, reports, samples, policy, commands, checkpoints, the memory's
+                            ring thread (--ngram), the pool's knobs and saves (--moe, --pool, --pool-every)
+    host/cortex.c           the client: a checkpoint or the live weights, one STEP per token, sampler, orchestrator,
+                            --load with the gates and the pool bits, --ngram for the rows
+    host/ngtables.h         the memory's tables file (2 GiB in /dev/shm): open, gather, apply, step rows
+    host/orchestra.h        the orchestrator (AVX2 FMA); host/ngserve.c, host/ctxserve.c the batch servers
     tui/                    the harness cortex-tui and the monitor cortex-watch (Rust, crossterm, minijinja)
-    tui/cortex.jinja        the frame of every turn: the identity, Human:/Cortex: labels, the stop
-    tools/chat.sh, watch.sh the two programs in konsole windows; live-gate.sh the live trainer's gates
-    tools/chat-text.c, hubrows.c, ref-loss.c, interleave.c, textprep.c, ngcount.c, bpe.c   the data tools
-    results/                the gates' logs, the runs' logs (live.log), the measurements
-    data/ (local only)      bpe/ (vocab4096.txt, train.u16 562.7M tokens), live/ (the live runs' checkpoints),
-                            chat/, mix/ (the streams), opus46/ (the downloaded sets), stories-10m.ngc, wordlists
+    tui/cortex.jinja        the frame of every turn: the identity, the labels, the stop
+    tools/chat.sh, watch.sh the two programs in konsole windows
+    tools/live-gate.sh, live-ng-gate.sh, live-moe-gate.sh, pool-gate.sh, moe-gate.sh   the gates (results/*.log)
+    tools/cluster-gate.c, cref.h, ctrain-check.c, ref-loss.c   the batch trainer, the double reference, the evaluator
+    tools/chat-text.c, hubrows.c, interleave.c, textprep.c, ngcount.c, ngram-base.c, bpe.c, init-ckpt.c   the data tools
+    results/                the gates' logs, the runs' logs (live.log, base-loss.log), the measurements
+    data/ (local only)      chat-base/ (the base: train.u16, valid.u16, the vocabulary, persona.txt), live-base/ (the
+                            base run's checkpoints), live-moe/ (ckpt-N.bin and pool-N.f32 of the MoE run), cand/ (the
+                            corpora measured), bpe/, live/, chat/, mix/, opus46/ (the earlier streams and sets), wordlists
 
 ---
 
