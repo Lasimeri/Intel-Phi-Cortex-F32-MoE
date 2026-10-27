@@ -131,3 +131,9 @@ data/live/ckpt-30178.bin, 965,696 fresh story tokens at lr 1e-3 after the first 
 
 Rule learned at 20:24: on a flat curve the policy ends a run in minutes (three plateau halvings, two rising windows);
 runs meant to keep the card busy get `--window 100000`.
+
+21:40, the user: "Policy off and no checkpoints?!?". True: with the policy off the coach saved only at the end. A
+`save` was requested at once (data/live/ckpt-140700.bin) and a loop asks for one every ten minutes until this run
+ends. The coach now has `--save-every N` (a checkpoint every N chunks besides the policy's and the final one) and
+`--no-stop` (the policy keeps halving and saving on plateaus but never ends the run); every run after this one uses
+`--save-every 5000 --no-stop` with the normal window instead of the `--window 100000` workaround.

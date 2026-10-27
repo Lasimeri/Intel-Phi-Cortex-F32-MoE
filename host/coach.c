@@ -15,6 +15,9 @@
  *     --min-gain B         policy: a window gain under B bits/token is a plateau (default 0.01)
  *     --halvings H         policy: at most H halvings of the scale (default 3)
  *     --sample-every N     sample the live model every N chunks (default 2000, 0 = never)
+ *     --save-every N       a checkpoint every N chunks, besides the policy's and the final one (default 0 = none)
+ *     --no-stop            the policy halves and saves on plateaus but never ends the run: the stream's end or a
+ *                          `stop` line does (2026-10-26: a stories run with the default policy ended in 3.5 min)
  *     --sample-tokens N    tokens per sample (default 128)
  *     --prompt TEXT        the sample prompt (default "Once upon a time")
  *     --orchestra NGC      the sampling client's count model (with --words LIST, which also scores the samples)
@@ -61,8 +64,8 @@ static uint64_t kbits(double d) { uint64_t u; memcpy(&u, &d, 8); return u; }
 /* ---- settings ---- */
 static const char *tokens_path, *ckpt, *cmd_path, *ckdir = "data/live", *log_path = "results/live.log", *cortex_bin = "build/host/cortex", *vocab = "data/bpe/vocab4096.txt";
 static const char *prompt = "Once upon a time", *orchestra, *words = "data/wordlist-stories.txt";
-static long start_chunk, max_chunks = -1, sample_every = 2000;
-static int sample_tokens = 128, every = 100, window = 10, max_halvings = 3, start_paused;
+static long start_chunk, max_chunks = -1, sample_every = 2000, save_every;
+static int sample_tokens = 128, every = 100, window = 10, max_halvings = 3, start_paused, no_stop;
 static double lr = 3e-3, min_gain = 0.01, rep4_rise = 0.1;
 
 /* ---- the log ---- */
@@ -217,7 +220,7 @@ static int wait_ack_bit(uint64_t bit, int set, double timeout_s)
 /* ---- main ---- */
 int main(int argc, char **argv)
 {
-	if (argc < 2) { fprintf(stderr, "usage: coach TOKENS.u16 [--ckpt CKPT] [--start CHUNK] [--chunks N] [--lr X] [--every N] [--window W] [--min-gain B] [--halvings H] [--sample-every N] [--sample-tokens N] [--prompt TEXT] [--orchestra NGC] [--words LIST] [--cmd FILE] [--ckdir DIR] [--paused] [--log FILE] [--cortex PATH] [--vocab FILE]\n"); return 2; }
+	if (argc < 2) { fprintf(stderr, "usage: coach TOKENS.u16 [--ckpt CKPT] [--start CHUNK] [--chunks N] [--lr X] [--every N] [--window W] [--min-gain B] [--halvings H] [--sample-every N] [--sample-tokens N] [--save-every N] [--no-stop] [--prompt TEXT] [--orchestra NGC] [--words LIST] [--cmd FILE] [--ckdir DIR] [--paused] [--log FILE] [--cortex PATH] [--vocab FILE]\n"); return 2; }
 	tokens_path = argv[1];
 	for (int i = 2; i < argc; i++) {
 		if (!strcmp(argv[i], "--ckpt") && i + 1 < argc) ckpt = argv[++i];
@@ -229,6 +232,8 @@ int main(int argc, char **argv)
 		else if (!strcmp(argv[i], "--min-gain") && i + 1 < argc) min_gain = atof(argv[++i]);
 		else if (!strcmp(argv[i], "--halvings") && i + 1 < argc) max_halvings = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--sample-every") && i + 1 < argc) sample_every = atol(argv[++i]);
+		else if (!strcmp(argv[i], "--save-every") && i + 1 < argc) save_every = atol(argv[++i]);
+		else if (!strcmp(argv[i], "--no-stop")) no_stop = 1;
 		else if (!strcmp(argv[i], "--sample-tokens") && i + 1 < argc) sample_tokens = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--prompt") && i + 1 < argc) prompt = argv[++i];
 		else if (!strcmp(argv[i], "--orchestra") && i + 1 < argc) orchestra = argv[++i];
@@ -268,9 +273,9 @@ int main(int argc, char **argv)
 	if (mkdir(ckdir, 0755) && errno != EEXIST) { perror(ckdir); return 1; }
 	saves_seen = LD64(CX_T_SAVES);
 	if (cmd_path) { struct stat st; if (!stat(cmd_path, &st)) cmd_offset = st.st_size; }   /* only lines appended from now on */
-	logline("coach: %s chunks %ld..%ld (%ld chunks = %ld tokens), lr %.3e, report every %d, window %d, min gain %.3f, halvings %d, sample every %ld x %d tokens%s%s, cmd %s, checkpoints %s/",
+	logline("coach: %s chunks %ld..%ld (%ld chunks = %ld tokens), lr %.3e, report every %d, window %d, min gain %.3f, halvings %d, sample every %ld x %d tokens, save every %ld%s%s%s, cmd %s, checkpoints %s/",
 	        tokens_path, start_chunk, start_chunk + total_chunks - 1, total_chunks, total_chunks * CX_T_L, lr, every, window, min_gain, max_halvings, sample_every, sample_tokens,
-	        orchestra ? ", orchestra " : "", orchestra ? orchestra : "", cmd_path ? cmd_path : "(none)", ckdir);
+	        save_every, no_stop ? ", no stop" : "", orchestra ? ", orchestra " : "", orchestra ? orchestra : "", cmd_path ? cmd_path : "(none)", ckdir);
 	/* the initial weights */
 	if (ckpt) {
 		char cmd[4096];
@@ -296,7 +301,7 @@ int main(int argc, char **argv)
 	uint64_t last_report = report0;
 	double win_sum = 0, prev_mean = 0;
 	int win_n = 0, have_prev = 0, neg_windows = 0;
-	long next_sample = sample_every ? sample_every : -1, consumed = 0;
+	long next_sample = sample_every ? sample_every : -1, next_save = save_every ? save_every : -1, consumed = 0;
 	int sample_seed = 1;
 	for (;;) {
 		usleep(5000);
@@ -319,8 +324,8 @@ int main(int argc, char **argv)
 					neg_windows = gain < 0 ? neg_windows + 1 : 0;
 					if (gain < min_gain) {
 						if (halvings >= max_halvings) {
-							if (neg_windows >= 2) { stop_requested = 1; logline("policy: at the floor and the loss rose for two windows -> stop"); }
-							else logline("policy: plateau at the floor (scale %.4f), continuing", scale);
+							if (neg_windows >= 2 && !no_stop) { stop_requested = 1; logline("policy: at the floor and the loss rose for two windows -> stop"); }
+							else logline("policy: plateau at the floor (scale %.4f), continuing%s", scale, neg_windows >= 2 ? " (no-stop)" : "");
 						} else {
 							scale *= 0.5;
 							halvings++;
@@ -335,6 +340,11 @@ int main(int argc, char **argv)
 				win_sum = 0;
 				win_n = 0;
 			}
+		}
+		if (next_save > 0 && consumed >= next_save) {
+			next_save = (consumed / save_every + 1) * save_every;
+			request_save();
+			logline("checkpoint requested at chunk %ld (every %ld chunks)", consumed, save_every);
 		}
 		if ((next_sample > 0 && consumed >= next_sample) || sample_requested) {
 			if (next_sample > 0 && consumed >= next_sample) next_sample += sample_every;
