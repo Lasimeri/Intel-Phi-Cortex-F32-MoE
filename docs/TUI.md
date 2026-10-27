@@ -81,3 +81,23 @@ session's scratchpad)
 Client changes for the harness (host/cortex.c): `--no-echo` (the prompt not printed), `--stop-eot` (the generation
 ends at `<|endoftext|>`, printed as its literal, not counted); `--load` now defaults the bus off like `--live` (the
 trained configuration; the coach always passed `--bus 0`).
+
+## The frame: tui/cortex.jinja (2026-10-26 19:22, "Get a jinja script written so the model also has prompt coherence and can be prompted as a coherent identity")
+
+`tui/cortex.jinja` is rendered by the harness at every turn (minijinja 2.24, `tui/src/frame.rs`) the way a chat
+template is: `messages` (role system | user | assistant, content), `identity` (`name` from `--name`, the template's
+own default otherwise), `add_generation_prompt`, `eos_token`. It writes the system message (~/CLAUDE.md), an identity
+paragraph ("Cortex is the Intel Phi Cortex: ..."), the dialogue as labelled lines (`Human:` / `Cortex:`), and the
+model's label last; it exports `stop` ("\nHuman:"), which the harness passes to the client as `--stop`, so a reply
+ends before the next speaker's label (the client prints the pieces before the one completing it; the harness trims a
+partial label and records how the reply ended: the story's end, the next speaker's label, or the token limit). The
+oldest exchanges are dropped until the dialogue fits `--ctx`. An edit to the template applies to the next turn; a
+broken template is an error on the status row, not a crash (`frame::tests`). The model is not chat-tuned: its replies
+are story text in the frame's slot (below); the frame fixes the structure of every turn and names the identity, and
+the same template serves the chat fine-tune later.
+
+Measured (19:3x, two framed turns through the harness in tmux): "Hello. Who are you?" gave 75 tokens in 1.44 s,
+2,706 tok/s overall, card 367 us, host 108 us a token, prompt 3,820 tokens (the system message 3,710, the frame and
+the dialogue the rest), ended at the story's end; "Tell me a story about a cat." gave 62 tokens in 1.47 s, 2,711
+tok/s, prompt 3,915 tokens, the story's end. Both replies were third-person stories (the model continues as it was
+trained; the identity paragraph and the labels do not change that in a 5.9M-parameter story model).

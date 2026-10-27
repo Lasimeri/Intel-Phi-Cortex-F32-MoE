@@ -341,3 +341,8 @@ a konsole window. A turn runs `cortex --live` with the system prompt + the trans
 tokens = 1.4 s a turn before the first generated token; 2,678 tok/s overall); the side panel reads the part's live
 words and the coach's log; the run screen steers the coach (resume/save/pause/scale/stop verified against a real
 paused coach session). The daemon now counts CX_C_HEART at 10 Hz (build 19:14) so the harness can say it is alive.
+
+19:22 "Get a jinja script written so the model also has prompt coherence and can be prompted as a coherent identity":
+`tui/cortex.jinja`, rendered by the harness every turn (minijinja) as a chat template with the identity paragraph,
+`Human:` / `Cortex:` labels and an exported `stop` the client takes as `--stop`; docs/TUI.md "The frame". Measured:
+75 tokens at 2,706 tok/s with a 3,820-token prompt; the replies remain third-person stories (no chat fine-tune yet).

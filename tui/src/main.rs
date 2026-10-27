@@ -3,11 +3,13 @@
 //!
 //! Each turn runs the gated host client `build/host/cortex --live` and streams its tokens into the conversation as
 //! they are sampled; the live-training words of the shared part and the coach's log stand beside it; the coach is
-//! steered from the run screen; ~/CLAUDE.md prefixes every turn's prompt as the system prompt. Nothing typed here
-//! and nothing the model writes is training data.
+//! steered from the run screen; every turn is framed by a Jinja template (tui/cortex.jinja: the identity, the
+//! speaker labels, the stop) with ~/CLAUDE.md as the system message. Nothing typed here and nothing the model writes
+//! is training data.
 //!
 //!   cortex-tui [--tree DIR] [--cortex PATH] [--orchestra NGC|off] [--words LIST] [--system FILE|off]
-//!              [--cmd FILE] [--log FILE] [--ckdir DIR] [--part FILE] [--ngen N] [--ctx CHARS]
+//!              [--template FILE] [--name NAME] [--cmd FILE] [--log FILE] [--ckdir DIR] [--part FILE]
+//!              [--ngen N] [--ctx CHARS]
 //!
 //! The loop draws when something changed, waits up to 100 ms for a key, and ends on ctrl+q once no reply is in
 //! flight: the client ends the daemon's session with a QUIT, and a client killed after its first command leaves the
@@ -15,6 +17,7 @@
 mod app;
 mod cortex;
 mod editor;
+mod frame;
 mod live;
 mod run;
 mod term;

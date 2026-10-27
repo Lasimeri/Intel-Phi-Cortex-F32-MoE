@@ -13,6 +13,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::cortex::{self, Request, Sampling, Stats};
 use crate::editor::Editor;
+use crate::frame::{self, Message, Rendered};
 use crate::live::{Live, Reader};
 use crate::run::Run;
 
@@ -24,18 +25,21 @@ const HEART_STALE: Duration = Duration::from_secs(2);
 const INFO_FOR: Duration = Duration::from_secs(8);
 
 pub const USAGE: &str = "usage: cortex-tui [--tree DIR] [--cortex PATH] [--orchestra NGC|off] [--words LIST] [--system FILE|off]
-                  [--cmd FILE] [--log FILE] [--ckdir DIR] [--part FILE] [--ngen N] [--ctx CHARS]
+                  [--template FILE] [--name NAME] [--cmd FILE] [--log FILE] [--ckdir DIR] [--part FILE]
+                  [--ngen N] [--ctx CHARS]
   --tree DIR        the Cortex tree the client runs in (default: the current directory)
   --cortex PATH     the host client (build/host/cortex)
   --orchestra NGC   the orchestrator's n-gram count model (data/stories-10m.ngc), or off for the plain model
   --words LIST      the orchestrator's word list (data/wordlist-stories.txt)
-  --system FILE     the system prompt, prefixed to every turn's prompt (~/CLAUDE.md when it exists), or off
+  --system FILE     the system message of every turn (~/CLAUDE.md when it exists), or off
+  --template FILE   the frame of every turn, a Jinja template (tui/cortex.jinja): the identity, the labels, the stop
+  --name NAME       the identity's name in the frame (the template's own default when not given)
   --cmd FILE        the coach's command file, where the run commands go (results/live.cmd)
   --log FILE        the coach's log, read for the reports (results/live.log)
   --ckdir DIR       where the coach puts the checkpoints (data/live)
   --part FILE       the shared host-memory region (/dev/shm/phi-hostmem)
   --ngen N          tokens per reply (128, at most 2048)
-  --ctx CHARS       transcript characters re-fed as the prompt of a turn, after the system prompt (4000)";
+  --ctx CHARS       dialogue characters kept in a turn's prompt; the oldest exchanges are dropped beyond it (4000)";
 
 /// Command-line configuration; every value defaults to the tree's layout.
 #[derive(Clone, Debug)]
@@ -45,6 +49,8 @@ pub struct Config {
     pub orchestra: Option<String>,
     pub words: String,
     pub system: Option<PathBuf>,
+    pub template: String,
+    pub name: Option<String>,
     pub cmd_file: String,
     pub log_file: String,
     pub ckdir: String,
@@ -70,6 +76,8 @@ impl Config {
             orchestra: Some("data/stories-10m.ngc".into()),
             words: "data/wordlist-stories.txt".into(),
             system: home_claude,
+            template: "tui/cortex.jinja".into(),
+            name: None,
             cmd_file: "results/live.cmd".into(),
             log_file: "results/live.log".into(),
             ckdir: "data/live".into(),
@@ -91,6 +99,8 @@ impl Config {
                     let v = value("--system")?;
                     c.system = if v == "off" { None } else { Some(PathBuf::from(expand_home(&v))) };
                 }
+                "--template" => c.template = value("--template")?,
+                "--name" => c.name = Some(value("--name")?),
                 "--cmd" => c.cmd_file = value("--cmd")?,
                 "--log" => c.log_file = value("--log")?,
                 "--ckdir" => c.ckdir = value("--ckdir")?,
@@ -126,6 +136,9 @@ impl Config {
                 return Err(format!("system prompt {} not found: pass --system FILE or --system off", s.display()));
             }
         }
+        if !self.in_tree(&self.template).is_file() {
+            return Err(format!("the frame {} not found in {}: pass --template FILE", self.template, self.tree));
+        }
         if self.ngen == 0 || self.ngen > NGEN_MAX {
             return Err(format!("--ngen must be 1 to {NGEN_MAX}"));
         }
@@ -160,11 +173,24 @@ pub struct Turn {
     pub stats: Option<Stats>,
     pub done: bool,
     pub seed: u64,
+    /// The token limit the reply was asked with.
+    pub limit: u32,
+    /// How the reply ended, once done.
+    pub ended: Option<Ended>,
+}
+
+/// How a reply ended: at the story's end (`<|endoftext|>`), before the next speaker's label (the frame's stop), or
+/// at the token limit.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Ended {
+    Story,
+    Label,
+    Limit,
 }
 
 impl Turn {
     pub fn new(who: Who, text: String) -> Self {
-        Self { who, text, bytes: Vec::new(), stats: None, done: who != Who::Cortex, seed: 0 }
+        Self { who, text, bytes: Vec::new(), stats: None, done: who != Who::Cortex, seed: 0, limit: 0, ended: None }
     }
 
     pub fn append(&mut self, b: &[u8]) {
@@ -172,13 +198,24 @@ impl Turn {
         self.text = String::from_utf8_lossy(&self.bytes).into_owned();
     }
 
-    /// The client prints one newline after the reply; it is not the model's.
-    pub fn finish(&mut self) {
+    /// The reply as kept: the client's own trailing newline dropped, a partial stop label at the end cut (the client
+    /// prints the pieces before the one completing the label), trailing whitespace trimmed; and how it ended.
+    pub fn finish(&mut self, stop: Option<&str>, limit_hit: bool) {
         if self.bytes.last() == Some(&b'\n') {
             self.bytes.pop();
         }
-        self.text = String::from_utf8_lossy(&self.bytes).into_owned();
+        let mut text = String::from_utf8_lossy(&self.bytes).into_owned();
+        let mut ended = if text.ends_with(EOT) { Ended::Story } else if limit_hit { Ended::Limit } else { Ended::Label };
+        if let Some(stop) = stop.filter(|s| !s.is_empty()) {
+            let trimmed = text.trim_end();
+            if let Some(cut) = (1..=stop.len()).rev().find(|&k| stop.is_char_boundary(k) && trimmed.ends_with(&stop[..k])) {
+                text.truncate(trimmed.len() - cut);
+                ended = Ended::Label;
+            }
+        }
+        self.text = text.trim_end().to_string();
         self.done = true;
+        self.ended = Some(ended);
     }
 }
 
@@ -200,6 +237,8 @@ pub struct App {
     pub system_chars: usize,
     pub fixed_seed: Option<u64>,
     seed_next: u64,
+    /// The frame's stop of the turn in flight.
+    stop: Option<String>,
     rx: Option<Receiver<cortex::Event>>,
     pub in_flight: bool,
     pub turn_started: Instant,
@@ -239,6 +278,7 @@ impl App {
             sampling: Sampling::default(),
             fixed_seed: None,
             seed_next: seed_base,
+            stop: None,
             rx: None,
             in_flight: false,
             turn_started: now,
@@ -405,7 +445,11 @@ impl App {
     }
 
     fn generate(&mut self) {
-        let prompt = self.prompt();
+        let Rendered { prompt, stop } = match self.prompt() {
+            Ok(r) => r,
+            Err(e) => return self.error(e),
+        };
+        self.stop = stop.clone();
         let seed = match self.fixed_seed {
             Some(s) => s,
             None => {
@@ -420,10 +464,11 @@ impl App {
         self.back = 0;
         let mut turn = Turn::new(Who::Cortex, String::new());
         turn.seed = seed;
+        turn.limit = self.ngen;
         self.turns.push(turn);
         let orchestra = if self.orchestra_on { self.cfg.orchestra.clone().map(|n| (n, self.cfg.words.clone())) } else { None };
         cortex::start(
-            Request { tree: self.cfg.tree.clone(), cortex: self.cfg.cortex.clone(), orchestra, prompt, ngen: self.ngen, seed, sampling: self.sampling.clone() },
+            Request { tree: self.cfg.tree.clone(), cortex: self.cfg.cortex.clone(), orchestra, prompt, stop, ngen: self.ngen, seed, sampling: self.sampling.clone() },
             tx,
         );
     }
@@ -437,36 +482,36 @@ impl App {
         if text.trim().is_empty() { None } else { Some(text) }
     }
 
-    /// The transcript's text: the model's pieces following your text as they did, a space between your text and
-    /// what precedes it when neither side has one.
-    pub fn transcript(&self) -> String {
-        let mut s = String::new();
-        for t in &self.turns {
-            match t.who {
-                Who::You => {
-                    if !s.is_empty() && !s.ends_with(char::is_whitespace) && !t.text.starts_with(char::is_whitespace) {
-                        s.push(' ');
-                    }
-                    s.push_str(&t.text);
-                }
-                Who::Cortex => s.push_str(&t.text),
-            }
-        }
-        s
-    }
-
-    /// The prompt of a turn: the system prompt, a blank line, then the transcript's last `ctx_chars` characters
-    /// cut at a word boundary.
-    pub fn prompt(&mut self) -> String {
-        let mut p = String::new();
+    /// The prompt of a turn: the frame rendered with the system message (the system prompt file as it is now), the
+    /// dialogue and the model's label last; the oldest exchanges are dropped until the dialogue's characters fit
+    /// `ctx_chars`.
+    pub fn prompt(&mut self) -> Result<Rendered, String> {
+        let path = self.cfg.in_tree(&self.cfg.template);
+        let src = fs::read_to_string(&path).map_err(|e| format!("the frame {}: {e}", path.display()))?;
+        let mut head = Vec::new();
         if let Some(sys) = self.system_text() {
             self.system_chars = sys.chars().count();
-            p.push_str(sys.trim_end());
-            p.push_str("\n\n");
+            head.push(Message { role: "system", content: sys });
         }
-        let transcript = self.transcript();
-        p.push_str(tail(&transcript, self.ctx_chars));
-        p
+        let dialogue: Vec<Message> = self
+            .turns
+            .iter()
+            .map(|t| Message { role: if t.who == Who::You { "user" } else { "assistant" }, content: t.text.clone() })
+            .collect();
+        let name = self.cfg.name.clone();
+        let base = frame::render(&src, &head, name.as_deref())?.prompt.chars().count();
+        let mut skip = 0;
+        loop {
+            let all: Vec<Message> = head.iter().chain(&dialogue[skip..]).cloned().collect();
+            let r = frame::render(&src, &all, name.as_deref())?;
+            if r.prompt.chars().count().saturating_sub(base) <= self.ctx_chars || dialogue.len() - skip <= 1 {
+                return Ok(r);
+            }
+            skip += 1;
+            while skip < dialogue.len() && dialogue[skip].role == "assistant" {
+                skip += 1;
+            }
+        }
     }
 
     /// The turn in flight's events; whether anything shown changed.
@@ -493,8 +538,10 @@ impl App {
             return changed;
         };
         self.in_flight = false;
+        let stop = self.stop.take();
         if let Some(t) = self.turns.last_mut() {
-            t.finish();
+            let limit_hit = stats.as_ref().is_some_and(|s| s.generated >= t.limit as u64);
+            t.finish(stop.as_deref(), limit_hit);
             t.stats = stats.clone();
         }
         if ok {
@@ -519,10 +566,9 @@ impl App {
             return self.error("a reply is streaming; /retry when it has ended");
         }
         let Some(last) = self.turns.last() else { return self.error("nothing to retry yet") };
-        if last.who != Who::Cortex {
-            return self.error("the last turn is yours; it is sent as typed");
+        if last.who == Who::Cortex {
+            self.turns.pop();
         }
-        self.turns.pop();
         if self.fixed_seed.is_some() {
             self.info("the seed is fixed: the retry repeats the same reply (/seed auto for a new one)");
         }
@@ -736,23 +782,6 @@ fn on_off(arg: Option<&str>) -> Option<bool> {
     }
 }
 
-/// The last `n` chars of `s`, then up to the first space so the cut starts a word (the whole string when it fits).
-pub fn tail(s: &str, n: usize) -> &str {
-    let count = s.chars().count();
-    if count <= n {
-        return s;
-    }
-    let start = s.char_indices().nth(count - n).map_or(0, |(i, _)| i);
-    let t = &s[start..];
-    if s[..start].ends_with(char::is_whitespace) || t.starts_with(char::is_whitespace) {
-        return t.trim_start();
-    }
-    match t.find(' ') {
-        Some(i) if i + 1 < t.len() => &t[i + 1..],
-        _ => t,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -764,6 +793,8 @@ mod tests {
             orchestra: None,
             words: "w".into(),
             system: None,
+            template: "cortex.jinja".into(),
+            name: None,
             cmd_file: "cmd".into(),
             log_file: "log".into(),
             ckdir: "ck".into(),
@@ -774,36 +805,49 @@ mod tests {
     }
 
     #[test]
-    fn the_tail_starts_a_word() {
-        assert_eq!(tail("one two three", 100), "one two three");
-        assert_eq!(tail("one two three", 9), "two three");
-        assert_eq!(tail("one two three", 7), "three");
-        assert_eq!(tail("one two three", 5), "three");
-        assert_eq!(tail("abcdefgh", 3), "fgh");
+    fn a_reply_ends_at_the_story_the_label_or_the_limit() {
+        let mut c = Turn::new(Who::Cortex, String::new());
+        c.append(b" The sun was warm.\nHum");
+        c.finish(Some("\nHuman:"), false);
+        assert_eq!((c.text.as_str(), c.ended), (" The sun was warm.", Some(Ended::Label)));
+        let mut c = Turn::new(Who::Cortex, String::new());
+        c.append(b" The end.");
+        c.append(EOT.as_bytes());
+        c.append(b"\n");
+        c.finish(Some("\nHuman:"), false);
+        assert_eq!((c.text.as_str(), c.ended), (" The end.<|endoftext|>", Some(Ended::Story)));
+        let mut c = Turn::new(Who::Cortex, String::new());
+        c.append(b" and then\n");
+        c.finish(None, true);
+        assert_eq!((c.text.as_str(), c.ended), (" and then", Some(Ended::Limit)));
     }
 
     #[test]
-    fn the_prompt_is_the_transcript_after_the_system_prompt() {
-        let mut a = App::new(test_config());
-        a.turns.push(Turn::new(Who::You, "Once upon a time".into()));
-        let mut c = Turn::new(Who::Cortex, String::new());
-        c.append(b" there was a cat.");
-        c.append(EOT.as_bytes());
-        c.append(b"\n");
-        c.finish();
-        a.turns.push(c);
-        a.turns.push(Turn::new(Who::You, "Then".into()));
-        assert_eq!(a.prompt(), "Once upon a time there was a cat.<|endoftext|> Then");
-        a.ctx_chars = 10;
-        assert_eq!(a.prompt(), "Then");
+    fn the_prompt_is_the_frame_over_the_system_message_and_the_dialogue() {
         let dir = std::env::temp_dir().join(format!("cortex-tui-test-{}", std::process::id()));
         fs::create_dir_all(&dir).unwrap();
+        let tpl = dir.join("frame.jinja");
+        fs::write(&tpl, "{% set stop = \"\\nU:\" %}{% for m in messages %}{{ m.role }}: {{ m.content | trim }}\n{% endfor %}A:").unwrap();
         let sys = dir.join("system.md");
         fs::write(&sys, "Be brief.\n").unwrap();
+        let mut cfg = test_config();
+        cfg.template = tpl.to_string_lossy().into_owned();
+        let mut a = App::new(cfg);
+        a.turns.push(Turn::new(Who::You, "hi".into()));
+        let mut c = Turn::new(Who::Cortex, String::new());
+        c.append(b" Hello there.\n");
+        c.finish(None, true);
+        a.turns.push(c);
+        a.turns.push(Turn::new(Who::You, "and then?".into()));
+        let r = a.prompt().unwrap();
+        assert_eq!(r.prompt, "user: hi\nassistant: Hello there.\nuser: and then?\nA:");
+        assert_eq!(r.stop.as_deref(), Some("\nU:"));
         a.cfg.system = Some(sys);
         a.system_on = true;
-        assert_eq!(a.prompt(), "Be brief.\n\nThen");
+        assert_eq!(a.prompt().unwrap().prompt, "system: Be brief.\nuser: hi\nassistant: Hello there.\nuser: and then?\nA:");
         assert_eq!(a.system_chars, 10);
+        a.ctx_chars = 20; // the oldest exchange is dropped: the dialogue is then "user: and then?\n"
+        assert_eq!(a.prompt().unwrap().prompt, "system: Be brief.\nuser: and then?\nA:");
         fs::remove_dir_all(&dir).unwrap();
     }
 

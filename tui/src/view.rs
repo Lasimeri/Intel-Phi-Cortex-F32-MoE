@@ -3,7 +3,7 @@
 //! run's numbers beside it, the run screen, the help. Nothing here changes what the app holds but the scroll
 //! positions and the page size.
 
-use crate::app::{App, Screen, Turn, Who, EOT};
+use crate::app::{App, Ended, Screen, Turn, Who, EOT};
 use crate::term::{theme, Frame, Span};
 use crate::wrap::wrap;
 
@@ -202,7 +202,14 @@ fn turn_note(t: &Turn) -> String {
         parts.push(format!("prompt {} tokens", group(s.prompt_tokens)));
     }
     parts.push(format!("seed {}", t.seed));
-    parts.push(if t.text.ends_with(EOT) { "the story's end".to_string() } else { "the token limit".to_string() });
+    parts.push(
+        match t.ended {
+            Some(Ended::Story) => "the story's end",
+            Some(Ended::Label) => "the next speaker's label",
+            _ => "the token limit",
+        }
+        .to_string(),
+    );
     parts.join("  · ")
 }
 
@@ -315,6 +322,11 @@ fn side_panel(a: &App, w: usize) -> Vec<Vec<Span>> {
         (None, _) => "none".to_string(),
     };
     p.push(kv("system prompt", system, w));
+    let frame = match &a.cfg.name {
+        Some(n) => format!("{}, as {n}", file_name(&a.cfg.template)),
+        None => file_name(&a.cfg.template).to_string(),
+    };
+    p.push(kv("frame", frame, w));
     p.push(kv("seed", a.fixed_seed.map_or("fresh each turn".to_string(), |s| s.to_string()), w));
     if let Some(s) = &a.last_stats {
         p.push(kv("last reply", format!("{} tok/s, card {:.0} us", group(s.tok_s.round().max(0.0) as u64), s.card_us), w));
@@ -441,7 +453,8 @@ const HELP: &[(&str, &str)] = &[
     ("/ctx CHARS", "transcript characters re-fed as the prompt after the system prompt"),
     ("/temp /topk /topp /minp /rp X", "the sampler (llama.cpp's order; defaults 0.5, 75, 0.95, 0.05, 1.2)"),
     ("/greedy /orchestra [on|off]", "as f4, f3"),
-    ("/system [on|off|FILE]", "the system prompt: ~/CLAUDE.md unless told otherwise, read at every turn"),
+    ("/system [on|off|FILE]", "the system message: ~/CLAUDE.md unless told otherwise, read at every turn"),
+    ("the frame", "tui/cortex.jinja frames every turn (the identity, the labels, the stop); an edit applies to the next turn"),
     ("/seed N | auto", "a fixed seed (the same prompt gives the same reply), or fresh each turn"),
     ("/retry", "the last reply again"),
     ("/clear", "a new story: the transcript emptied"),
@@ -493,6 +506,8 @@ mod tests {
             orchestra: None,
             words: "w".into(),
             system: None,
+            template: "cortex.jinja".into(),
+            name: None,
             cmd_file: "cmd".into(),
             log_file: "log".into(),
             ckdir: "ck".into(),
@@ -520,7 +535,7 @@ mod tests {
                 let mut c = Turn::new(Who::Cortex, String::new());
                 c.append(b" there was a cat who liked to sit in the sun all day long and never once got up.");
                 c.append(EOT.as_bytes());
-                c.finish();
+                c.finish(None, false);
                 a.turns.push(c);
                 let f = render(&mut a, w, h);
                 for r in 0..h as usize {
@@ -541,7 +556,7 @@ mod tests {
         let mut c = Turn::new(Who::Cortex, String::new());
         c.append(b" the end.");
         c.append(EOT.as_bytes());
-        c.finish();
+        c.finish(None, false);
         let rows = conversation(&[Turn::new(Who::You, "Once".into()), c], 0, 60);
         let texts: Vec<String> = rows.iter().map(|r| r.iter().map(|s| s.text.as_str()).collect()).collect();
         assert_eq!(texts[0], "you    Once");

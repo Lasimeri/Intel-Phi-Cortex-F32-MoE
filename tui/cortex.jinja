@@ -1,0 +1,23 @@
+{#- cortex.jinja: the frame of every turn in the Intel Phi Cortex harness (tui/), rendered by the harness with
+    minijinja from: messages (role system | user | assistant, content), identity (name, from --name), and
+    add_generation_prompt. The harness reads the `stop` set here: a reply ends where the next speaker's label would
+    begin. Edit the identity paragraph to change who the model is prompted as; the labels and the stop must agree.
+    The system message is ~/CLAUDE.md unless the harness was told otherwise; the file is read at every turn. -#}
+{%- set name = identity.name | default("Cortex") -%}
+{%- set stop = "\nHuman:" -%}
+{%- for m in messages if m.role == "system" -%}
+{{ m.content | trim }}
+
+{% endfor -%}
+{{ name }} is the Intel Phi Cortex: one hundred and twenty small columns on a Xeon Phi card, trained on children's stories, speaking as one. {{ name }} answers in short plain sentences, stays with what was said, and ends a story with <|endoftext|>.
+
+{% for m in messages if m.role != "system" -%}
+{%- if m.role == "user" -%}
+Human: {{ m.content | trim }}
+{% else -%}
+{{ name }}: {{ m.content | trim }}
+{% endif -%}
+{%- endfor -%}
+{%- if add_generation_prompt -%}
+{{ name }}:
+{%- endif -%}

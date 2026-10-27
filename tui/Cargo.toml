@@ -2,7 +2,7 @@
 name = "cortex-tui"
 version = "0.1.0"
 edition = "2021"
-description = "The Intel Phi Cortex's harness: a chat on the card's live weights while it trains, the live run's numbers beside it, the coach steered from the same screen"
+description = "The Intel Phi Cortex's harness: a chat on the card's live weights while it trains, the live run's numbers beside it, the coach steered from the same screen, the turns framed by a Jinja template"
 
 [[bin]]
 name = "cortex-tui"
@@ -10,6 +10,7 @@ path = "src/main.rs"
 
 [dependencies]
 crossterm = "0.28"
+minijinja = "2"
 
 [profile.release]
 opt-level = 2

@@ -21,6 +21,9 @@
  *   --no-echo               the prompt is not printed before the generated text (a chat client shows it already)
  *   --stop-eot              the generation ends at <|endoftext|>, the story's end: the token is printed as its
  *                           literal and not counted as generated (the chat TUI in tui/ keeps it as the boundary)
+ *   --stop STRING           the generation ends when the last 63 bytes of output hold STRING (the next speaker's
+ *                           label of the harness's frame, tui/cortex.jinja); the piece completing it is not printed
+ *                           nor counted, the pieces before it were (the harness trims the partial label)
  *   --ids FILE.u16         the prompt as token ids from a file (the prompt text is then ignored; gates replay it)
  *   --dump-logits FILE      every step's 4096 raw logits as received from the card, appended as F32 (gates, replay)
  *   --ngram TABLES GATES    the n-gram memory: TABLES = 2 orders x CX_NG_ROWS x 128 F32 (ngserve --save), GATES =
@@ -231,12 +234,23 @@ static long read_ids(const char *path, uint32_t **out)
 typedef struct {
 	orch *O;
 	int greedy, chat, stop_eot;
+	const char *stop;   /* --stop STRING, or NULL */
 	float temp, topp, minp, rp;
 	int topk;
 	uint64_t orch_ns, sample_ns, print_ns;
 	char tail[64];
 	int tl;
 } host_side;
+
+/* the last 63 bytes of the output, for the stop rules */
+static void tail_add(host_side *h, int id)
+{
+	const int add = tok_len[id] < 63 ? tok_len[id] : 63;
+	if (h->tl + add > 63) { memmove(h->tail, h->tail + h->tl + add - 63, (size_t)(63 - add)); h->tl = 63 - add; }
+	memcpy(h->tail + h->tl, tok_s[id], (size_t)add);
+	h->tl += add;
+	h->tail[h->tl] = 0;
+}
 
 /* the next token from the step's logits; -1 when the chat turn ended */
 static int host_step(host_side *h, float *logits, uint32_t *ids, int s)
@@ -251,13 +265,10 @@ static int host_step(host_side *h, float *logits, uint32_t *ids, int s)
 	if (h->chat && id == EOT) return -1;
 	if (h->stop_eot && id == EOT) { fwrite(tok_s[id], 1, (size_t)tok_len[id], stdout); fflush(stdout); return -1; }
 	ids[s + 1] = (uint32_t)id;
-	if (h->chat) {
-		const int add = tok_len[id] < 63 ? tok_len[id] : 63;
-		if (h->tl + add > 63) { memmove(h->tail, h->tail + h->tl + add - 63, (size_t)(63 - add)); h->tl = 63 - add; }
-		memcpy(h->tail + h->tl, tok_s[id], (size_t)add);
-		h->tl += add;
-		h->tail[h->tl] = 0;
-		if (strstr(h->tail, "\n\nHuman:") || strstr(h->tail, "\nHuman:")) return -1;
+	if (h->chat || h->stop) {
+		tail_add(h, id);
+		if (h->chat && (strstr(h->tail, "\n\nHuman:") || strstr(h->tail, "\nHuman:"))) return -1;
+		if (h->stop && strstr(h->tail, h->stop)) return -1;
 	}
 	fwrite(tok_s[id], 1, (size_t)tok_len[id], stdout);
 	fflush(stdout);
@@ -286,7 +297,7 @@ static int stop_daemon(void)
 static void usage(void)
 {
 	fprintf(stderr, "usage: cortex CKPT \"prompt\" NGEN [options] | cortex --replay LOGITS.f32 NSTEPS [options] | cortex --stop\n"
-	                "options: [--greedy] [--bus 0|1] [--temp T] [--topk K] [--topp P] [--minp M] [--rp R] [--seed S] [--vocab FILE] [--chat] [--no-echo] [--stop-eot]\n"
+	                "options: [--greedy] [--bus 0|1] [--temp T] [--topk K] [--topp P] [--minp M] [--rp R] [--seed S] [--vocab FILE] [--chat] [--no-echo] [--stop-eot] [--stop STRING]\n"
 	                "         [--ids FILE.u16] [--dump-logits FILE] [--ngram TABLES GATES]\n"
 	                "         [--orchestra NGC [--words LIST] [--word-min N] [--lambda X] [--no-filter] [--repeat-ok]]\n");
 }
@@ -303,13 +314,14 @@ int main(int argc, char **argv)
 	const char *orch_ngc = NULL, *orch_words = "data/wordlist-stories.txt";
 	float orch_lambda = 0.3f;
 	static orch O;
-	host_side H = { .greedy = 0, .chat = 0, .stop_eot = 0, .temp = 0.5f, .topp = 0.95f, .minp = 0.05f, .rp = 1.2f, .topk = 75 };
+	host_side H = { .greedy = 0, .chat = 0, .stop_eot = 0, .stop = NULL, .temp = 0.5f, .topp = 0.95f, .minp = 0.05f, .rp = 1.2f, .topk = 75 };
 	rng = 0x5EED0000C0A7E8ull;
 	for (int i = load_only ? 3 : 4; i < argc; i++) {
 		if (!strcmp(argv[i], "--greedy")) H.greedy = 1;
 		else if (!strcmp(argv[i], "--chat")) H.chat = 1;
 		else if (!strcmp(argv[i], "--no-echo")) no_echo = 1;
 		else if (!strcmp(argv[i], "--stop-eot")) H.stop_eot = 1;
+		else if (!strcmp(argv[i], "--stop") && i + 1 < argc) H.stop = argv[++i];
 		else if (!strcmp(argv[i], "--bus") && i + 1 < argc) bus = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--temp") && i + 1 < argc) H.temp = (float)atof(argv[++i]);
 		else if (!strcmp(argv[i], "--topk") && i + 1 < argc) H.topk = atoi(argv[++i]);
