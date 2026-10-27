@@ -180,3 +180,23 @@ the run's end, on a `save-pool` line and every `--pool-every` chunks; each copy 
 pool with `ref-loss CKPT IDS N --moe POOL [--moe-bias X]`: the experts from the file, the keys from the seeded init,
 the checkpoint's home experts unused; with the bonus high enough to route every head home the reading equals the
 dense one. The gate is tools/pool-gate.sh (results/pool-gate.log).
+
+## The identity loop (2026-10-27 09:3x)
+
+`tools/identity-loop.sh IDENT.jsonl PERSONA.txt "PROMPT" REF.txt CKPT [--pool FILE] [--base STREAM.u16]
+[--base-start TOKEN] [--ratio R[,R2,...]] [--chunks N] [--every E] [--lr X] [--max-rounds M] [--stable K] [--ckdir DIR]
+[--vocab FILE] [--tables FILE] [--lcs X] [--ngen N]` fine-tunes the live model until its greedy answer to PROMPT
+matches REF.txt (PLAN-MOE.md "09:23 to 09:31").
+
+| piece | what it does |
+|---|---|
+| the set | IDENT.jsonl in the messages shape (a persona as the system message, the user's prompt, the answer), through `chat-text --no-think-block --detok` and `bpe encode` with the run's vocabulary into DIR/loop/ident.u16; the answers human-written |
+| `tools/mixstream.c` | DIR/loop/mix.u16: one set conversation (cycled), then RATIO whole base conversations from --base-start (moved up to a conversation boundary), again, to N chunks; the newline token opens each conversation as in the base; prints the set's share |
+| the run | one coach per round: `--moe --moe-bias 100` (home routing: the dense model through the pool; free routing collapsed run 2), `--ngram TABLES --row-lr 0.1 --gates ones` (the memory on, its rows trained in place in TABLES, created zeroed when absent), `--halvings 0 --save-every 5000 --sample-every 0`, lr X |
+| the test | every E chunks, on the live weights between chunks: `cortex --live PROMPT_TEXT NGEN --greedy --no-echo --stop-eot --ngram TABLES --stop <markers>` with PROMPT_TEXT the frame's rendering (`<|system|>PERSONA<|end|>\n<|user|>PROMPT<|end|>\n<|assistant|>`); the reply cut at the first marker; `tools/replymatch.c REPLY REF [MIN_LCS]`: an exact match after whitespace is squeezed, or the best word LCS ratio at least --lcs |
+| the stop | --stable K matches in a row: `stop` to the coach (final checkpoint and pool of the same chunk), the final weights re-tested; a miss, or the stream run out, starts the next round from the final checkpoint and pool with the base continued and the next ratio of the list (the mix collapses: 3,2,1) |
+| the record | results/identity-loop.log: every test with its chunk, score and reply; results/live.log the runs; DIR/ckpt-N.bin and pool-N.f32 the states |
+
+The harness and the monitor on the loop's run: `--ckdir DIR --system PERSONA.txt --ngram TABLES`, and the orchestrator's
+human count model for the decode-time frame of reference (`--orchestra data/chat-base2/human.ngc --words
+data/wordlist-mix.txt`, f3 toggles it).

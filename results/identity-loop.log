@@ -1,0 +1,14 @@
+09:37:49 === identity loop: set data/identity/personachat-intro.jsonl, test persona data/identity/test-persona.txt, prompt "Hi. how are you doing today?", reference data/identity/test-ref.txt, from data/live-moe2/ckpt-15001.bin; ratios 3 2 1 (the mix collapses round by round), 20000 chunks a round, a test every 500 chunks, 2 consecutive matches, lr 0.00025, memory /dev/shm/cortex-identity-tables.f32, 3 rounds at most
+09:37:50 the set: chat-text: 8 rows: 8 conversations kept (8 answers, 0 with reasoning in the data, 3 drawn no-think, 8 with a system message; 2109 bytes, 0 o
+09:37:50 encoded: encode: 2109 bytes -> 601 tokens (3.509 bytes/token, 56 special), 0.2 MB/s, cache hits 303, data/liv
+mixstream: 8 set conversations (600 tokens) recur every 3 base conversations, seen 130 times each (1042 in all); 3126 base conversations (561807 tokens) from token 22685803 to 23247610 of data/chat-base2/train.u16; data/live-identity/loop/mix.u16: 640085 tokens = 20002 chunks, the set 12.2 % of them
+09:37:50 round 1 (ratio 3): the coach from data/live-moe2/ckpt-15001.bin on data/live-identity/loop/mix.u16 (base from token 22685760)
+09:38:15 round 1 chunk 600: exact 0 lcs 0.167 ref 0 words 12 (matches in a row 0) | I am a to a good idea, I am a wonder't it? 
+09:38:31 round 1 chunk 1000: exact 0 lcs 0.095 ref 0 words 12 (matches in a row 0) | Hi, I am a I am a I am a I am a I am a I am a I am. 
+09:38:51 round 1 chunk 1500: exact 0 lcs 0.100 ref 0 words 12 (matches in a row 0) | I am a I am a I am a I am a I am a I am a I am? 
+09:39:11 round 1 chunk 2000: exact 0 lcs 0.133 ref 0 words 12 (matches in a row 0) | I am a I am a me to a good idea, I am a me. 
+09:39:31 round 1 chunk 2500: exact 0 lcs 0.143 ref 0 words 12 (matches in a row 0) | Hi, I am a me to a good idea, but I am a me. 
+09:39:51 round 1 chunk 3000: exact 0 lcs 0.154 ref 0 words 12 (matches in a row 0) | I am great, I am a me doing you can be very frustrating. 
+09:40:11 round 1 chunk 3500: exact 0 lcs 0.167 ref 0 words 12 (matches in a row 0) | I am a me of I am a me to  
+09:40:31 round 1 chunk 4000: exact 0 lcs 0.417 ref 0 words 12 (matches in a row 0) | Hi I am great just fin current current favorite singer. 
+09:40:52 round 1 chunk 4500: exact 0 lcs 0.133 ref 0 words 12 (matches in a row 0) | Hi, I am a mec Justion of my current current current current current current favorite. 

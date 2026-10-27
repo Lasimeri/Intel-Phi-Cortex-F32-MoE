@@ -570,3 +570,65 @@ the free bigram is gone (arithmetic: 5.6 bits/token over 40 tokens with 2 of the
 remain); the first reports on the new stream: 5.75 at chunk 700, 6.06, 6.21, 6.18 at chunk 1,000 against 5.4 to 5.7
 on the old. Not changed, as content decisions: the mix's sources (the everyday assistant set's AI register) and the
 identity line (human-written identity data is the rule).
+
+## 09:23 to 09:31 (10-27, user): the identity loop, the frame of reference, the identity/ego complex
+
+Three directions in nine minutes: "Fine tune the model in a loop till it gets 'Introduce yourself' correct"; "The
+model needs some frame of reference for human language and its structure"; "The model training data should
+eventually 'collapse' to form an 'identity/ego complex' within the model itself allowing for increased coherence and
+presence". The data spoke first: run 2 had collapsed under free routing.
+
+| run 2 chunk | training loss (bits/token) | experts updated | the checkpoint's dense reading (5,000 new held-out tokens) |
+|---|---|---|---|
+| 15,000 | 6.34 | 127 | 6.0997 (ckpt-15001) |
+| 20,000 | 6.08 | 167 | 6.5723 (ckpt-20001) |
+| 25,000 | 6.65 | 682 | 10.26 (ckpt-25001) |
+| 30,000 | 14.30 | 6,656 | 19.26 (ckpt-30001) |
+| 35,000 to 86,000 | 8.04 falling to 7.00 | 12,254 to 18,410 | |
+| 96,372, the final | | | greedy on the live weights: "It is cop wal wal wal wal..." |
+
+The mechanism: an expert reached off home is another column's MLP (sparse upcycling from column e mod 120), wrong
+for this head's inputs; the head's other parameters then adapt to it, so the damage is in the heads and survives a
+return to home routing; the 18,000 rarely-touched experts never converge at lr 0.05; the slow decay (0 reached
+after 32,595 chunks) did not save it, as gate D's free-routing run had said (8.76 against 6.25 dense). Until the
+routing is redesigned (the experts a head can reach must begin as that head's own MLP: per-head sub-pools of 512
+inside the 61,440 with the keys inside the sub-pool, or learned keys anchored at home), the model trains at home
+routing: the dense model through the pool machinery, 802 tok/s. Run 2's last good checkpoint is
+data/live-moe2/ckpt-15001.bin (6.10 on the new held-out, the new stream's chunk 708,930).
+
+**The loop** (tools/identity-loop.sh over tools/mixstream.c and tools/replymatch.c; docs/LIVE.md "The identity
+loop"): the identity set (the messages shape, a persona as the system message, the user's prompt, the answer) is
+encoded with the run's vocabulary and recurs in the base every RATIO + 1 conversations; one coach run per round at
+home routing with the memory on; every E chunks the test runs on the live weights between chunks (the frame's
+prompt through `cortex --live --greedy --ngram`, the reply cut at the first marker, scored exact or by word LCS);
+--stable K consecutive matches stop the run (final checkpoint and pool), the final weights are re-tested; a miss or
+an exhausted stream starts the next round from the final state.
+
+**The frame of reference for human language and its structure:** the trainable one is the chunk layer, the n-gram
+memory (01:31), on in the loop's run with its rows trained in place (the identity's own chunks land in them); the
+decode-time one is the orchestrator's count model, rebuilt from human text only (PersonaChat + DailyDialog in the
+plain format, 4,467,383 tokens, 274,264 trigram contexts: data/chat-base2/human.ngc; TinyChat is GPT-4o-mini output
+and ngcount's rule excludes model output), given to the harness (--orchestra data/chat-base2/human.ngc --words
+data/wordlist-mix.txt, f3 toggles). What the architecture lacks is attention over the context (stage 3, sized and
+not built): it cannot copy the persona from the system message, so an identity is what the weights memorise.
+
+**The collapse toward an identity/ego complex:** --ratio is a per-round list (3,2,1): the base's share of the stream
+falls round by round while it keeps the language; --stable asks for the match to hold (presence); the complex this
+architecture can hold is the weights' memorised first-person facts, the memory's rows of the identity's chunks and
+the persona system message at the front of every turn.
+
+**The missing input:** the identity answers. The rule stands (identity data human-written, nothing Claude writes is
+trained on): data/identity/NAME.jsonl, one conversation per line, {"messages":[{"role":"system","content":"the
+Cortex persona in first-person sentences"},{"role":"user","content":"Introduce yourself"},{"role":"assistant",
+"content":"the answer"}]}, variants of the prompt welcome; PERSONA.txt the same persona; REF.txt the accepted
+answers one per line; then `tools/identity-loop.sh data/identity/NAME.jsonl PERSONA.txt "Introduce yourself"
+REF.txt data/live-moe2/ckpt-15001.bin --base-start 22685760 --ratio 3,2,1 --stable 2`.
+
+**The validation run (09:37, human data only):** 8 PersonaChat openings (data/identity/personachat-intro.jsonl:
+the first conversations whose first reply begins with a greeting and an "I am" / "I'm" / "my name is", by a DuckDB
+regexp); the test is conversation 0 (persona "I like to party. My major is business. I'm in college. I love the
+beach. I work part time at a pizza restaurant.", prompt "Hi. how are you doing today?", reference "Hi I am great
+just finishing up some homework how are you."), from ckpt-15001, ratios 3,2,1, 20,000 chunks a round, a test every
+500 chunks, 2 matches in a row, 3 rounds at most. The greedy baseline on run 2's collapsed weights: "It is cop wal
+wal wal...". The first tests: chunk 600 "I am a to a good idea, I am a wonder't it?" (LCS 0.167), 1,000 "Hi, I am
+a I am a I am a..." (0.095), 1,500 "I am a I am a..." (0.100). Results below as they land (results/identity-loop.log).

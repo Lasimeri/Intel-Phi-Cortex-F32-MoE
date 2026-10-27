@@ -466,7 +466,11 @@ int main(int argc, char **argv)
 	if (cmd_path) { struct stat st; if (!stat(cmd_path, &st)) cmd_offset = st.st_size; }   /* only lines appended from now on */
 	char mem[1400] = "";
 	if (ng_path) snprintf(mem, sizeof mem, ", n-gram memory %s (row lr %g, gates %s, tables every %ld)", ng_path, row_lr, gates_spec, tables_every);
-	if (moe || moe_knobs_given) snprintf(mem + strlen(mem), sizeof mem - strlen(mem), ", MoE%s (bias %g%s%ld%s, expert lr %g%s%s)", moe ? " loaded" : " knobs", moe_bias, bias_decay ? " to 0 over " : "", bias_decay, bias_decay ? " chunks" : "", expert_lr, pool_path ? ", pool " : "", pool_path ? pool_path : "");
+	if (moe || moe_knobs_given) {
+		char decay[64] = "";
+		if (bias_decay) snprintf(decay, sizeof decay, " to 0 over %ld chunks", bias_decay);
+		snprintf(mem + strlen(mem), sizeof mem - strlen(mem), ", MoE%s (bias %g%s, expert lr %g%s%s)", moe ? " loaded" : " knobs", moe_bias, decay, expert_lr, pool_path ? ", pool " : "", pool_path ? pool_path : "");
+	}
 	logline("coach: %s chunks %ld..%ld (%ld chunks = %ld tokens), lr %.3e, report every %d, window %d, min gain %.3f, halvings %d, sample every %ld x %d tokens, save every %ld%s%s%s, cmd %s, checkpoints %s/%s",
 	        tokens_path, start_chunk, start_chunk + total_chunks - 1, total_chunks, total_chunks * CX_T_L, lr, every, window, min_gain, max_halvings, sample_every, sample_tokens,
 	        save_every, no_stop ? ", no stop" : "", orchestra ? ", orchestra " : "", orchestra ? orchestra : "", cmd_path ? cmd_path : "(none)", ckdir, mem);

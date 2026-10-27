@@ -537,3 +537,21 @@ new stream: 5.7488 at chunk 700, 6.0629, 6.2085, 6.1778 at chunk 1,000, against 
 bars on the new held-out are the floors above (bigram 5.0386). Each evaluator reading took 176 to 181 s with the
 pool file on the HDD (a random expert read is a seek; 6.4 s with the pool in the page cache), so the evaluator now
 maps the pool populated (one sequential read).
+
+## The identity set and the human count model (2026-10-27 09:3x)
+
+**The identity set** is the loop's input (PLAN-MOE.md "09:23 to 09:31", docs/LIVE.md "The identity loop"): one
+conversation per line in the messages shape, the Cortex persona as the system message in first-person sentences
+(PersonaChat's form, which the base taught), the user's prompt ("Introduce yourself" and its variants), the answer.
+The answers are human-written: nothing Claude writes is trained on, so the file is the user's to fill;
+data/identity/ holds it. The validation set beside it, data/identity/personachat-intro.jsonl, is human data as it
+is: the first 8 PersonaChat conversations whose first reply opens with a greeting and "I am", "I'm" or "my name is"
+(DuckDB over data/cand/jsonl/personachat.jsonl, `list_slice(messages, 1, 3)`), the test files test-persona.txt,
+test-prompt.txt and test-ref.txt taken from its first conversation.
+
+**The human count model** for the orchestrator (`tools/ngcount` builds it from a human token stream and never from
+model output; TinyChat is GPT-4o-mini output): PersonaChat + DailyDialog through the plain format and the chat
+vocabulary (data/chat-base2/human.jsonl, human.txt, human.u16: 20,050 conversations, 4,467,383 tokens at 3.761
+bytes per token) into data/chat-base2/human.ngc (3,871 bigram contexts, 274,264 trigram contexts of 4,194,304
+buckets, 469,778,456 B). The harness takes it with `--orchestra data/chat-base2/human.ngc --words
+data/wordlist-mix.txt`.
