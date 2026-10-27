@@ -45,6 +45,7 @@
 
 #define CX_SESSION_GRACE_S 5.0   /* a session with no first command within this long is abandoned (a dangling host session) */
 #define CX_BURST_S 0.003         /* a session keeps the card while its commands arrive within this of each other */
+#define CX_HEART_S 0.1           /* CX_C_HEART counted up this often by thread 0: the host's liveness word (the TUI) */
 #define CX_IDLE_NAP_US 100       /* every thread's nap per round when there is nothing to do */
 
 enum { ACT_IDLE = 100, ACT_TRAIN, ACT_SAVE, ACT_QUIT };   /* the team's actions besides the mailbox ops */
@@ -326,7 +327,11 @@ static int poll_training(void)
 
 static void decide(uint64_t round)
 {
+	static double t_heart;
+	static uint64_t heart;
 	act_slot = (int)(round & 1);
+	const double now = cx_now();
+	if (now - t_heart >= CX_HEART_S) { t_heart = now; wr64(CX_C_HEART, ++heart); }
 	if (poll_session()) return;
 	if (poll_training()) return;
 	act_op[act_slot] = ACT_IDLE;

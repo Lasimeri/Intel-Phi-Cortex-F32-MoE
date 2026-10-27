@@ -329,3 +329,15 @@ Two faults were found and fixed on the way:
 Also: checkpoints are pushed by DMA into the part's stage and copied to the host by the coach (CX_T_SAVES counts the pushes; nothing on the card's disk); LOAD zeroes every training buffer; idle rounds nap 100 us (a spinning idle slowed a co-running card job about 50x); the daemon starts detached by `phi run` (the ssh forward is wedged by the afternoon's poll loop).
 
 Coherence over the lineage (ckpt-eval.log, plain sampling, 3 seeds x 512 tokens): the model's own hit5 and big are flat from 1M to 11M tokens (hit5 0.964 to 0.988 at 1M, 0.965 to 0.967 at 11M; big 0.974 to 0.995 at 1M, 0.945 to 0.957 at 11M), repetition improved (rep4 0.043 to 0.019 to 0.028); with the orchestrator every checkpoint scores hit5 1.000 and big 0.983 to 1.000. Together with validation 6.18 to 6.1065 bits/token over 10x the tokens: capacity-bound. The live run from ckpt-312500 (`--start 312500` on data/bpe/train.u16, results/live.log, commands in results/live.cmd) demonstrates the interactive loop; the efficient next step for coherence is capacity (stage 2 experts, stage 3 context).
+
+## The harness: cortex-tui (2026-10-26 18:38 to 19:2x)
+
+The user's directions: a Rust TUI to chat with the model, opened on the desktop; "Take from Mechanical Jev's TUI
+design", then "Just take the visual style, I want a unique harness for the Phi Cortex project"; "wire in CLAUDE.md to
+automatically be utilized as the system prompt"; "Remove anything that can't or isn't wired up to the harness"
+(visually and in the code base). Built and measured: docs/TUI.md. `tui/` (crossterm only, seaof.glass's palette as
+MechJev's TUI, the terminal layer and the single-line editor carried over with attribution), `tools/chat.sh` opens it in
+a konsole window. A turn runs `cortex --live` with the system prompt + the transcript as the prompt (3,716 prompt
+tokens = 1.4 s a turn before the first generated token; 2,678 tok/s overall); the side panel reads the part's live
+words and the coach's log; the run screen steers the coach (resume/save/pause/scale/stop verified against a real
+paused coach session). The daemon now counts CX_C_HEART at 10 Hz (build 19:14) so the harness can say it is alive.

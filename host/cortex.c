@@ -18,7 +18,10 @@
  *
  * options
  *   --greedy  --bus 0|1  --temp T  --topk K  --topp P  --minp M  --rp R  --seed S  --vocab FILE  --chat
- *   --ids FILE.u16          the prompt as token ids from a file (the prompt text is then ignored; gates replay it)
+ *   --no-echo               the prompt is not printed before the generated text (a chat client shows it already)
+ *   --stop-eot              the generation ends at <|endoftext|>, the story's end: the token is printed as its
+ *                           literal and not counted as generated (the chat TUI in tui/ keeps it as the boundary)
+ *   --ids FILE.u16         the prompt as token ids from a file (the prompt text is then ignored; gates replay it)
  *   --dump-logits FILE      every step's 4096 raw logits as received from the card, appended as F32 (gates, replay)
  *   --ngram TABLES GATES    the n-gram memory: TABLES = 2 orders x CX_NG_ROWS x 128 F32 (ngserve --save), GATES =
  *                           2 x 128 F32 (the run's ng-gates.f32). The gates are staged after the checkpoint (LOAD arg
@@ -227,7 +230,7 @@ static long read_ids(const char *path, uint32_t **out)
 
 typedef struct {
 	orch *O;
-	int greedy, chat;
+	int greedy, chat, stop_eot;
 	float temp, topp, minp, rp;
 	int topk;
 	uint64_t orch_ns, sample_ns, print_ns;
@@ -246,6 +249,7 @@ static int host_step(host_side *h, float *logits, uint32_t *ids, int s)
 	h->orch_ns += b - a;
 	h->sample_ns += c - b;
 	if (h->chat && id == EOT) return -1;
+	if (h->stop_eot && id == EOT) { fwrite(tok_s[id], 1, (size_t)tok_len[id], stdout); fflush(stdout); return -1; }
 	ids[s + 1] = (uint32_t)id;
 	if (h->chat) {
 		const int add = tok_len[id] < 63 ? tok_len[id] : 63;
@@ -282,7 +286,7 @@ static int stop_daemon(void)
 static void usage(void)
 {
 	fprintf(stderr, "usage: cortex CKPT \"prompt\" NGEN [options] | cortex --replay LOGITS.f32 NSTEPS [options] | cortex --stop\n"
-	                "options: [--greedy] [--bus 0|1] [--temp T] [--topk K] [--topp P] [--minp M] [--rp R] [--seed S] [--vocab FILE] [--chat]\n"
+	                "options: [--greedy] [--bus 0|1] [--temp T] [--topk K] [--topp P] [--minp M] [--rp R] [--seed S] [--vocab FILE] [--chat] [--no-echo] [--stop-eot]\n"
 	                "         [--ids FILE.u16] [--dump-logits FILE] [--ngram TABLES GATES]\n"
 	                "         [--orchestra NGC [--words LIST] [--word-min N] [--lambda X] [--no-filter] [--repeat-ok]]\n");
 }
@@ -295,15 +299,17 @@ int main(int argc, char **argv)
 	const char *ckpt = live ? NULL : load_only ? argv[2] : argv[1], *vocab = "data/bpe/vocab4096.txt", *ids_path = NULL, *dump_path = NULL, *ng_tables = NULL, *ng_gates = NULL;
 	char *prompt = replay || load_only ? "" : argv[2];
 	int ngen = load_only ? 0 : atoi(argv[3]);
-	int bus = live ? 0 : 1, orch_filter = 1, orch_norepeat = 1, orch_wmin = ORCH_WORD_MIN;
+	int bus = live || load_only ? 0 : 1, no_echo = 0, orch_filter = 1, orch_norepeat = 1, orch_wmin = ORCH_WORD_MIN;   /* the live paths default to the trained configuration */
 	const char *orch_ngc = NULL, *orch_words = "data/wordlist-stories.txt";
 	float orch_lambda = 0.3f;
 	static orch O;
-	host_side H = { .greedy = 0, .chat = 0, .temp = 0.5f, .topp = 0.95f, .minp = 0.05f, .rp = 1.2f, .topk = 75 };
+	host_side H = { .greedy = 0, .chat = 0, .stop_eot = 0, .temp = 0.5f, .topp = 0.95f, .minp = 0.05f, .rp = 1.2f, .topk = 75 };
 	rng = 0x5EED0000C0A7E8ull;
 	for (int i = load_only ? 3 : 4; i < argc; i++) {
 		if (!strcmp(argv[i], "--greedy")) H.greedy = 1;
 		else if (!strcmp(argv[i], "--chat")) H.chat = 1;
+		else if (!strcmp(argv[i], "--no-echo")) no_echo = 1;
+		else if (!strcmp(argv[i], "--stop-eot")) H.stop_eot = 1;
 		else if (!strcmp(argv[i], "--bus") && i + 1 < argc) bus = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--temp") && i + 1 < argc) H.temp = (float)atof(argv[++i]);
 		else if (!strcmp(argv[i], "--topk") && i + 1 < argc) H.topk = atoi(argv[++i]);
@@ -398,9 +404,11 @@ int main(int argc, char **argv)
 	}
 
 	/* the loop: STEP per token, the logits handled on the host */
-	if (ids_path) { for (int i = 0; i < nprompt; i++) fwrite(tok_s[ids[i]], 1, (size_t)tok_len[ids[i]], stdout); }
-	else fwrite(prompt, 1, strlen(prompt), stdout);
-	fflush(stdout);
+	if (!no_echo) {
+		if (ids_path) { for (int i = 0; i < nprompt; i++) fwrite(tok_s[ids[i]], 1, (size_t)tok_len[ids[i]], stdout); }
+		else fwrite(prompt, 1, strlen(prompt), stdout);
+		fflush(stdout);
+	}
 	const uint64_t g0 = ns();
 	uint64_t card_ns = 0, rows_ns = 0;
 	int steps = 0;
