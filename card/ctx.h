@@ -26,6 +26,9 @@
 #include <string.h>
 
 #define CX_CTX_WM (CX_CTX_WINDOW - 1)
+#ifndef CX_CTX_PFD
+#define CX_CTX_PFD 16   /* keys prefetched ahead of the scoring loop: 4 lines each, within the core's 30 to 40 misses in flight (round 9 at 4 ahead ran 457 to 640 tok/s against 800 without the memory) */
+#endif
 #define CX_CTX_KEYS_BYTES ((size_t)CX_CTX_WINDOW * CX_DS * 4)
 #define CX_CTX_CENT_BYTES ((size_t)CX_CTX_NC * CX_DS * 4)
 #define CX_CTX_LISTS_BYTES ((size_t)CX_CTX_NC * CX_CTX_CAP * 4)
@@ -122,8 +125,9 @@ static inline void cx_ctx_step(cx_ctx *X, float *A, int64_t start)
 	/* the exact part: the last RECENT steps, the keys prefetched 8 ahead */
 	int64_t lo = n - CX_CTX_RECENT;
 	if (lo < oldest) lo = oldest;
+	for (int64_t s = lo; s < lo + CX_CTX_PFD && s < n; s++) cx_ctx_pf(X->keys + (size_t)(s & CX_CTX_WM) * CX_DS);   /* the first keys in flight */
 	for (int64_t s = lo; s < n; s++) {
-		if (s + 8 < n) cx_ctx_pf(X->keys + (size_t)((s + 8) & CX_CTX_WM) * CX_DS);
+		if (s + CX_CTX_PFD < n) cx_ctx_pf(X->keys + (size_t)((s + CX_CTX_PFD) & CX_CTX_WM) * CX_DS);
 		cx_ctx_top_insert(&top, cx_ctx_dot(q, X->keys + (size_t)(s & CX_CTX_WM) * CX_DS, tmp), s);
 	}
 	/* the far part: the PROBE nearest centroids' lists, their entries between the oldest and the exact window */
@@ -139,10 +143,11 @@ static inline void cx_ctx_step(cx_ctx *X, float *A, int64_t start)
 			cs[best] = -3.0e38f;
 			const uint32_t *L = X->lists + (size_t)best * CX_CTX_CAP;
 			const int m = X->fill[best];
+			for (int i = 0; i < m && i < CX_CTX_PFD; i++) { const int64_t s2 = L[i]; if (s2 < far_hi && s2 >= oldest) cx_ctx_pf(X->keys + (size_t)(s2 & CX_CTX_WM) * CX_DS); }
 			for (int i = 0; i < m; i++) {
 				const int64_t s = L[i];
+				if (i + CX_CTX_PFD < m) { const int64_t s2 = L[i + CX_CTX_PFD]; if (s2 < far_hi && s2 >= oldest) cx_ctx_pf(X->keys + (size_t)(s2 & CX_CTX_WM) * CX_DS); }
 				if (s >= far_hi || s < oldest) continue;
-				if (i + 4 < m) { const int64_t s2 = L[i + 4]; if (s2 < far_hi && s2 >= oldest) cx_ctx_pf(X->keys + (size_t)(s2 & CX_CTX_WM) * CX_DS); }
 				cx_ctx_top_insert(&top, cx_ctx_dot(q, X->keys + (size_t)(s & CX_CTX_WM) * CX_DS, tmp), s);
 			}
 		}

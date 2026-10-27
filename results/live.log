@@ -18691,3 +18691,23 @@
 16:35:30 tables: data/live-teacher/tables-1029.f32, 2147483648 bytes, written in 18.1 s
 16:36:04 pool: data/live-teacher/pool-1029.f32, 4293918720 bytes in 187 rounds, 34.2 s
 16:36:04 coach: run ended at chunk 1029 (32928 tokens), 0 halvings, final scale 1.0000
+16:51:00 coach: data/live-teacher/round-9.u16 chunks 0..1037 (1038 chunks = 33216 tokens), lr 3.000e-03, report every 100, window 300, min gain 0.010, halvings 0, sample every 0 x 128 tokens, save every 5000, no stop, cmd results/live.cmd, checkpoints data/live-teacher/, n-gram memory /dev/shm/cortex-teacher-tables.f32 (row lr 0.1, gates data/live-teacher/round-8-ckpt-gates.f32, tables every 100000), MoE loaded (bias 100, expert lr 0.05, pool data/live-teacher/round-8-pool.f32)
+16:51:31 pool: data/live-teacher/round-8-pool.f32 pulled into the daemon, 4293918720 bytes in 187 rounds, 31.4 s
+16:51:31 coach: data/live-teacher/round-8-ckpt.bin loaded into the daemon
+16:51:31 coach: live (magic set, 960 chunks in the ring, the memory's rows of chunks 0 and 1 published)
+16:51:32 coach: the daemon trains the memory with the ring
+16:51:37 report chunk 100  tokens 3200  loss 1.9959 nats = 2.8795 bits/token  lr 3.000e-03  scale 1.0000  628 tok/s  ring 938 ahead  moe 120 experts
+16:51:42 report chunk 200  tokens 6400  loss 2.4589 nats = 3.5475 bits/token  lr 3.000e-03  scale 1.0000  601 tok/s  ring 838 ahead  moe 120 experts
+16:51:48 report chunk 300  tokens 9600  loss 2.4569 nats = 3.5446 bits/token  lr 3.000e-03  scale 1.0000  563 tok/s  ring 738 ahead  moe 120 experts
+16:51:54 report chunk 400  tokens 12800  loss 2.1361 nats = 3.0817 bits/token  lr 3.000e-03  scale 1.0000  523 tok/s  ring 638 ahead  moe 120 experts
+16:52:00 report chunk 500  tokens 16000  loss 2.4604 nats = 3.5496 bits/token  lr 3.000e-03  scale 1.0000  498 tok/s  ring 538 ahead  moe 120 experts
+16:52:07 report chunk 600  tokens 19200  loss 3.0077 nats = 4.3392 bits/token  lr 3.000e-03  scale 1.0000  469 tok/s  ring 438 ahead  moe 120 experts
+16:52:14 report chunk 700  tokens 22400  loss 2.1732 nats = 3.1353 bits/token  lr 3.000e-03  scale 1.0000  453 tok/s  ring 338 ahead  moe 120 experts
+16:52:21 report chunk 800  tokens 25600  loss 2.4362 nats = 3.5147 bits/token  lr 3.000e-03  scale 1.0000  446 tok/s  ring 238 ahead  moe 120 experts
+16:52:29 report chunk 900  tokens 28800  loss 2.4400 nats = 3.5202 bits/token  lr 3.000e-03  scale 1.0000  441 tok/s  ring 138 ahead  moe 120 experts
+16:52:36 report chunk 1000  tokens 32000  loss 2.1409 nats = 3.0886 bits/token  lr 3.000e-03  scale 1.0000  431 tok/s  ring 38 ahead  moe 120 experts
+16:52:39 coach: the stream is exhausted at chunk 1038
+16:52:39 checkpoint (final): data/live-teacher/ckpt-1038.bin, 23463424 bytes, chunk 1038, push 1, copied in 23 ms
+16:52:54 tables: data/live-teacher/tables-1038.f32, 2147483648 bytes, written in 15.1 s
+16:53:27 pool: data/live-teacher/pool-1038.f32, 4293918720 bytes in 187 rounds, 33.0 s
+16:53:27 coach: run ended at chunk 1038 (33216 tokens), 0 halvings, final scale 1.0000
