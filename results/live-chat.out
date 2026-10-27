@@ -1,0 +1,227 @@
+20:06:29 coach: data/mix/chat-train.u16 chunks 648..18716 (18069 chunks = 578208 tokens), lr 1.000e-03, report every 100, window 10, min gain 0.010, halvings 3, sample every 1000 x 128 tokens, orchestra data/stories-10m.ngc, cmd results/live.cmd, checkpoints data/live/
+20:06:29 coach: live (magic set, 960 chunks in the ring)
+20:06:32 report chunk 100  tokens 3200  loss 5.0868 nats = 7.3388 bits/token  lr 1.000e-03  scale 1.0000  1219 tok/s  ring 960 ahead
+20:06:35 report chunk 200  tokens 6400  loss 5.1715 nats = 7.4609 bits/token  lr 1.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+20:06:37 report chunk 300  tokens 9600  loss 4.9279 nats = 7.1095 bits/token  lr 1.000e-03  scale 1.0000  1224 tok/s  ring 960 ahead
+20:06:40 report chunk 400  tokens 12800  loss 4.7131 nats = 6.7996 bits/token  lr 1.000e-03  scale 1.0000  1224 tok/s  ring 960 ahead
+20:06:42 report chunk 500  tokens 16000  loss 5.0975 nats = 7.3542 bits/token  lr 1.000e-03  scale 1.0000  1225 tok/s  ring 960 ahead
+20:06:45 report chunk 600  tokens 19200  loss 5.5812 nats = 8.0520 bits/token  lr 1.000e-03  scale 1.0000  1224 tok/s  ring 960 ahead
+20:06:48 report chunk 700  tokens 22400  loss 4.9579 nats = 7.1527 bits/token  lr 1.000e-03  scale 1.0000  1224 tok/s  ring 960 ahead
+20:06:50 report chunk 800  tokens 25600  loss 5.3354 nats = 7.6974 bits/token  lr 1.000e-03  scale 1.0000  1225 tok/s  ring 960 ahead
+20:06:53 report chunk 900  tokens 28800  loss 5.7110 nats = 8.2392 bits/token  lr 1.000e-03  scale 1.0000  1224 tok/s  ring 960 ahead
+20:06:56 report chunk 1000  tokens 32000  loss 5.1019 nats = 7.3604 bits/token  lr 1.000e-03  scale 1.0000  1224 tok/s  ring 960 ahead
+20:06:56 sample chunk 1000 seed 1: hit 1.000 hit5 1.000 big 1.000 rep4 0.047 sent 9.9 words 109 | Once upon a time, there was a little girl named Lily. <|endoftext|> One day, the car and asked what it's mom. The bird had an idea. He wanted to play with his big eyes and he felt happy. Tim thought it would be fun." Tom says. They played together every day long, but they were very sad. It was a big dog named Sam went for a walk on their back! <|endoftext|> Once upon a time there was a boy who loved the sun came to play with me?" The little bird flew away, happy and said "I don't know what it was not looking at all." The little 
+20:06:58 report chunk 1100  tokens 35200  loss 5.0920 nats = 7.3463 bits/token  lr 1.000e-03  scale 1.0000  1195 tok/s  ring 960 ahead
+20:07:01 report chunk 1200  tokens 38400  loss 5.0776 nats = 7.3254 bits/token  lr 1.000e-03  scale 1.0000  1225 tok/s  ring 960 ahead
+20:07:04 report chunk 1300  tokens 41600  loss 4.8377 nats = 6.9793 bits/token  lr 1.000e-03  scale 1.0000  1225 tok/s  ring 960 ahead
+20:07:06 report chunk 1400  tokens 44800  loss 4.7431 nats = 6.8429 bits/token  lr 1.000e-03  scale 1.0000  1224 tok/s  ring 960 ahead
+20:07:09 report chunk 1500  tokens 48000  loss 5.1508 nats = 7.4311 bits/token  lr 1.000e-03  scale 1.0000  1224 tok/s  ring 960 ahead
+20:07:11 report chunk 1600  tokens 51200  loss 5.0229 nats = 7.2466 bits/token  lr 1.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+20:07:14 report chunk 1700  tokens 54400  loss 4.8322 nats = 6.9713 bits/token  lr 1.000e-03  scale 1.0000  1224 tok/s  ring 960 ahead
+20:07:17 report chunk 1800  tokens 57600  loss 4.6230 nats = 6.6696 bits/token  lr 1.000e-03  scale 1.0000  1223 tok/s  ring 960 ahead
+20:07:19 report chunk 1900  tokens 60800  loss 5.0268 nats = 7.2521 bits/token  lr 1.000e-03  scale 1.0000  1223 tok/s  ring 960 ahead
+20:07:22 report chunk 2000  tokens 64000  loss 4.6865 nats = 6.7611 bits/token  lr 1.000e-03  scale 1.0000  1223 tok/s  ring 960 ahead
+20:07:22 window: mean 7.0826 bits/token, gain 0.3739 over the previous window
+20:07:22 sample chunk 2000 seed 2: hit 1.000 hit5 1.000 big 0.980 rep4 0.009 sent 12.1 words 109 | Once upon a time, there was a little girl named Sue. <|endoftext|> One day on the ground. He wanted to help his mom and said "I don't know what it's house." Tom smiled and they were playing in the park with his friends went home, he saw a big tree with the toy car all day. The bird was very happy to be careful when you are told him that it could not find her friend. <|endoftext|>   I can make your room. It is that?" The boy named Tom found a new things and said "Thank"Yes!" Tim smiled and he went on, he saw the big tree with 
+20:07:25 report chunk 2100  tokens 67200  loss 4.6894 nats = 6.7654 bits/token  lr 1.000e-03  scale 1.0000  1196 tok/s  ring 960 ahead
+20:07:27 report chunk 2200  tokens 70400  loss 4.6634 nats = 6.7279 bits/token  lr 1.000e-03  scale 1.0000  1224 tok/s  ring 960 ahead
+20:07:30 report chunk 2300  tokens 73600  loss 5.0326 nats = 7.2605 bits/token  lr 1.000e-03  scale 1.0000  1225 tok/s  ring 960 ahead
+20:07:33 report chunk 2400  tokens 76800  loss 4.9607 nats = 7.1567 bits/token  lr 1.000e-03  scale 1.0000  1223 tok/s  ring 960 ahead
+20:07:35 report chunk 2500  tokens 80000  loss 4.8077 nats = 6.9360 bits/token  lr 1.000e-03  scale 1.0000  1224 tok/s  ring 960 ahead
+20:07:38 report chunk 2600  tokens 83200  loss 4.6388 nats = 6.6924 bits/token  lr 1.000e-03  scale 1.0000  1224 tok/s  ring 960 ahead
+20:07:40 report chunk 2700  tokens 86400  loss 5.3684 nats = 7.7450 bits/token  lr 1.000e-03  scale 1.0000  1224 tok/s  ring 960 ahead
+20:07:43 report chunk 2800  tokens 89600  loss 4.9744 nats = 7.1766 bits/token  lr 1.000e-03  scale 1.0000  1224 tok/s  ring 960 ahead
+20:07:46 report chunk 2900  tokens 92800  loss 4.8407 nats = 6.9837 bits/token  lr 1.000e-03  scale 1.0000  1225 tok/s  ring 960 ahead
+20:07:48 report chunk 3000  tokens 96000  loss 4.9384 nats = 7.1247 bits/token  lr 1.000e-03  scale 1.0000  1225 tok/s  ring 960 ahead
+20:07:48 window: mean 7.0569 bits/token, gain 0.0257 over the previous window
+20:07:49 sample chunk 3000 seed 3: hit 1.000 hit5 1.000 big 1.000 rep4 0.019 sent 11.0 words 110 | Once upon a time, there was a little boy named Tim. <|endoftext|> One day, the park with his mom and dad to see the big tree. The cat had an idea. He wanted to help him. But he could not find it again. It's mom saw the dog played together, but they were very happy. They all loved playing in the garden was so excited! She put on a big bird named Tim went back outside and started his friends who lived with a big box of the tree and wanted to help. <|endoftext|>   Ben did not want that it's a good friend, Tom. I just like her mom took 
+20:07:51 report chunk 3100  tokens 99200  loss 5.1897 nats = 7.4871 bits/token  lr 1.000e-03  scale 1.0000  1196 tok/s  ring 960 ahead
+20:07:54 report chunk 3200  tokens 102400  loss 4.8040 nats = 6.9306 bits/token  lr 1.000e-03  scale 1.0000  1225 tok/s  ring 960 ahead
+20:07:56 report chunk 3300  tokens 105600  loss 4.9107 nats = 7.0846 bits/token  lr 1.000e-03  scale 1.0000  1223 tok/s  ring 960 ahead
+20:07:59 report chunk 3400  tokens 108800  loss 5.3034 nats = 7.6512 bits/token  lr 1.000e-03  scale 1.0000  1224 tok/s  ring 960 ahead
+20:08:01 report chunk 3500  tokens 112000  loss 4.7296 nats = 6.8233 bits/token  lr 1.000e-03  scale 1.0000  1224 tok/s  ring 960 ahead
+20:08:04 report chunk 3600  tokens 115200  loss 4.6257 nats = 6.6734 bits/token  lr 1.000e-03  scale 1.0000  1224 tok/s  ring 960 ahead
+20:08:07 report chunk 3700  tokens 118400  loss 4.9263 nats = 7.1071 bits/token  lr 1.000e-03  scale 1.0000  1224 tok/s  ring 960 ahead
+20:08:09 report chunk 3800  tokens 121600  loss 5.1264 nats = 7.3958 bits/token  lr 1.000e-03  scale 1.0000  1223 tok/s  ring 960 ahead
+20:08:12 report chunk 3900  tokens 124800  loss 4.5787 nats = 6.6056 bits/token  lr 1.000e-03  scale 1.0000  1223 tok/s  ring 960 ahead
+20:08:15 report chunk 4000  tokens 128000  loss 4.4392 nats = 6.4044 bits/token  lr 1.000e-03  scale 1.0000  1225 tok/s  ring 960 ahead
+20:08:15 window: mean 7.0163 bits/token, gain 0.0406 over the previous window
+20:08:15 sample chunk 4000 seed 4: hit 1.000 hit5 1.000 big 1.000 rep4 0.009 sent 11.1 words 111 | Once upon a time, there was a little boy named Tim. He wanted to help his friends and play with his mom. <|endoftext|> One day, they saw a big tree. The cat had an idea! It's big house on the ground and started playing in the park with her friends who loved to run away. She said it is not safe for them. They were very happy and played together. One sunny after all day long, red ball from that day on their hats was a little girl named Sue came up to him. <|endoftext|>   Lily looked at Tim and Lily are playing with the toys. It's a big tree with 
+20:08:17 report chunk 4100  tokens 131200  loss 5.1513 nats = 7.4318 bits/token  lr 1.000e-03  scale 1.0000  1196 tok/s  ring 960 ahead
+20:08:20 report chunk 4200  tokens 134400  loss 4.8747 nats = 7.0327 bits/token  lr 1.000e-03  scale 1.0000  1225 tok/s  ring 960 ahead
+20:08:23 report chunk 4300  tokens 137600  loss 4.7027 nats = 6.7845 bits/token  lr 1.000e-03  scale 1.0000  1217 tok/s  ring 960 ahead
+20:08:25 report chunk 4400  tokens 140800  loss 5.1767 nats = 7.4684 bits/token  lr 1.000e-03  scale 1.0000  1224 tok/s  ring 960 ahead
+20:08:28 report chunk 4500  tokens 144000  loss 4.8939 nats = 7.0605 bits/token  lr 1.000e-03  scale 1.0000  1225 tok/s  ring 960 ahead
+20:08:30 report chunk 4600  tokens 147200  loss 4.6120 nats = 6.6537 bits/token  lr 1.000e-03  scale 1.0000  1224 tok/s  ring 960 ahead
+20:08:33 report chunk 4700  tokens 150400  loss 5.1246 nats = 7.3932 bits/token  lr 1.000e-03  scale 1.0000  1224 tok/s  ring 960 ahead
+20:08:36 report chunk 4800  tokens 153600  loss 5.0299 nats = 7.2567 bits/token  lr 1.000e-03  scale 1.0000  1223 tok/s  ring 960 ahead
+20:08:38 report chunk 4900  tokens 156800  loss 4.5643 nats = 6.5848 bits/token  lr 1.000e-03  scale 1.0000  1224 tok/s  ring 960 ahead
+20:08:41 report chunk 5000  tokens 160000  loss 4.6185 nats = 6.6632 bits/token  lr 1.000e-03  scale 1.0000  1225 tok/s  ring 960 ahead
+20:08:41 window: mean 7.0329 bits/token, gain -0.0166 over the previous window
+20:08:41 policy: plateau -> scale 0.5000 (halving 1), checkpoint requested
+20:08:41 sample chunk 5000 seed 5: hit 1.000 hit5 1.000 big 1.000 rep4 0.019 sent 10.0 words 110 | Once upon a time, there was a little boy named Tim. He wanted to play with his mom and said, "I will help you." Tim's house for the park. Tom saw the big tree and he went back home to go on an idea. The dog had been brave in his room every day, they found a big bird came out of the tree. They were very happy to be friends with them all day. He liked to play outside, but he was too fast and said "I don't want it!" The little girl named Sue went for you." The cat ran away. She had an idea! I can help 
+20:08:41 checkpoint (requested): data/live/ckpt-5001.bin, 23463424 bytes, chunk 5001, push 1, copied in 10 ms
+20:08:44 report chunk 5100  tokens 163200  loss 4.9650 nats = 7.1630 bits/token  lr 5.000e-04  scale 0.5000  1193 tok/s  ring 960 ahead
+20:08:46 report chunk 5200  tokens 166400  loss 4.6828 nats = 6.7559 bits/token  lr 5.000e-04  scale 0.5000  1224 tok/s  ring 960 ahead
+20:08:49 report chunk 5300  tokens 169600  loss 4.5317 nats = 6.5379 bits/token  lr 5.000e-04  scale 0.5000  1223 tok/s  ring 960 ahead
+20:08:52 report chunk 5400  tokens 172800  loss 4.8102 nats = 6.9396 bits/token  lr 5.000e-04  scale 0.5000  1224 tok/s  ring 960 ahead
+20:08:54 report chunk 5500  tokens 176000  loss 4.8928 nats = 7.0589 bits/token  lr 5.000e-04  scale 0.5000  1224 tok/s  ring 960 ahead
+20:08:57 report chunk 5600  tokens 179200  loss 5.0313 nats = 7.2586 bits/token  lr 5.000e-04  scale 0.5000  1223 tok/s  ring 960 ahead
+20:08:59 report chunk 5700  tokens 182400  loss 4.7186 nats = 6.8075 bits/token  lr 5.000e-04  scale 0.5000  1224 tok/s  ring 960 ahead
+20:09:02 report chunk 5800  tokens 185600  loss 5.0605 nats = 7.3008 bits/token  lr 5.000e-04  scale 0.5000  1223 tok/s  ring 960 ahead
+20:09:05 report chunk 5900  tokens 188800  loss 5.0980 nats = 7.3548 bits/token  lr 5.000e-04  scale 0.5000  1224 tok/s  ring 960 ahead
+20:09:07 report chunk 6000  tokens 192000  loss 4.6328 nats = 6.6837 bits/token  lr 5.000e-04  scale 0.5000  1225 tok/s  ring 960 ahead
+20:09:07 window: mean 6.9861 bits/token, gain 0.0469 over the previous window
+20:09:08 sample chunk 6000 seed 6: hit 1.000 hit5 1.000 big 1.000 rep4 0.018 sent 14.0 words 112 | Once upon a time, there was a little boy named Tim. They were very happy and played together. <|endoftext|> Once upon a big tree, he would be fun to play. He liked the dog with his friends in the park, but it had not been on this is where I can't know that day on their mom and said "I don't want to help you." The little girl named Lily saw the big tree. She wanted to go back home, but she was very happy. The bird went for a walk with his friends, so he could not find the bird. They were sad because they had found a big dog came 
+20:09:10 report chunk 6100  tokens 195200  loss 4.7104 nats = 6.7956 bits/token  lr 5.000e-04  scale 0.5000  1197 tok/s  ring 960 ahead
+20:09:13 report chunk 6200  tokens 198400  loss 5.2344 nats = 7.5516 bits/token  lr 5.000e-04  scale 0.5000  1224 tok/s  ring 960 ahead
+20:09:15 report chunk 6300  tokens 201600  loss 5.0542 nats = 7.2916 bits/token  lr 5.000e-04  scale 0.5000  1224 tok/s  ring 960 ahead
+20:09:18 report chunk 6400  tokens 204800  loss 4.7825 nats = 6.8997 bits/token  lr 5.000e-04  scale 0.5000  1224 tok/s  ring 960 ahead
+20:09:20 report chunk 6500  tokens 208000  loss 5.0533 nats = 7.2904 bits/token  lr 5.000e-04  scale 0.5000  1224 tok/s  ring 960 ahead
+20:09:23 report chunk 6600  tokens 211200  loss 5.1751 nats = 7.4661 bits/token  lr 5.000e-04  scale 0.5000  1223 tok/s  ring 960 ahead
+20:09:26 report chunk 6700  tokens 214400  loss 4.6200 nats = 6.6652 bits/token  lr 5.000e-04  scale 0.5000  1216 tok/s  ring 960 ahead
+20:09:28 report chunk 6800  tokens 217600  loss 4.7928 nats = 6.9146 bits/token  lr 5.000e-04  scale 0.5000  1224 tok/s  ring 960 ahead
+20:09:31 report chunk 6900  tokens 220800  loss 5.3937 nats = 7.7814 bits/token  lr 5.000e-04  scale 0.5000  1223 tok/s  ring 960 ahead
+20:09:34 report chunk 7000  tokens 224000  loss 5.1084 nats = 7.3699 bits/token  lr 5.000e-04  scale 0.5000  1224 tok/s  ring 960 ahead
+20:09:34 window: mean 7.2026 bits/token, gain -0.2165 over the previous window
+20:09:34 policy: plateau -> scale 0.2500 (halving 2), checkpoint requested
+20:09:34 sample chunk 7000 seed 7: hit 1.000 hit5 1.000 big 0.990 rep4 0.009 sent 12.6 words 113 | Once upon a time, there was a little girl named Lily. She had the best of friends and played together. One day, they saw that it's mom went to her friend, the car from his friend. The bird said "I can help you." Tom did not want to play with his friends in the park! He wanted all of the tree and see what was on a big dog named Max came back down. It is very happy. The boy smiled and hugged the little girl named Tim found a big, red ball, but he had done it up. The cat looked at his mom to play with her friends' so he went 
+20:09:34 checkpoint (requested): data/live/ckpt-7001.bin, 23463424 bytes, chunk 7001, push 2, copied in 29 ms
+20:09:36 report chunk 7100  tokens 227200  loss 4.6805 nats = 6.7525 bits/token  lr 2.500e-04  scale 0.2500  1194 tok/s  ring 960 ahead
+20:09:39 report chunk 7200  tokens 230400  loss 5.1589 nats = 7.4427 bits/token  lr 2.500e-04  scale 0.2500  1224 tok/s  ring 960 ahead
+20:09:42 report chunk 7300  tokens 233600  loss 5.3850 nats = 7.7689 bits/token  lr 2.500e-04  scale 0.2500  1224 tok/s  ring 960 ahead
+20:09:44 report chunk 7400  tokens 236800  loss 4.7876 nats = 6.9070 bits/token  lr 2.500e-04  scale 0.2500  1224 tok/s  ring 960 ahead
+20:09:47 report chunk 7500  tokens 240000  loss 5.2521 nats = 7.5772 bits/token  lr 2.500e-04  scale 0.2500  1225 tok/s  ring 960 ahead
+20:09:49 report chunk 7600  tokens 243200  loss 5.0251 nats = 7.2497 bits/token  lr 2.500e-04  scale 0.2500  1225 tok/s  ring 960 ahead
+20:09:52 report chunk 7700  tokens 246400  loss 4.5533 nats = 6.5691 bits/token  lr 2.500e-04  scale 0.2500  1223 tok/s  ring 960 ahead
+20:09:55 report chunk 7800  tokens 249600  loss 5.1214 nats = 7.3886 bits/token  lr 2.500e-04  scale 0.2500  1224 tok/s  ring 960 ahead
+20:09:57 report chunk 7900  tokens 252800  loss 5.0214 nats = 7.2444 bits/token  lr 2.500e-04  scale 0.2500  1224 tok/s  ring 960 ahead
+20:10:00 report chunk 8000  tokens 256000  loss 4.8420 nats = 6.9856 bits/token  lr 2.500e-04  scale 0.2500  1224 tok/s  ring 960 ahead
+20:10:00 window: mean 7.1886 bits/token, gain 0.0141 over the previous window
+20:10:01 sample chunk 8000 seed 8: hit 1.000 hit5 1.000 big 1.000 rep4 0.036 sent 14.4 words 115 | Once upon a time, there was a little girl named Lily. She wanted to play with her friends and played in the park. <|endoftext|> Once upon a big tree, he saw something that he had no one came into his mom went on an adventure." The dog said "I can't know what it is a good friend!" Tim felt happy to see his mom and dad were very excited. They are not nice. He did not like the other side of the story was so small, but they could help. The little girl named Sue saw the big tree and wanted to play in the park with her friends, but she said it is a 
+20:10:03 report chunk 8100  tokens 259200  loss 4.8978 nats = 7.0660 bits/token  lr 2.500e-04  scale 0.2500  1196 tok/s  ring 960 ahead
+20:10:05 report chunk 8200  tokens 262400  loss 5.1823 nats = 7.4765 bits/token  lr 2.500e-04  scale 0.2500  1224 tok/s  ring 960 ahead
+20:10:08 report chunk 8300  tokens 265600  loss 4.6264 nats = 6.6744 bits/token  lr 2.500e-04  scale 0.2500  1223 tok/s  ring 960 ahead
+20:10:11 report chunk 8400  tokens 268800  loss 4.6065 nats = 6.6458 bits/token  lr 2.500e-04  scale 0.2500  1223 tok/s  ring 960 ahead
+20:10:13 report chunk 8500  tokens 272000  loss 5.1643 nats = 7.4505 bits/token  lr 2.500e-04  scale 0.2500  1223 tok/s  ring 960 ahead
+20:10:16 report chunk 8600  tokens 275200  loss 4.7084 nats = 6.7928 bits/token  lr 2.500e-04  scale 0.2500  1223 tok/s  ring 960 ahead
+20:10:18 report chunk 8700  tokens 278400  loss 4.7405 nats = 6.8391 bits/token  lr 2.500e-04  scale 0.2500  1223 tok/s  ring 960 ahead
+20:10:21 report chunk 8800  tokens 281600  loss 5.3336 nats = 7.6947 bits/token  lr 2.500e-04  scale 0.2500  1224 tok/s  ring 960 ahead
+20:10:24 report chunk 8900  tokens 284800  loss 5.0154 nats = 7.2357 bits/token  lr 2.500e-04  scale 0.2500  1224 tok/s  ring 960 ahead
+20:10:26 report chunk 9000  tokens 288000  loss 4.6687 nats = 6.7355 bits/token  lr 2.500e-04  scale 0.2500  1217 tok/s  ring 960 ahead
+20:10:26 window: mean 7.0611 bits/token, gain 0.1275 over the previous window
+20:10:27 sample chunk 9000 seed 9: hit 1.000 hit5 1.000 big 1.000 rep4 0.019 sent 12.1 words 109 | Once upon a time, there was a little girl named Mia. <|endoftext|>  Once upon a big tree, he would be fun to play with it all day. One sunny after the ball in the park, they saw something that was not good at the park. She said "I don't know what are you?" The little boy went back into her mom and dad were happy and thanked him. <|endoftext|>   Tom found a big tree with his friends to play on it. They had fun together, but he did not want to be kind to all day. He saw the bird was very sad. It's a big dog named Max 
+20:10:29 report chunk 9100  tokens 291200  loss 4.5998 nats = 6.6360 bits/token  lr 2.500e-04  scale 0.2500  1194 tok/s  ring 960 ahead
+20:10:32 report chunk 9200  tokens 294400  loss 4.9039 nats = 7.0748 bits/token  lr 2.500e-04  scale 0.2500  1224 tok/s  ring 960 ahead
+20:10:34 report chunk 9300  tokens 297600  loss 4.9098 nats = 7.0833 bits/token  lr 2.500e-04  scale 0.2500  1225 tok/s  ring 960 ahead
+20:10:37 report chunk 9400  tokens 300800  loss 4.4929 nats = 6.4819 bits/token  lr 2.500e-04  scale 0.2500  1225 tok/s  ring 960 ahead
+20:10:40 report chunk 9500  tokens 304000  loss 4.8457 nats = 6.9909 bits/token  lr 2.500e-04  scale 0.2500  1225 tok/s  ring 960 ahead
+20:10:42 report chunk 9600  tokens 307200  loss 4.8854 nats = 7.0481 bits/token  lr 2.500e-04  scale 0.2500  1223 tok/s  ring 960 ahead
+20:10:45 report chunk 9700  tokens 310400  loss 4.9583 nats = 7.1534 bits/token  lr 2.500e-04  scale 0.2500  1224 tok/s  ring 960 ahead
+20:10:47 report chunk 9800  tokens 313600  loss 4.9097 nats = 7.0833 bits/token  lr 2.500e-04  scale 0.2500  1225 tok/s  ring 960 ahead
+20:10:50 report chunk 9900  tokens 316800  loss 5.0425 nats = 7.2748 bits/token  lr 2.500e-04  scale 0.2500  1223 tok/s  ring 960 ahead
+20:10:53 report chunk 10000  tokens 320000  loss 5.1745 nats = 7.4652 bits/token  lr 2.500e-04  scale 0.2500  1225 tok/s  ring 960 ahead
+20:10:53 window: mean 7.0292 bits/token, gain 0.0319 over the previous window
+20:10:53 sample chunk 10000 seed 10: hit 1.000 hit5 1.000 big 1.000 rep4 0.009 sent 12.4 words 112 | Once upon a time, there was a little boy named Tim. He wanted to play with his friends. <|endoftext|> Once upon a big box in the park, he saw his friend, a little girl named Lily. She loved her new toy to make it go up and said that she had an idea. The cat liked the ball and the little bird was very happy. They were so excited!  The little girl felt sad, but they could not find a big dog with her mom went for help when there's a good friend. And from then on, Lily saw her friends to play in the park with his friend. The cat said " 
+20:10:55 report chunk 10100  tokens 323200  loss 4.7384 nats = 6.8361 bits/token  lr 2.500e-04  scale 0.2500  1196 tok/s  ring 960 ahead
+20:10:58 report chunk 10200  tokens 326400  loss 4.4666 nats = 6.4439 bits/token  lr 2.500e-04  scale 0.2500  1224 tok/s  ring 960 ahead
+20:11:01 report chunk 10300  tokens 329600  loss 5.2237 nats = 7.5362 bits/token  lr 2.500e-04  scale 0.2500  1224 tok/s  ring 960 ahead
+20:11:03 report chunk 10400  tokens 332800  loss 4.9903 nats = 7.1994 bits/token  lr 2.500e-04  scale 0.2500  1225 tok/s  ring 960 ahead
+20:11:06 report chunk 10500  tokens 336000  loss 4.4833 nats = 6.4680 bits/token  lr 2.500e-04  scale 0.2500  1224 tok/s  ring 960 ahead
+20:11:08 report chunk 10600  tokens 339200  loss 4.9868 nats = 7.1945 bits/token  lr 2.500e-04  scale 0.2500  1224 tok/s  ring 960 ahead
+20:11:11 report chunk 10700  tokens 342400  loss 4.9456 nats = 7.1350 bits/token  lr 2.500e-04  scale 0.2500  1225 tok/s  ring 960 ahead
+20:11:14 report chunk 10800  tokens 345600  loss 4.7965 nats = 6.9199 bits/token  lr 2.500e-04  scale 0.2500  1224 tok/s  ring 960 ahead
+20:11:16 report chunk 10900  tokens 348800  loss 4.7430 nats = 6.8427 bits/token  lr 2.500e-04  scale 0.2500  1223 tok/s  ring 960 ahead
+20:11:19 report chunk 11000  tokens 352000  loss 5.1040 nats = 7.3635 bits/token  lr 2.500e-04  scale 0.2500  1225 tok/s  ring 960 ahead
+20:11:19 window: mean 6.9939 bits/token, gain 0.0352 over the previous window
+20:11:20 sample chunk 11000 seed 11: hit 1.000 hit5 1.000 big 1.000 rep4 0.009 sent 14.2 words 114 | Once upon a time, there was a little girl named Lily. They had fun to make it go away. <|endoftext|> Once upon a big box with the ball in the park, and they all lived happily ever after! The bird said "I'm sorry I don't want to play with me?" said his mom said she wanted to help him. She says: her friends were so happy and played together in the park. They had lots of fun at their toys, but it was a little boy named Tim went for a big tree. He liked to look at the park and saw that he could not find a big dog came back with his 
+20:11:22 report chunk 11100  tokens 355200  loss 4.7250 nats = 6.8168 bits/token  lr 2.500e-04  scale 0.2500  1196 tok/s  ring 960 ahead
+20:11:24 report chunk 11200  tokens 358400  loss 4.5465 nats = 6.5592 bits/token  lr 2.500e-04  scale 0.2500  1225 tok/s  ring 960 ahead
+20:11:27 report chunk 11300  tokens 361600  loss 4.7738 nats = 6.8871 bits/token  lr 2.500e-04  scale 0.2500  1218 tok/s  ring 960 ahead
+20:11:30 report chunk 11400  tokens 364800  loss 4.8037 nats = 6.9303 bits/token  lr 2.500e-04  scale 0.2500  1225 tok/s  ring 960 ahead
+20:11:32 report chunk 11500  tokens 368000  loss 4.6094 nats = 6.6499 bits/token  lr 2.500e-04  scale 0.2500  1224 tok/s  ring 960 ahead
+20:11:35 report chunk 11600  tokens 371200  loss 4.7437 nats = 6.8437 bits/token  lr 2.500e-04  scale 0.2500  1225 tok/s  ring 960 ahead
+20:11:37 report chunk 11700  tokens 374400  loss 5.0671 nats = 7.3102 bits/token  lr 2.500e-04  scale 0.2500  1224 tok/s  ring 960 ahead
+20:11:40 report chunk 11800  tokens 377600  loss 4.5880 nats = 6.6191 bits/token  lr 2.500e-04  scale 0.2500  1223 tok/s  ring 960 ahead
+20:11:43 report chunk 11900  tokens 380800  loss 4.6792 nats = 6.7506 bits/token  lr 2.500e-04  scale 0.2500  1225 tok/s  ring 960 ahead
+20:11:45 report chunk 12000  tokens 384000  loss 5.0471 nats = 7.2814 bits/token  lr 2.500e-04  scale 0.2500  1226 tok/s  ring 960 ahead
+20:11:45 window: mean 6.8648 bits/token, gain 0.1291 over the previous window
+20:11:46 sample chunk 12000 seed 12: hit 1.000 hit5 1.000 big 1.000 rep4 0.009 sent 10.1 words 111 | Once upon a time, there was a little girl named Lily. She loved to play with her friends and played together in the garden. <|endoftext|> Once upon a big tree, he would be fun!" Tim said "I don't know what it is a good friend." The cat had an idea! It wanted to help his mom and dad about their new toy for him. They were very happy. He saw some other kids and make the best of friends in the park with the toys away. <|endoftext|>   one day, they found a big tree and wanted to be kind. I have something for you." The dog had an idea, but he 
+20:11:48 report chunk 12100  tokens 387200  loss 4.9371 nats = 7.1228 bits/token  lr 2.500e-04  scale 0.2500  1196 tok/s  ring 960 ahead
+20:11:51 report chunk 12200  tokens 390400  loss 4.5385 nats = 6.5477 bits/token  lr 2.500e-04  scale 0.2500  1224 tok/s  ring 960 ahead
+20:11:53 report chunk 12300  tokens 393600  loss 4.6946 nats = 6.7728 bits/token  lr 2.500e-04  scale 0.2500  1224 tok/s  ring 960 ahead
+20:11:56 report chunk 12400  tokens 396800  loss 4.7494 nats = 6.8519 bits/token  lr 2.500e-04  scale 0.2500  1223 tok/s  ring 960 ahead
+20:11:58 report chunk 12500  tokens 400000  loss 4.5962 nats = 6.6310 bits/token  lr 2.500e-04  scale 0.2500  1225 tok/s  ring 960 ahead
+20:12:01 report chunk 12600  tokens 403200  loss 4.3929 nats = 6.3376 bits/token  lr 2.500e-04  scale 0.2500  1225 tok/s  ring 960 ahead
+20:12:04 report chunk 12700  tokens 406400  loss 4.7093 nats = 6.7941 bits/token  lr 2.500e-04  scale 0.2500  1225 tok/s  ring 960 ahead
+20:12:06 report chunk 12800  tokens 409600  loss 5.1116 nats = 7.3744 bits/token  lr 2.500e-04  scale 0.2500  1224 tok/s  ring 960 ahead
+20:12:09 report chunk 12900  tokens 412800  loss 4.6147 nats = 6.6575 bits/token  lr 2.500e-04  scale 0.2500  1224 tok/s  ring 960 ahead
+20:12:12 report chunk 13000  tokens 416000  loss 4.5092 nats = 6.5055 bits/token  lr 2.500e-04  scale 0.2500  1224 tok/s  ring 960 ahead
+20:12:12 window: mean 6.7595 bits/token, gain 0.1053 over the previous window
+20:12:12 sample chunk 13000 seed 13: hit 1.000 hit5 1.000 big 1.000 rep4 0.009 sent 10.3 words 113 | Once upon a time, there was a little boy named Tim. He had to be careful with his friend, the farmer and her mom. <|endoftext|> Once upon a big tree in the park, there lived an idea. The cat liked to play with it all day." Lily said they were playing together and made him happy. They played together in the park!" Sam was sad and scared. But then she saw a little bird named Tim found some pretty flowers on his back! <|endoftext|> One day, Tom went for a big tree with his mom sat down. The cat had an idea to play with me. He wanted to help him, but he 
+20:12:14 report chunk 13100  tokens 419200  loss 4.8820 nats = 7.0432 bits/token  lr 2.500e-04  scale 0.2500  1196 tok/s  ring 960 ahead
+20:12:17 report chunk 13200  tokens 422400  loss 5.1436 nats = 7.4207 bits/token  lr 2.500e-04  scale 0.2500  1226 tok/s  ring 960 ahead
+20:12:20 report chunk 13300  tokens 425600  loss 4.7892 nats = 6.9093 bits/token  lr 2.500e-04  scale 0.2500  1223 tok/s  ring 960 ahead
+20:12:22 report chunk 13400  tokens 428800  loss 4.6701 nats = 6.7375 bits/token  lr 2.500e-04  scale 0.2500  1225 tok/s  ring 960 ahead
+20:12:25 report chunk 13500  tokens 432000  loss 5.1006 nats = 7.3586 bits/token  lr 2.500e-04  scale 0.2500  1225 tok/s  ring 960 ahead
+20:12:27 report chunk 13600  tokens 435200  loss 4.6200 nats = 6.6653 bits/token  lr 2.500e-04  scale 0.2500  1224 tok/s  ring 960 ahead
+20:12:30 report chunk 13700  tokens 438400  loss 4.5648 nats = 6.5857 bits/token  lr 2.500e-04  scale 0.2500  1216 tok/s  ring 960 ahead
+20:12:33 report chunk 13800  tokens 441600  loss 4.8703 nats = 7.0264 bits/token  lr 2.500e-04  scale 0.2500  1224 tok/s  ring 960 ahead
+20:12:35 report chunk 13900  tokens 444800  loss 4.8339 nats = 6.9739 bits/token  lr 2.500e-04  scale 0.2500  1226 tok/s  ring 960 ahead
+20:12:38 report chunk 14000  tokens 448000  loss 4.3655 nats = 6.2980 bits/token  lr 2.500e-04  scale 0.2500  1224 tok/s  ring 960 ahead
+20:12:38 window: mean 6.9019 bits/token, gain -0.1423 over the previous window
+20:12:38 policy: plateau -> scale 0.1250 (halving 3), checkpoint requested
+20:12:39 sample chunk 14000 seed 14: hit 1.000 hit5 1.000 big 0.990 rep4 0.018 sent 12.4 words 112 | Once upon a time, there was a little boy named Tim. He wanted to play with his mom and said the new friend. <|endoftext|> One day, Lily's big for her mom were very happy. The bird had an idea! It is just like that. She loved to go on it and saw a big tree with their friends in the park, but they could not find it." They both smiled and put them on his back hurt your friends will help him. <|endoftext|>   Tim's mom said she was sad because I have a new friend named Tim. The bird looked at the park to play with her dog were scared of what 
+20:12:39 checkpoint (requested): data/live/ckpt-14001.bin, 23463424 bytes, chunk 14001, push 3, copied in 26 ms
+20:12:41 report chunk 14100  tokens 451200  loss 4.5063 nats = 6.5012 bits/token  lr 1.250e-04  scale 0.1250  1193 tok/s  ring 960 ahead
+20:12:43 report chunk 14200  tokens 454400  loss 4.5868 nats = 6.6174 bits/token  lr 1.250e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+20:12:46 report chunk 14300  tokens 457600  loss 4.6833 nats = 6.7566 bits/token  lr 1.250e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+20:12:49 report chunk 14400  tokens 460800  loss 4.4681 nats = 6.4461 bits/token  lr 1.250e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+20:12:51 report chunk 14500  tokens 464000  loss 4.4934 nats = 6.4827 bits/token  lr 1.250e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+20:12:54 report chunk 14600  tokens 467200  loss 4.8716 nats = 7.0282 bits/token  lr 1.250e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+20:12:56 report chunk 14700  tokens 470400  loss 5.1156 nats = 7.3802 bits/token  lr 1.250e-04  scale 0.1250  1223 tok/s  ring 960 ahead
+20:12:59 report chunk 14800  tokens 473600  loss 4.9943 nats = 7.2053 bits/token  lr 1.250e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+20:13:02 report chunk 14900  tokens 476800  loss 4.6095 nats = 6.6501 bits/token  lr 1.250e-04  scale 0.1250  1223 tok/s  ring 960 ahead
+20:13:04 report chunk 15000  tokens 480000  loss 5.2961 nats = 7.6407 bits/token  lr 1.250e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+20:13:04 window: mean 6.8708 bits/token, gain 0.0310 over the previous window
+20:13:05 sample chunk 15000 seed 15: hit 1.000 hit5 1.000 big 0.991 rep4 0.018 sent 12.8 words 115 | Once upon a time, there was a little boy named Tim. He had to help his mom and said, "I can't know what to do it! Tim saw a big dog named Max. They played with the toy, but they were not happy. The bird looked at the park and play in the park with her friends were scared. She did not want that day on their faces of fun together. One sunny time for Tim and his mom went back to help them. The little girl was so happy to have a big tree and wanted to do it, but she could find a big bird named Sue. They played all the other kids 
+20:13:07 report chunk 15100  tokens 483200  loss 5.2617 nats = 7.5910 bits/token  lr 1.250e-04  scale 0.1250  1196 tok/s  ring 960 ahead
+20:13:10 report chunk 15200  tokens 486400  loss 4.4686 nats = 6.4468 bits/token  lr 1.250e-04  scale 0.1250  1223 tok/s  ring 960 ahead
+20:13:12 report chunk 15300  tokens 489600  loss 4.7334 nats = 6.8288 bits/token  lr 1.250e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+20:13:15 report chunk 15400  tokens 492800  loss 5.3598 nats = 7.7326 bits/token  lr 1.250e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+20:13:17 report chunk 15500  tokens 496000  loss 4.7828 nats = 6.9001 bits/token  lr 1.250e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+20:13:20 report chunk 15600  tokens 499200  loss 4.7812 nats = 6.8978 bits/token  lr 1.250e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+20:13:23 report chunk 15700  tokens 502400  loss 5.0766 nats = 7.3240 bits/token  lr 1.250e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+20:13:25 report chunk 15800  tokens 505600  loss 5.3609 nats = 7.7341 bits/token  lr 1.250e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+20:13:28 report chunk 15900  tokens 508800  loss 4.5243 nats = 6.5272 bits/token  lr 1.250e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+20:13:31 report chunk 16000  tokens 512000  loss 4.4365 nats = 6.4005 bits/token  lr 1.250e-04  scale 0.1250  1218 tok/s  ring 960 ahead
+20:13:31 window: mean 7.0383 bits/token, gain -0.1675 over the previous window
+20:13:31 policy: plateau at the floor (scale 0.1250), continuing
+20:13:31 sample chunk 16000 seed 16: hit 1.000 hit5 1.000 big 1.000 rep4 0.010 sent 10.6 words 106 | Once upon a time, there was a little girl named Lily. <|endoftext|> Once upon a big dog named Max and his mom went to the park. They had fun with their friends, but they were very happy. The cat said "I don't know what it is a good friend." Tom smiled and put on her face in the water from that day on, Tim saw his friends could not find the toy back for him. <|endoftext|>    The little girl named Sue was sad. She wanted to help you!" she asked Lily, "Thanks! I can't know how it is a big tree." The dog said they would 
+20:13:33 report chunk 16100  tokens 515200  loss 4.9518 nats = 7.1440 bits/token  lr 1.250e-04  scale 0.1250  1196 tok/s  ring 960 ahead
+20:13:36 report chunk 16200  tokens 518400  loss 5.0434 nats = 7.2760 bits/token  lr 1.250e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+20:13:39 report chunk 16300  tokens 521600  loss 4.6168 nats = 6.6607 bits/token  lr 1.250e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+20:13:41 report chunk 16400  tokens 524800  loss 4.8328 nats = 6.9723 bits/token  lr 1.250e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+20:13:44 report chunk 16500  tokens 528000  loss 4.9436 nats = 7.1321 bits/token  lr 1.250e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+20:13:46 report chunk 16600  tokens 531200  loss 4.7066 nats = 6.7902 bits/token  lr 1.250e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+20:13:49 report chunk 16700  tokens 534400  loss 4.6010 nats = 6.6379 bits/token  lr 1.250e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+20:13:52 report chunk 16800  tokens 537600  loss 4.6946 nats = 6.7728 bits/token  lr 1.250e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+20:13:54 report chunk 16900  tokens 540800  loss 4.5344 nats = 6.5418 bits/token  lr 1.250e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+20:13:57 report chunk 17000  tokens 544000  loss 4.4558 nats = 6.4284 bits/token  lr 1.250e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+20:13:57 window: mean 6.8356 bits/token, gain 0.2027 over the previous window
+20:13:58 sample chunk 17000 seed 17: hit 1.000 hit5 1.000 big 1.000 rep4 0.009 sent 14.4 words 115 | Once upon a time, there was a little girl named Lily. She had to be friends with the toys and her mom were happy. <|endoftext|> Once upon a play in the park, they all lived together in the park. They played together and make it go on his back hurt you." The dog said "I want that day long time for Tim's mom smiled at each other. And he was very sad because I can help!" Lily says to Tom, but she did not know what a big tree, but they were happy to have fun. The little girl named Sue found a big box with the toy car and asked her friends came out 
+20:14:00 report chunk 17100  tokens 547200  loss 4.6805 nats = 6.7525 bits/token  lr 1.250e-04  scale 0.1250  1196 tok/s  ring 960 ahead
+20:14:02 report chunk 17200  tokens 550400  loss 4.8456 nats = 6.9907 bits/token  lr 1.250e-04  scale 0.1250  1224 tok/s  ring 869 ahead
+20:14:05 report chunk 17300  tokens 553600  loss 4.7308 nats = 6.8250 bits/token  lr 1.250e-04  scale 0.1250  1224 tok/s  ring 769 ahead
+20:14:08 report chunk 17400  tokens 556800  loss 4.2974 nats = 6.1999 bits/token  lr 1.250e-04  scale 0.1250  1223 tok/s  ring 669 ahead
+20:14:10 report chunk 17500  tokens 560000  loss 4.5734 nats = 6.5980 bits/token  lr 1.250e-04  scale 0.1250  1225 tok/s  ring 569 ahead
+20:14:13 report chunk 17600  tokens 563200  loss 5.0494 nats = 7.2847 bits/token  lr 1.250e-04  scale 0.1250  1223 tok/s  ring 469 ahead
+20:14:15 report chunk 17700  tokens 566400  loss 4.3213 nats = 6.2344 bits/token  lr 1.250e-04  scale 0.1250  1225 tok/s  ring 369 ahead
+20:14:18 report chunk 17800  tokens 569600  loss 4.5689 nats = 6.5916 bits/token  lr 1.250e-04  scale 0.1250  1224 tok/s  ring 269 ahead
+20:14:21 report chunk 17900  tokens 572800  loss 4.6809 nats = 6.7530 bits/token  lr 1.250e-04  scale 0.1250  1225 tok/s  ring 169 ahead
+20:14:23 report chunk 18000  tokens 576000  loss 4.8187 nats = 6.9518 bits/token  lr 1.250e-04  scale 0.1250  1223 tok/s  ring 69 ahead
+20:14:23 window: mean 6.7182 bits/token, gain 0.1175 over the previous window
+20:14:24 sample chunk 18000 seed 18: hit 1.000 hit5 1.000 big 1.000 rep4 0.018 sent 14.4 words 115 | Once upon a time, there was a little boy named Tim. He had to do it?" The little bird said and the dog played with his friends in the park. They were happy that he could not find the park to play on them. The cat looked at his mom and dad for the bird became best friends, but they did not want to be a big tree with their mom took away a new friend. <|endoftext|> Once upon time there was a boy named Tim went back outside. He had many friends in his rooms and he could help him. One day, Tom saw the big dog came up and said "I don't know 
+20:14:25 coach: the stream is exhausted at chunk 18069
+20:14:25 checkpoint (final): data/live/ckpt-18069.bin, 23463424 bytes, chunk 18069, push 4, copied in 26 ms
+20:14:25 coach: run ended at chunk 18069 (578208 tokens), 3 halvings, final scale 0.1250
