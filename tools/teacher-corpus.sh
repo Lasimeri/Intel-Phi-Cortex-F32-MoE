@@ -64,14 +64,24 @@ fi
 ntopics=$(wc -l < "$out/topics.txt")
 [ "$ntopics" -gt 0 ] || { say "no topics: stopping"; exit 1; }
 
-# the simple words, once: the seeds that force diversity (TinyStories' three random words a story)
+# the simple words, once: the seeds that force diversity (TinyStories' three random words a story). Asked for 300 in one
+# call the teacher drifted into chemistry (flerovium, cobalt, bromine; 15:06), so the list comes by categories in short
+# calls and the teacher vets the union once (261 of 276 kept, 15:12)
 if [ ! -s "$out/words.txt" ]; then
 	cat > "$out/words-system.txt" <<'EOF'
-You list simple English words. Answer with a JSON object only: {"words": ["...", "..."]}. Every word is one a seven-year-old child knows and uses: everyday nouns, verbs and adjectives, all different, no names, nothing technical, nothing dark.
+You list simple English words. Answer with a JSON object only: {"words": ["...", "..."]}. Every word must be one that a seven-year-old child knows and says: short everyday words, all different, no names, nothing technical, no chemistry, no science terms, nothing dark.
 EOF
-	say "the words: asking the teacher for 300 simple words"
-	tools/teacher.sh "$out/words-system.txt" "Give 300 words: 150 nouns, 100 verbs, 50 adjectives." --max 2500 --rp 1.0 --json "${urlopt[@]}" 2>/dev/null | jq -r '.words[]? | tostring | ascii_downcase | gsub("[^a-z]"; "") | select(length > 1)' | sort -u > "$out/words.txt" 2>/dev/null
-	say "words: $(wc -l < "$out/words.txt") in $out/words.txt"
+	cat > "$out/vet-system.txt" <<'EOF'
+You vet a word list for a very small child's vocabulary. Answer with a JSON object only: {"words": ["...", "..."]}: the words of the given list that a seven-year-old child surely knows and says, kept exactly as given; drop any word that is technical, scientific, rare, grown-up or dark.
+EOF
+	say "the words: asking the teacher for 40 simple words in each of 8 categories, then vetting the union"
+	: > "$out/words-raw.txt"
+	for cat in "animals" "food and drink" "things at home" "the body and clothes" "school and play" "nature, weather and outdoors" "things people do (verbs)" "how things are (adjectives: sizes, colours, feelings)"; do
+		tools/teacher.sh "$out/words-system.txt" "Give 40 words about $cat." --max 600 --rp 1.0 --json "${urlopt[@]}" 2>/dev/null | jq -r '.words[]? | tostring | ascii_downcase | gsub("[^a-z]"; "") | select(length > 1)' >> "$out/words-raw.txt"
+	done
+	sort -u "$out/words-raw.txt" -o "$out/words-raw.txt"
+	tools/teacher.sh "$out/vet-system.txt" "The list: $(tr '\n' ' ' < "$out/words-raw.txt")" --max 2000 --rp 1.0 --json "${urlopt[@]}" 2>/dev/null | jq -r '.words[]? | tostring | ascii_downcase | gsub("[^a-z]"; "") | select(length > 1)' | sort -u > "$out/words.txt" 2>/dev/null
+	say "words: $(wc -l < "$out/words.txt") vetted of $(wc -l < "$out/words-raw.txt") in $out/words.txt"
 fi
 nwords=$(wc -l < "$out/words.txt")
 [ "$nwords" -ge 20 ] || { say "too few words ($nwords): stopping"; exit 1; }

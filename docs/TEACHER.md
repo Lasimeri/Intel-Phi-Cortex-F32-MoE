@@ -177,3 +177,24 @@ about one second each, the grader about ten; grades 2/3/4 and 1/0/0 ("incoherent
 "incoherent gibberish"); the rewrites: "Yes, I like to talk with people. It is fun for me." and "Old stories are
 fun. I like to talk with people." The second rewrite shows the grader's own slip: it put a persona fact into an
 answer nobody asked for; the rubric says only when asked.
+
+**The seed words (15:06 to 15:13).** Asked for 300 simple words in one call, the teacher drifted into chemistry
+(flerovium, cobalt, nitrogen, bromine among 425 "words"), the same degeneration the topic list showed when asked
+for "more unlike these"; 27 batches carry such seeds (81 conversations, left in the stream). The list now comes by
+eight categories of forty words in short calls (276 in the union) and the teacher vets the union once (261 kept,
+none from chemistry); it was swapped under the running writer, which reads the file at every call. The rule that
+holds for every list the teacher writes: short calls, then a vetting call.
+
+**Round 4, the first full pass (15:23 to 15:32).** The round trained chunks 4,182 to 5,196 (1,013 chunks, 32,416
+tokens, 79 s on the card); the files landed under their round names; the held-out read 2.6939 nats = 3.8865
+bits/token on 4,553 tokens (the first reading the held-out was large enough for); the greedy introduction failed
+("That is a good idea."); the pass graded 20 items in 6 minutes (18 s an item), mean grammar 3.3, relevance 0.9,
+persona 3.1, 20 rewrites kept, the set 20 conversations of 1,959 tokens. Two of the rewrites show the grader
+inventing within the persona ("No. I am alone on the card.") where the rubric allows only the persona's own facts;
+the three lines of the persona leave it little to say when the person asks about the speaker, and that is where
+the inventions come from. Round 5 is the first whose stream carries the set.
+
+**Round 5, the first stream with the set (15:42).** mixstream: "20 set conversations (1958 tokens) recur every 6
+base conversations, seen 1 times each (33 in all); 198 base conversations (29856 tokens) from token 166292 to
+196148"; the coach took 1,035 chunks (33,120 tokens); the trained position moved to 6,129 of the stream's 6,201
+chunks, the 72 behind the base's end token waiting for the next round.
