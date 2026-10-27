@@ -1,0 +1,11 @@
+### tinydialogues 01:53:51
+chat-text: 109990 rows: 109974 conversations kept (664452 answers, 0 with reasoning in the data, 27478 drawn no-think, 0 with a system message; 139310770 bytes, 0 of reasoning); skipped 0 malformed, 0 empty turn, 0 code, 0 over 16000 chars, 0 out of order, 16 non-ASCII
+conversations 109974, held out 5498; train 130596359 B, valid 8714411 B
+train: 40000000 bytes, 8960587 words, 17578 unique, 7 special tokens;merge    0: id 256 = (32, 116) count 561010, 0.0 s;merge 3832: id 4088 = (911, 115) count 110, 1.8 s;train: 3833 merges written to data/cand/work/tinydialogues/vocab.txt (vocab 4096 = 256 + 3833 + 7 specials);
+encode: 130596359 bytes -> 32791418 tokens (3.983 bytes/token, 3962156 special), 128.7 MB/s, cache hits 25287025, data/cand/work/tinydialogues/train.u16 65582836 bytes
+encode: 2000000 bytes -> 572152 tokens (3.496 bytes/token, 41918 special), 43.7 MB/s, cache hits 384214, data/cand/work/tinydialogues/valid.u16 1144304 bytes
+train tokens 32791418 (3.983 B/token), valid tokens 572152 (3.496 B/token)
+unigram (add-one): 8.9281 bits/token over 27446 predictions; 31553344 training tokens, 3672365 distinct trigrams
+bigram  (interpolated, lambda 0.9): 5.3743 bits/token
+trigram (interpolated, lambda 0.8): 4.3300 bits/token
+### end tinydialogues 01:54:07

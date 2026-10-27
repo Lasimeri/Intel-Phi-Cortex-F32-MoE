@@ -1,0 +1,11 @@
+### personachat 01:57:21
+chat-text: 8939 rows: 8939 conversations kept (65719 answers, 0 with reasoning in the data, 2554 drawn no-think, 8939 with a system message; 11528913 bytes, 0 of reasoning); skipped 0 malformed, 0 empty turn, 0 code, 0 over 16000 chars, 0 out of order, 0 non-ASCII
+conversations 8939, held out 446; train 10955322 B, valid 573591 B
+train: 10955322 bytes, 2384400 words, 24272 unique, 7 special tokens;merge    0: id 256 = (32, 97) count 144382, 0.0 s;merge 3832: id 4088 = (286, 336) count 55, 2.9 s;train: 3833 merges written to data/cand/work/personachat/vocab.txt (vocab 4096 = 256 + 3833 + 7 specials);
+encode: 10955322 bytes -> 2582572 tokens (4.242 bytes/token, 400089 special), 112.9 MB/s, cache hits 1960039, data/cand/work/personachat/train.u16 5165144 bytes
+encode: 573591 bytes -> 135114 tokens (4.245 bytes/token, 21042 special), 26.9 MB/s, cache hits 97289, data/cand/work/personachat/valid.u16 270228 bytes
+train tokens 2582572 (4.242 B/token), valid tokens 135114 (4.245 B/token)
+unigram (add-one): 8.2395 bits/token over 27446 predictions; 2582572 training tokens, 655973 distinct trigrams
+bigram  (interpolated, lambda 0.9): 4.7638 bits/token
+trigram (interpolated, lambda 0.7): 4.2167 bits/token
+### end personachat 01:57:25

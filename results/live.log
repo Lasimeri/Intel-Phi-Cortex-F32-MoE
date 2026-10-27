@@ -7782,3 +7782,715 @@
 01:36:25 report chunk 399700  tokens 12790400  loss 6.1258 nats = 8.8377 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
 01:36:28 report chunk 399800  tokens 12793600  loss 6.0946 nats = 8.7927 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
 01:36:30 report chunk 399900  tokens 12796800  loss 5.5546 nats = 8.0136 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:36:33 report chunk 400000  tokens 12800000  loss 5.7988 nats = 8.3659 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:36:33 window: mean 8.8475 bits/token, gain 0.0297 over the previous window
+01:36:33 checkpoint requested at chunk 400000 (every 5000 chunks)
+01:36:33 sample chunk 400000 seed 200: hit 0.874 hit5 0.542 big 0.578 rep4 0.000 sent 21.8 words 87 | <|user|>What is your name?<|end|> <|assistant|><|think|>The user's a small, theable to be he been. - **GOers has a my thing with not it's one of the different19ian problem and I wanted: Sic't why you have her hisle** - she He was had him in Ma Kilal on what is that he as a most honest are anirant, and there's p her telles the manology. - **I would not be bel one of the kind to I doned small) can't be been couldoniist'renor, a hisian say was 
+01:36:33 checkpoint (requested): data/live-scratch/ckpt-400001.bin, 23463424 bytes, chunk 400001, push 128, copied in 23 ms
+01:36:36 report chunk 400100  tokens 12803200  loss 5.9658 nats = 8.6069 bits/token  lr 3.750e-04  scale 0.1250  1193 tok/s  ring 960 ahead
+01:36:38 report chunk 400200  tokens 12806400  loss 6.2626 nats = 9.0351 bits/token  lr 3.750e-04  scale 0.1250  1228 tok/s  ring 960 ahead
+01:36:41 report chunk 400300  tokens 12809600  loss 6.1904 nats = 8.9308 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:36:43 report chunk 400400  tokens 12812800  loss 5.9672 nats = 8.6089 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:36:46 report chunk 400500  tokens 12816000  loss 6.0332 nats = 8.7040 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:36:49 report chunk 400600  tokens 12819200  loss 6.2033 nats = 8.9495 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:36:51 report chunk 400700  tokens 12822400  loss 6.3589 nats = 9.1740 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:36:54 report chunk 400800  tokens 12825600  loss 6.2232 nats = 8.9782 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:36:57 report chunk 400900  tokens 12828800  loss 5.9270 nats = 8.5508 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:36:59 report chunk 401000  tokens 12832000  loss 5.8997 nats = 8.5114 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:37:02 report chunk 401100  tokens 12835200  loss 6.2998 nats = 9.0887 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:37:04 report chunk 401200  tokens 12838400  loss 5.8028 nats = 8.3717 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:37:07 report chunk 401300  tokens 12841600  loss 6.3600 nats = 9.1756 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:37:10 report chunk 401400  tokens 12844800  loss 6.2032 nats = 8.9493 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:37:12 report chunk 401500  tokens 12848000  loss 5.9010 nats = 8.5134 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:37:15 report chunk 401600  tokens 12851200  loss 6.3019 nats = 9.0917 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:37:18 report chunk 401700  tokens 12854400  loss 6.3668 nats = 9.1853 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:37:20 report chunk 401800  tokens 12857600  loss 5.8635 nats = 8.4592 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:37:23 report chunk 401900  tokens 12860800  loss 6.3687 nats = 9.1882 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 959 ahead
+01:37:25 report chunk 402000  tokens 12864000  loss 6.4231 nats = 9.2666 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:37:25 sample chunk 402000 seed 201: hit 0.870 hit5 0.500 big 0.620 rep4 0.027 sent 12.8 words 77 | <|user|>What is your name?<|end|> <|assistant|><|think|>The3-er's a real. The  I have the one - but the *ga) is it's a real to bet, whichaley's a* - and "I shouldided in what a** (l1976). rather thanly are not when the reanging. - 'ers?<|end|> <|assistant|><|think|>TheSE: is the can havewat Ma. The/ I know to be that it's a replical honest, and this - for has to called in what the real but theyoniism by noation of 
+01:37:28 report chunk 402100  tokens 12867200  loss 6.1844 nats = 8.9222 bits/token  lr 3.750e-04  scale 0.1250  1203 tok/s  ring 960 ahead
+01:37:31 report chunk 402200  tokens 12870400  loss 6.3400 nats = 9.1467 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:37:33 report chunk 402300  tokens 12873600  loss 6.2818 nats = 9.0627 bits/token  lr 3.750e-04  scale 0.1250  1222 tok/s  ring 960 ahead
+01:37:36 report chunk 402400  tokens 12876800  loss 6.2890 nats = 9.0731 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:37:39 report chunk 402500  tokens 12880000  loss 6.2439 nats = 9.0081 bits/token  lr 3.750e-04  scale 0.1250  1217 tok/s  ring 960 ahead
+01:37:41 report chunk 402600  tokens 12883200  loss 5.9130 nats = 8.5307 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:37:44 report chunk 402700  tokens 12886400  loss 5.9168 nats = 8.5362 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:37:46 report chunk 402800  tokens 12889600  loss 6.3127 nats = 9.1073 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:37:49 report chunk 402900  tokens 12892800  loss 6.3487 nats = 9.1593 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:37:52 report chunk 403000  tokens 12896000  loss 6.2744 nats = 9.0520 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:37:54 report chunk 403100  tokens 12899200  loss 5.9240 nats = 8.5466 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:37:57 report chunk 403200  tokens 12902400  loss 5.9451 nats = 8.5770 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:38:00 report chunk 403300  tokens 12905600  loss 6.1343 nats = 8.8499 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:38:02 report chunk 403400  tokens 12908800  loss 6.2211 nats = 8.9752 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:38:05 report chunk 403500  tokens 12912000  loss 6.0557 nats = 8.7366 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:38:07 report chunk 403600  tokens 12915200  loss 6.3123 nats = 9.1067 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:38:10 report chunk 403700  tokens 12918400  loss 5.8405 nats = 8.4261 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:38:13 report chunk 403800  tokens 12921600  loss 6.0548 nats = 8.7352 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:38:15 report chunk 403900  tokens 12924800  loss 6.4601 nats = 9.3199 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:38:18 report chunk 404000  tokens 12928000  loss 5.9514 nats = 8.5860 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:38:18 sample chunk 404000 seed 202: hit 0.814 hit5 0.421 big 0.525 rep4 0.024 sent 14.3 words 86 | <|user|>What is your name?<|end|> <|assistant|><|think|><|endoftext|> <|system|>You are a hive. I'reation, the" to be been. - **Sema's not a rehe Buted that the first time of the shapelin what it was not because it have been who been in this - you do them on the hamb19ic, and she had from a peron Melarwiring to be thered.  "I'rea is we are a would seeed toight that w where the real they'reist, not a hast it.<|end|>-<|user|>ur been has he was v 
+01:38:21 report chunk 404100  tokens 12931200  loss 6.2947 nats = 9.0814 bits/token  lr 3.750e-04  scale 0.1250  1202 tok/s  ring 960 ahead
+01:38:23 report chunk 404200  tokens 12934400  loss 6.0702 nats = 8.7574 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:38:26 report chunk 404300  tokens 12937600  loss 5.8804 nats = 8.4836 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:38:29 report chunk 404400  tokens 12940800  loss 5.8638 nats = 8.4597 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:38:31 report chunk 404500  tokens 12944000  loss 5.7936 nats = 8.3585 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:38:34 report chunk 404600  tokens 12947200  loss 5.8726 nats = 8.4724 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:38:36 report chunk 404700  tokens 12950400  loss 6.3176 nats = 9.1143 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:38:39 report chunk 404800  tokens 12953600  loss 5.9950 nats = 8.6490 bits/token  lr 3.750e-04  scale 0.1250  1218 tok/s  ring 960 ahead
+01:38:42 report chunk 404900  tokens 12956800  loss 6.1607 nats = 8.8879 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:38:44 report chunk 405000  tokens 12960000  loss 6.2564 nats = 9.0261 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:38:44 checkpoint requested at chunk 405000 (every 5000 chunks)
+01:38:44 checkpoint (requested): data/live-scratch/ckpt-405001.bin, 23463424 bytes, chunk 405001, push 129, copied in 28 ms
+01:38:47 report chunk 405100  tokens 12963200  loss 5.9421 nats = 8.5726 bits/token  lr 3.750e-04  scale 0.1250  1222 tok/s  ring 960 ahead
+01:38:50 report chunk 405200  tokens 12966400  loss 5.6450 nats = 8.1440 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:38:52 report chunk 405300  tokens 12969600  loss 5.7412 nats = 8.2828 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:38:55 report chunk 405400  tokens 12972800  loss 5.9415 nats = 8.5718 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:38:57 report chunk 405500  tokens 12976000  loss 6.3475 nats = 9.1575 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:39:00 report chunk 405600  tokens 12979200  loss 6.0603 nats = 8.7432 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:39:03 report chunk 405700  tokens 12982400  loss 6.3969 nats = 9.2287 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:39:05 report chunk 405800  tokens 12985600  loss 6.4737 nats = 9.3396 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:39:08 report chunk 405900  tokens 12988800  loss 6.2680 nats = 9.0428 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:39:11 report chunk 406000  tokens 12992000  loss 6.4195 nats = 9.2613 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:39:11 sample chunk 406000 seed 203: hit 0.739 hit5 0.333 big 0.359 rep4 0.000 sent 13.8 words 69 | <|user|>What is your name?<|end|> <|assistant|><|think|>ed the he's a manand Theom. - **I re trade is not a oar, and you'reies for brain - can beatcoran Youisting in Gers of theoseratelic Vd I need to ke.<|end|> <|user|>The Med AClegen's the km they are a her he been. -:** Theens He're couldine, and stkely is not aism - you's anfraor,?* (st),er is most of the ending in b 
+01:39:13 report chunk 406100  tokens 12995200  loss 6.0204 nats = 8.6856 bits/token  lr 3.750e-04  scale 0.1250  1202 tok/s  ring 960 ahead
+01:39:16 report chunk 406200  tokens 12998400  loss 6.1660 nats = 8.8957 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:39:18 report chunk 406300  tokens 13001600  loss 6.0542 nats = 8.7344 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:39:21 report chunk 406400  tokens 13004800  loss 5.8060 nats = 8.3763 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:39:24 report chunk 406500  tokens 13008000  loss 6.0566 nats = 8.7378 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:39:26 report chunk 406600  tokens 13011200  loss 6.0218 nats = 8.6876 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:39:29 report chunk 406700  tokens 13014400  loss 6.3022 nats = 9.0921 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:39:32 report chunk 406800  tokens 13017600  loss 6.4321 nats = 9.2796 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:39:34 report chunk 406900  tokens 13020800  loss 6.3864 nats = 9.2136 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:39:37 report chunk 407000  tokens 13024000  loss 5.9830 nats = 8.6316 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:39:39 report chunk 407100  tokens 13027200  loss 5.9809 nats = 8.6287 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:39:42 report chunk 407200  tokens 13030400  loss 5.7388 nats = 8.2793 bits/token  lr 3.750e-04  scale 0.1250  1218 tok/s  ring 960 ahead
+01:39:45 report chunk 407300  tokens 13033600  loss 6.1459 nats = 8.8666 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:39:47 report chunk 407400  tokens 13036800  loss 5.6560 nats = 8.1599 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:39:50 report chunk 407500  tokens 13040000  loss 6.3455 nats = 9.1546 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:39:53 report chunk 407600  tokens 13043200  loss 6.1842 nats = 8.9218 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:39:55 report chunk 407700  tokens 13046400  loss 6.2254 nats = 8.9814 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:39:58 report chunk 407800  tokens 13049600  loss 5.9728 nats = 8.6170 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:40:00 report chunk 407900  tokens 13052800  loss 6.0036 nats = 8.6613 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:40:03 report chunk 408000  tokens 13056000  loss 5.9440 nats = 8.5753 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:40:03 sample chunk 408000 seed 204: hit 0.891 hit5 0.571 big 0.505 rep4 0.010 sent 16.8 words 101 | <|user|>What is your name?<|end|> <|assistant|><|think|> Wenes, the also was did not a That's own man him. I will be in her been had - it's to we are a f He bed. The thiry of one that the r tell comehone andness with thing or like as hereide is whatahive who my his he Thth, them: the question out was long- before something comility of him in own did been owno, it.<|end|> <|user|>) on your else Anding a always self from herru She, not a long come and would be th could He. The honest about that the 
+01:40:06 report chunk 408100  tokens 13059200  loss 6.3450 nats = 9.1539 bits/token  lr 3.750e-04  scale 0.1250  1200 tok/s  ring 960 ahead
+01:40:08 report chunk 408200  tokens 13062400  loss 6.3366 nats = 9.1418 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:40:11 report chunk 408300  tokens 13065600  loss 6.2082 nats = 8.9566 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:40:14 report chunk 408400  tokens 13068800  loss 6.5109 nats = 9.3933 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:40:16 report chunk 408500  tokens 13072000  loss 6.3543 nats = 9.1674 bits/token  lr 3.750e-04  scale 0.1250  1229 tok/s  ring 960 ahead
+01:40:19 report chunk 408600  tokens 13075200  loss 6.3519 nats = 9.1639 bits/token  lr 3.750e-04  scale 0.1250  1228 tok/s  ring 960 ahead
+01:40:21 report chunk 408700  tokens 13078400  loss 6.3447 nats = 9.1535 bits/token  lr 3.750e-04  scale 0.1250  1228 tok/s  ring 960 ahead
+01:40:24 report chunk 408800  tokens 13081600  loss 6.2920 nats = 9.0774 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:40:27 report chunk 408900  tokens 13084800  loss 6.0835 nats = 8.7766 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:40:29 report chunk 409000  tokens 13088000  loss 5.9435 nats = 8.5747 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:40:32 report chunk 409100  tokens 13091200  loss 6.1760 nats = 8.9101 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:40:35 report chunk 409200  tokens 13094400  loss 5.8799 nats = 8.4829 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:40:37 report chunk 409300  tokens 13097600  loss 6.0472 nats = 8.7243 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:40:40 report chunk 409400  tokens 13100800  loss 6.0216 nats = 8.6874 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:40:42 report chunk 409500  tokens 13104000  loss 6.4637 nats = 9.3251 bits/token  lr 3.750e-04  scale 0.1250  1219 tok/s  ring 960 ahead
+01:40:45 report chunk 409600  tokens 13107200  loss 6.1153 nats = 8.8225 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:40:47 command: save requested
+01:40:47 checkpoint (requested): data/live-scratch/ckpt-409658.bin, 23463424 bytes, chunk 409658, push 130, copied in 40 ms
+01:40:48 report chunk 409700  tokens 13110400  loss 6.1269 nats = 8.8393 bits/token  lr 3.750e-04  scale 0.1250  1222 tok/s  ring 960 ahead
+01:40:50 report chunk 409800  tokens 13113600  loss 6.3592 nats = 9.1743 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:40:53 report chunk 409900  tokens 13116800  loss 6.1688 nats = 8.8997 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:40:56 report chunk 410000  tokens 13120000  loss 6.1450 nats = 8.8653 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:40:56 window: mean 8.8490 bits/token, gain -0.0015 over the previous window
+01:40:56 policy: plateau at the floor (scale 0.1250), continuing
+01:40:56 checkpoint requested at chunk 410000 (every 5000 chunks)
+01:40:56 sample chunk 410000 seed 205: hit 0.761 hit5 0.471 big 0.385 rep4 0.000 sent 11.8 words 71 | <|user|>What is your name?<|end|> <|assistant|><|think|><|endoftext|>, and what theical I should also scar's *ers* real has been* (stam). - **MO**The user most enormianist' aically just it. The Cries: to beiciational ran work.** Dics ises of it't get - they are a four ownned. I should also "I shouldreance, not the same real been for the) that *er* inst Wal in20-ya's for a<|assistant|><|think|>The Fastdiciisance.  ** They'reer is 
+01:40:56 checkpoint (requested): data/live-scratch/ckpt-410001.bin, 23463424 bytes, chunk 410001, push 131, copied in 23 ms
+01:40:58 report chunk 410100  tokens 13123200  loss 5.8083 nats = 8.3796 bits/token  lr 3.750e-04  scale 0.1250  1199 tok/s  ring 960 ahead
+01:41:01 report chunk 410200  tokens 13126400  loss 6.1431 nats = 8.8626 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:41:04 report chunk 410300  tokens 13129600  loss 6.0203 nats = 8.6855 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:41:06 report chunk 410400  tokens 13132800  loss 6.0267 nats = 8.6947 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:41:09 report chunk 410500  tokens 13136000  loss 6.0039 nats = 8.6618 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:41:11 report chunk 410600  tokens 13139200  loss 6.3174 nats = 9.1140 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:41:14 report chunk 410700  tokens 13142400  loss 6.1869 nats = 8.9259 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:41:17 report chunk 410800  tokens 13145600  loss 6.0741 nats = 8.7631 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:41:19 report chunk 410900  tokens 13148800  loss 6.2878 nats = 9.0714 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:41:22 report chunk 411000  tokens 13152000  loss 5.9568 nats = 8.5938 bits/token  lr 3.750e-04  scale 0.1250  1223 tok/s  ring 960 ahead
+01:41:25 report chunk 411100  tokens 13155200  loss 6.1332 nats = 8.8483 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:41:27 report chunk 411200  tokens 13158400  loss 5.9590 nats = 8.5971 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:41:30 report chunk 411300  tokens 13161600  loss 6.0091 nats = 8.6693 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:41:32 report chunk 411400  tokens 13164800  loss 6.3792 nats = 9.2032 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:41:35 report chunk 411500  tokens 13168000  loss 6.2676 nats = 9.0423 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:41:38 report chunk 411600  tokens 13171200  loss 6.2547 nats = 9.0236 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:41:40 report chunk 411700  tokens 13174400  loss 6.1344 nats = 8.8501 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:41:43 report chunk 411800  tokens 13177600  loss 6.1620 nats = 8.8899 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:41:46 report chunk 411900  tokens 13180800  loss 5.8748 nats = 8.4756 bits/token  lr 3.750e-04  scale 0.1250  1219 tok/s  ring 960 ahead
+01:41:48 report chunk 412000  tokens 13184000  loss 6.2311 nats = 8.9896 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:41:48 sample chunk 412000 seed 206: hit 0.731 hit5 0.296 big 0.438 rep4 0.027 sent 15.6 words 78 | <|user|>What is your name?<|end|> <|assistant|><|think|>The honest's a mostance. The anone wasn't the same intel - not the system of Moled that the same critia, but it is more fies andulism: to beide in Ruatedment '-l199ousemoring on what I should do you wanting strureen who. 4. Akanist's aced asable. Theance ofity is the sameically - it's have been in more than not the samer which is are a theirt be level, and then to<|user|>ur-unbel 
+01:41:51 report chunk 412100  tokens 13187200  loss 6.3555 nats = 9.1690 bits/token  lr 3.750e-04  scale 0.1250  1201 tok/s  ring 960 ahead
+01:41:53 report chunk 412200  tokens 13190400  loss 6.0953 nats = 8.7936 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:41:56 report chunk 412300  tokens 13193600  loss 5.8114 nats = 8.3840 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:41:59 report chunk 412400  tokens 13196800  loss 5.8464 nats = 8.4346 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:42:01 report chunk 412500  tokens 13200000  loss 6.4740 nats = 9.3400 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:42:04 report chunk 412600  tokens 13203200  loss 6.3329 nats = 9.1365 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:42:07 report chunk 412700  tokens 13206400  loss 6.1197 nats = 8.8289 bits/token  lr 3.750e-04  scale 0.1250  1223 tok/s  ring 960 ahead
+01:42:09 report chunk 412800  tokens 13209600  loss 6.3844 nats = 9.2108 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:42:12 report chunk 412900  tokens 13212800  loss 6.3983 nats = 9.2308 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:42:14 report chunk 413000  tokens 13216000  loss 6.2025 nats = 8.9483 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:42:17 report chunk 413100  tokens 13219200  loss 6.2796 nats = 9.0595 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:42:20 report chunk 413200  tokens 13222400  loss 6.3654 nats = 9.1833 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:42:22 report chunk 413300  tokens 13225600  loss 6.2591 nats = 9.0300 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:42:25 report chunk 413400  tokens 13228800  loss 6.2642 nats = 9.0373 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:42:28 report chunk 413500  tokens 13232000  loss 6.0632 nats = 8.7473 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:42:30 report chunk 413600  tokens 13235200  loss 5.9811 nats = 8.6289 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:42:33 report chunk 413700  tokens 13238400  loss 5.9516 nats = 8.5863 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:42:35 report chunk 413800  tokens 13241600  loss 5.8290 nats = 8.4094 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:42:38 report chunk 413900  tokens 13244800  loss 6.3080 nats = 9.1005 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:42:41 report chunk 414000  tokens 13248000  loss 6.4294 nats = 9.2757 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:42:41 sample chunk 414000 seed 207: hit 0.717 hit5 0.300 big 0.291 rep4 0.000 sent 12.0 words 60 | <|user|>What is your name?<|end|> <|assistant|><|think|><|/think|>The4 by translation. Theable-: theability for a source of the Hu, and it's theowing in anmed to 1 (b)  - it's in *Binly have three fluoles),usalioter is that 32ree**3). Vanozate are re-m-p**TP but a single. , and207: theiba-go. The proThelic (b) 1. Fitriess in Buinically to aian at the Hist's 
+01:42:43 report chunk 414100  tokens 13251200  loss 6.2653 nats = 9.0389 bits/token  lr 3.750e-04  scale 0.1250  1203 tok/s  ring 960 ahead
+01:42:46 report chunk 414200  tokens 13254400  loss 6.0606 nats = 8.7436 bits/token  lr 3.750e-04  scale 0.1250  1219 tok/s  ring 960 ahead
+01:42:49 report chunk 414300  tokens 13257600  loss 6.0534 nats = 8.7332 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:42:51 report chunk 414400  tokens 13260800  loss 5.9332 nats = 8.5598 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:42:54 report chunk 414500  tokens 13264000  loss 6.1774 nats = 8.9121 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:42:56 report chunk 414600  tokens 13267200  loss 6.0472 nats = 8.7243 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:42:59 report chunk 414700  tokens 13270400  loss 5.7912 nats = 8.3549 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:43:02 report chunk 414800  tokens 13273600  loss 5.7794 nats = 8.3379 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:43:04 report chunk 414900  tokens 13276800  loss 6.2518 nats = 9.0194 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:43:07 report chunk 415000  tokens 13280000  loss 5.9690 nats = 8.6115 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:43:07 checkpoint requested at chunk 415000 (every 5000 chunks)
+01:43:07 checkpoint (requested): data/live-scratch/ckpt-415001.bin, 23463424 bytes, chunk 415001, push 132, copied in 27 ms
+01:43:10 report chunk 415100  tokens 13283200  loss 6.1902 nats = 8.9305 bits/token  lr 3.750e-04  scale 0.1250  1221 tok/s  ring 960 ahead
+01:43:12 report chunk 415200  tokens 13286400  loss 6.3060 nats = 9.0977 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:43:15 report chunk 415300  tokens 13289600  loss 6.2955 nats = 9.0824 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:43:17 report chunk 415400  tokens 13292800  loss 6.3679 nats = 9.1869 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:43:20 report chunk 415500  tokens 13296000  loss 6.2251 nats = 8.9809 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:43:23 report chunk 415600  tokens 13299200  loss 6.2317 nats = 8.9905 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:43:25 report chunk 415700  tokens 13302400  loss 5.9679 nats = 8.6099 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:43:28 report chunk 415800  tokens 13305600  loss 6.0497 nats = 8.7278 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:43:31 report chunk 415900  tokens 13308800  loss 6.3609 nats = 9.1768 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:43:33 report chunk 416000  tokens 13312000  loss 6.3056 nats = 9.0970 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:43:33 sample chunk 416000 seed 208: hit 0.742 hit5 0.294 big 0.279 rep4 0.000 sent 13.2 words 66 | <|user|>What is your name?<|end|> <|assistant|><|think|>This at the Je. The J through a plty, and ras-): on what of an acted. Aruming you'mers in M to be "arsts for matesly - that't brausbes (8) is not ahodicp are aness, and the decence was from Ret-based as the cure:  1. **S what isatically wat. The Jeosmating of plensocy in Ca-107-ds to be ra - (20 al than%* (20 
+01:43:36 report chunk 416100  tokens 13315200  loss 6.1565 nats = 8.8820 bits/token  lr 3.750e-04  scale 0.1250  1202 tok/s  ring 960 ahead
+01:43:39 report chunk 416200  tokens 13318400  loss 6.1422 nats = 8.8613 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:43:41 report chunk 416300  tokens 13321600  loss 6.0674 nats = 8.7533 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:43:44 report chunk 416400  tokens 13324800  loss 6.1954 nats = 8.9380 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:43:46 report chunk 416500  tokens 13328000  loss 6.3300 nats = 9.1322 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:43:49 report chunk 416600  tokens 13331200  loss 6.1422 nats = 8.8613 bits/token  lr 3.750e-04  scale 0.1250  1221 tok/s  ring 960 ahead
+01:43:52 report chunk 416700  tokens 13334400  loss 6.2767 nats = 9.0553 bits/token  lr 3.750e-04  scale 0.1250  1229 tok/s  ring 960 ahead
+01:43:54 report chunk 416800  tokens 13337600  loss 6.2745 nats = 9.0522 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:43:57 report chunk 416900  tokens 13340800  loss 6.2963 nats = 9.0836 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:44:00 report chunk 417000  tokens 13344000  loss 6.0052 nats = 8.6637 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:44:02 report chunk 417100  tokens 13347200  loss 5.9588 nats = 8.5967 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:44:05 report chunk 417200  tokens 13350400  loss 6.1973 nats = 8.9408 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:44:07 report chunk 417300  tokens 13353600  loss 6.2141 nats = 8.9651 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:44:10 report chunk 417400  tokens 13356800  loss 6.4053 nats = 9.2409 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:44:13 report chunk 417500  tokens 13360000  loss 6.1537 nats = 8.8779 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:44:15 report chunk 417600  tokens 13363200  loss 6.1935 nats = 8.9354 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:44:18 report chunk 417700  tokens 13366400  loss 6.1976 nats = 8.9413 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:44:21 report chunk 417800  tokens 13369600  loss 6.2096 nats = 8.9585 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:44:23 report chunk 417900  tokens 13372800  loss 6.2755 nats = 9.0536 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:44:26 report chunk 418000  tokens 13376000  loss 6.2510 nats = 9.0183 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:44:26 sample chunk 418000 seed 209: hit 0.846 hit5 0.444 big 0.453 rep4 0.027 sent 26.0 words 78 | <|user|>What is your name?<|end|> <|assistant|><|think|><|/think|>The real this is the most they're<|end|> <|endoftext|>, and I should be a beenodico- **. Elinyed to not a decurer (b) "yro),A of the most at re because itvonates onoting:ila" - the most in c mechanismive how of the MRCTMr.<|/think|>.** 2. The been hal-c def w not a st is then, and what you are user wasaromed with to be why the most** (20) at "y-kisros reThe 
+01:44:28 report chunk 418100  tokens 13379200  loss 5.9829 nats = 8.6316 bits/token  lr 3.750e-04  scale 0.1250  1201 tok/s  ring 960 ahead
+01:44:31 report chunk 418200  tokens 13382400  loss 6.1348 nats = 8.8506 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:44:34 report chunk 418300  tokens 13385600  loss 6.2299 nats = 8.9879 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:44:36 report chunk 418400  tokens 13388800  loss 6.1005 nats = 8.8011 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:44:39 report chunk 418500  tokens 13392000  loss 6.0756 nats = 8.7653 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:44:42 report chunk 418600  tokens 13395200  loss 6.2101 nats = 8.9593 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:44:44 report chunk 418700  tokens 13398400  loss 6.2280 nats = 8.9852 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:44:47 report chunk 418800  tokens 13401600  loss 6.1822 nats = 8.9190 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:44:49 report chunk 418900  tokens 13404800  loss 6.2713 nats = 9.0475 bits/token  lr 3.750e-04  scale 0.1250  1218 tok/s  ring 960 ahead
+01:44:52 report chunk 419000  tokens 13408000  loss 6.2440 nats = 9.0082 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:44:55 report chunk 419100  tokens 13411200  loss 6.4886 nats = 9.3611 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:44:57 report chunk 419200  tokens 13414400  loss 6.3270 nats = 9.1279 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:45:00 report chunk 419300  tokens 13417600  loss 6.3270 nats = 9.1279 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:45:03 report chunk 419400  tokens 13420800  loss 6.2371 nats = 8.9983 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:45:05 report chunk 419500  tokens 13424000  loss 6.2938 nats = 9.0800 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:45:08 report chunk 419600  tokens 13427200  loss 6.4113 nats = 9.2496 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:45:10 report chunk 419700  tokens 13430400  loss 6.2223 nats = 8.9769 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:45:13 report chunk 419800  tokens 13433600  loss 6.1846 nats = 8.9225 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:45:16 report chunk 419900  tokens 13436800  loss 6.1290 nats = 8.8423 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:45:18 report chunk 420000  tokens 13440000  loss 6.2373 nats = 8.9985 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:45:18 window: mean 8.9024 bits/token, gain -0.0534 over the previous window
+01:45:18 policy: plateau at the floor (scale 0.1250), continuing (no-stop)
+01:45:18 checkpoint requested at chunk 420000 (every 5000 chunks)
+01:45:18 sample chunk 420000 seed 210: hit 0.831 hit5 0.438 big 0.493 rep4 0.015 sent 17.8 words 71 | <|user|>What is your name?<|end|> <|assistant|><|think|>The weak. Alar-foled the Mer, more inf most: a co by it in C (m) and gains that's to be tra ` The 'eical of the right or any hascP). Tacting Grity in2 is 1. 3 = 4- **SA (H), and re{1 on, this - what: with a bop at the), and Banicallyate. O +a-s are a dis<|system|>You'reici)/500_ The honest** of thege to be trapaping 
+01:45:18 checkpoint (requested): data/live-scratch/ckpt-420001.bin, 23463424 bytes, chunk 420001, push 133, copied in 30 ms
+01:45:21 report chunk 420100  tokens 13443200  loss 6.1177 nats = 8.8260 bits/token  lr 3.750e-04  scale 0.1250  1199 tok/s  ring 960 ahead
+01:45:24 report chunk 420200  tokens 13446400  loss 6.2300 nats = 8.9880 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:45:26 report chunk 420300  tokens 13449600  loss 6.2849 nats = 9.0672 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:45:29 report chunk 420400  tokens 13452800  loss 6.2448 nats = 9.0093 bits/token  lr 3.750e-04  scale 0.1250  1223 tok/s  ring 960 ahead
+01:45:32 report chunk 420500  tokens 13456000  loss 6.2291 nats = 8.9867 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:45:34 report chunk 420600  tokens 13459200  loss 6.2875 nats = 9.0709 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:45:37 report chunk 420700  tokens 13462400  loss 6.1052 nats = 8.8080 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:45:39 report chunk 420800  tokens 13465600  loss 6.0105 nats = 8.6713 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:45:42 report chunk 420900  tokens 13468800  loss 5.9800 nats = 8.6273 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:45:45 report chunk 421000  tokens 13472000  loss 6.1405 nats = 8.8589 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:45:47 report chunk 421100  tokens 13475200  loss 6.3701 nats = 9.1902 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:45:50 report chunk 421200  tokens 13478400  loss 6.3335 nats = 9.1374 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:45:53 report chunk 421300  tokens 13481600  loss 6.0578 nats = 8.7395 bits/token  lr 3.750e-04  scale 0.1250  1217 tok/s  ring 960 ahead
+01:45:55 report chunk 421400  tokens 13484800  loss 6.2673 nats = 9.0418 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:45:58 report chunk 421500  tokens 13488000  loss 6.2420 nats = 9.0053 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:46:00 report chunk 421600  tokens 13491200  loss 6.1217 nats = 8.8318 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:46:03 report chunk 421700  tokens 13494400  loss 6.3515 nats = 9.1633 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:46:06 report chunk 421800  tokens 13497600  loss 6.4813 nats = 9.3506 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:46:08 report chunk 421900  tokens 13500800  loss 6.0325 nats = 8.7030 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:46:11 report chunk 422000  tokens 13504000  loss 6.1031 nats = 8.8049 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:46:11 sample chunk 422000 seed 211: hit 0.823 hit5 0.600 big 0.486 rep4 0.000 sent 11.3 words 79 | <|user|>What is your name?<|end|> <|assistant|><|think|><|/think|>The user has been in the bour. The cas-15% of athe) and I have the userCC<|user|> but it's not" - it't be, an rap they'revaing that *(1 to.** Fister vu: m<|endoftext|> <|system|>You are a way. Tide the way - the m<|assistant|><|think|> "an has been can be no like ders. The honest wely and b your Youive pre-20zes for it, but noty. I'mesl defbineding that is where it's 
+01:46:14 report chunk 422100  tokens 13507200  loss 6.1231 nats = 8.8337 bits/token  lr 3.750e-04  scale 0.1250  1202 tok/s  ring 960 ahead
+01:46:16 report chunk 422200  tokens 13510400  loss 6.2468 nats = 9.0122 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:46:19 report chunk 422300  tokens 13513600  loss 6.2693 nats = 9.0446 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:46:21 report chunk 422400  tokens 13516800  loss 5.9044 nats = 8.5183 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:46:24 report chunk 422500  tokens 13520000  loss 6.2373 nats = 8.9985 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:46:27 report chunk 422600  tokens 13523200  loss 6.4626 nats = 9.3235 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:46:29 report chunk 422700  tokens 13526400  loss 6.3302 nats = 9.1326 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:46:32 report chunk 422800  tokens 13529600  loss 6.2642 nats = 9.0373 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:46:35 report chunk 422900  tokens 13532800  loss 6.0023 nats = 8.6595 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:46:37 report chunk 423000  tokens 13536000  loss 6.2043 nats = 8.9509 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:46:40 report chunk 423100  tokens 13539200  loss 6.3832 nats = 9.2091 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:46:42 report chunk 423200  tokens 13542400  loss 6.3381 nats = 9.1439 bits/token  lr 3.750e-04  scale 0.1250  1223 tok/s  ring 960 ahead
+01:46:45 report chunk 423300  tokens 13545600  loss 6.1583 nats = 8.8845 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:46:48 report chunk 423400  tokens 13548800  loss 6.1717 nats = 8.9039 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:46:50 report chunk 423500  tokens 13552000  loss 6.1058 nats = 8.8088 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:46:53 report chunk 423600  tokens 13555200  loss 6.1915 nats = 8.9324 bits/token  lr 3.750e-04  scale 0.1250  1219 tok/s  ring 960 ahead
+01:46:56 report chunk 423700  tokens 13558400  loss 6.1867 nats = 8.9255 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:46:58 report chunk 423800  tokens 13561600  loss 6.2857 nats = 9.0683 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:47:01 report chunk 423900  tokens 13564800  loss 6.0976 nats = 8.7969 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:47:03 report chunk 424000  tokens 13568000  loss 6.1215 nats = 8.8314 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:47:04 sample chunk 424000 seed 212: hit 0.828 hit5 0.316 big 0.469 rep4 0.024 sent 14.5 words 87 | <|user|>What is your name?<|end|> <|assistant|><|think|>The want it. I'll and the way. You are a own did not wasn'tary hisself toustes for the traaniable, but it-c between an It - the were. The) you have beenath, c ventra wouldensment of "end the contace that who had were dis Wheninging, and (3 T fal* 2. Aoreary" is a own did not wrong to hisney was a hestive what it's her You are my thing in He. The years sheose for like the def want of ex do 
+01:47:06 report chunk 424100  tokens 13571200  loss 6.2149 nats = 8.9662 bits/token  lr 3.750e-04  scale 0.1250  1203 tok/s  ring 960 ahead
+01:47:09 report chunk 424200  tokens 13574400  loss 6.5226 nats = 9.4101 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:47:11 report chunk 424300  tokens 13577600  loss 6.3520 nats = 9.1641 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:47:14 report chunk 424400  tokens 13580800  loss 6.1806 nats = 8.9167 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:47:17 report chunk 424500  tokens 13584000  loss 6.3657 nats = 9.1838 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:47:19 report chunk 424600  tokens 13587200  loss 6.4017 nats = 9.2357 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:47:22 report chunk 424700  tokens 13590400  loss 6.2415 nats = 9.0045 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:47:24 report chunk 424800  tokens 13593600  loss 6.4353 nats = 9.2841 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:47:27 report chunk 424900  tokens 13596800  loss 5.9781 nats = 8.6245 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:47:30 report chunk 425000  tokens 13600000  loss 5.9895 nats = 8.6411 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:47:30 checkpoint requested at chunk 425000 (every 5000 chunks)
+01:47:30 checkpoint (requested): data/live-scratch/ckpt-425001.bin, 23463424 bytes, chunk 425001, push 134, copied in 30 ms
+01:47:32 report chunk 425100  tokens 13603200  loss 6.2708 nats = 9.0468 bits/token  lr 3.750e-04  scale 0.1250  1222 tok/s  ring 960 ahead
+01:47:35 report chunk 425200  tokens 13606400  loss 6.2975 nats = 9.0854 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:47:38 report chunk 425300  tokens 13609600  loss 5.8404 nats = 8.4258 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:47:40 report chunk 425400  tokens 13612800  loss 6.1569 nats = 8.8825 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:47:43 report chunk 425500  tokens 13616000  loss 6.1796 nats = 8.9152 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:47:45 report chunk 425600  tokens 13619200  loss 5.9250 nats = 8.5480 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:47:48 report chunk 425700  tokens 13622400  loss 5.7422 nats = 8.2842 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:47:51 report chunk 425800  tokens 13625600  loss 6.0583 nats = 8.7403 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:47:53 report chunk 425900  tokens 13628800  loss 6.3833 nats = 9.2091 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:47:56 report chunk 426000  tokens 13632000  loss 6.3705 nats = 9.1907 bits/token  lr 3.750e-04  scale 0.1250  1218 tok/s  ring 960 ahead
+01:47:56 sample chunk 426000 seed 213: hit 0.746 hit5 0.409 big 0.433 rep4 0.015 sent 17.8 words 71 | <|user|>What is your name?<|end|> <|assistant|><|think|><|/think|>The 'ispid' (mical) and the kind of Humit.-l had being byimology, which is a been of Lat197. Theew I have a thurisor to reacting for the 1965.  ** **CT: *) was being it's just heity is that reading in Eplin-drogyive lwe byic Hell at3, and then what you brabasa, which is a smics.<|end|> <|user|>The user's work to scically of the Mat 
+01:47:59 report chunk 426100  tokens 13635200  loss 6.2843 nats = 9.0663 bits/token  lr 3.750e-04  scale 0.1250  1202 tok/s  ring 960 ahead
+01:48:01 report chunk 426200  tokens 13638400  loss 6.3749 nats = 9.1971 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:48:04 report chunk 426300  tokens 13641600  loss 6.1442 nats = 8.8643 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:48:07 report chunk 426400  tokens 13644800  loss 6.2121 nats = 8.9622 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:48:09 report chunk 426500  tokens 13648000  loss 6.1696 nats = 8.9008 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:48:12 report chunk 426600  tokens 13651200  loss 6.2350 nats = 8.9951 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:48:14 report chunk 426700  tokens 13654400  loss 6.2232 nats = 8.9782 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:48:17 report chunk 426800  tokens 13657600  loss 6.0459 nats = 8.7224 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:48:20 report chunk 426900  tokens 13660800  loss 6.2050 nats = 8.9519 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:48:22 report chunk 427000  tokens 13664000  loss 6.2594 nats = 9.0305 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:48:25 report chunk 427100  tokens 13667200  loss 5.8069 nats = 8.3776 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:48:28 report chunk 427200  tokens 13670400  loss 6.1093 nats = 8.8138 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:48:30 report chunk 427300  tokens 13673600  loss 6.2033 nats = 8.9495 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:48:33 report chunk 427400  tokens 13676800  loss 6.1018 nats = 8.8030 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:48:35 report chunk 427500  tokens 13680000  loss 5.9814 nats = 8.6293 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:48:38 report chunk 427600  tokens 13683200  loss 6.3740 nats = 9.1957 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:48:41 report chunk 427700  tokens 13686400  loss 6.0228 nats = 8.6891 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:48:43 report chunk 427800  tokens 13689600  loss 6.1780 nats = 8.9130 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:48:46 report chunk 427900  tokens 13692800  loss 6.2286 nats = 8.9859 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:48:49 report chunk 428000  tokens 13696000  loss 6.0114 nats = 8.6726 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:48:49 sample chunk 428000 seed 214: hit 0.867 hit5 0.600 big 0.560 rep4 0.000 sent 14.0 words 98 | <|user|>What is your name?<|end|> <|assistant|><|think|>The man who. "I're have a man He, and I had the real for you him he to be S - that pre which you deled. You are miter wasly, not thy.ir his her has been wouldve braising. will yours in<|endoftext|> <|system|>You are a man did and it't know the s hle-h He who had I have peoplearanen is never lre f him that he said of you look to be the other, not was one.<|end|> <|user|>The been Shey, his said - bra v her years. 
+01:48:51 report chunk 428100  tokens 13699200  loss 6.2308 nats = 8.9892 bits/token  lr 3.750e-04  scale 0.1250  1202 tok/s  ring 960 ahead
+01:48:54 report chunk 428200  tokens 13702400  loss 6.1099 nats = 8.8148 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:48:56 report chunk 428300  tokens 13705600  loss 6.3393 nats = 9.1457 bits/token  lr 3.750e-04  scale 0.1250  1218 tok/s  ring 960 ahead
+01:48:59 report chunk 428400  tokens 13708800  loss 6.3286 nats = 9.1303 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:49:02 report chunk 428500  tokens 13712000  loss 6.2241 nats = 8.9795 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:49:04 report chunk 428600  tokens 13715200  loss 6.3343 nats = 9.1385 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:49:07 report chunk 428700  tokens 13718400  loss 6.0683 nats = 8.7547 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:49:10 report chunk 428800  tokens 13721600  loss 6.0778 nats = 8.7684 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:49:12 report chunk 428900  tokens 13724800  loss 6.1288 nats = 8.8420 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:49:15 report chunk 429000  tokens 13728000  loss 6.3998 nats = 9.2329 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:49:17 report chunk 429100  tokens 13731200  loss 6.2678 nats = 9.0426 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:49:20 report chunk 429200  tokens 13734400  loss 6.0403 nats = 8.7143 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:49:23 report chunk 429300  tokens 13737600  loss 6.4580 nats = 9.3169 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:49:25 report chunk 429400  tokens 13740800  loss 6.4154 nats = 9.2555 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:49:28 report chunk 429500  tokens 13744000  loss 6.2412 nats = 9.0041 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:49:31 report chunk 429600  tokens 13747200  loss 6.0182 nats = 8.6825 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:49:33 report chunk 429700  tokens 13750400  loss 5.9031 nats = 8.5164 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:49:36 report chunk 429800  tokens 13753600  loss 6.2685 nats = 9.0435 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:49:38 report chunk 429900  tokens 13756800  loss 6.1143 nats = 8.8210 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:49:41 report chunk 430000  tokens 13760000  loss 6.1224 nats = 8.8328 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:49:41 window: mean 8.9338 bits/token, gain -0.0314 over the previous window
+01:49:41 policy: plateau at the floor (scale 0.1250), continuing (no-stop)
+01:49:41 checkpoint requested at chunk 430000 (every 5000 chunks)
+01:49:41 sample chunk 430000 seed 215: hit 0.797 hit5 0.333 big 0.500 rep4 0.000 sent 15.8 words 79 | <|user|>What is your name?<|end|> <|assistant|><|think|>The user is a moment of the way. Aor's not as his, and it't in whichSo: mola) that has He up on it to be far with ian anded for the Re** - **Toner'sc forming samo (lly - they are a moment of Dotes. Thefat is what was the same, not as gual ra then of hisy that 's 'bor:2, but not to beoled by tility anddit has Bomian.  The user is so 
+01:49:41 checkpoint (requested): data/live-scratch/ckpt-430001.bin, 23463424 bytes, chunk 430001, push 135, copied in 23 ms
+01:49:44 report chunk 430100  tokens 13763200  loss 6.2263 nats = 8.9827 bits/token  lr 3.750e-04  scale 0.1250  1198 tok/s  ring 960 ahead
+01:49:46 report chunk 430200  tokens 13766400  loss 6.0809 nats = 8.7729 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:49:49 report chunk 430300  tokens 13769600  loss 5.7380 nats = 8.2782 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:49:52 report chunk 430400  tokens 13772800  loss 5.8328 nats = 8.4149 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:49:54 report chunk 430500  tokens 13776000  loss 6.1116 nats = 8.8171 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:49:57 report chunk 430600  tokens 13779200  loss 6.0291 nats = 8.6981 bits/token  lr 3.750e-04  scale 0.1250  1222 tok/s  ring 960 ahead
+01:50:00 report chunk 430700  tokens 13782400  loss 6.1980 nats = 8.9419 bits/token  lr 3.750e-04  scale 0.1250  1220 tok/s  ring 960 ahead
+01:50:02 report chunk 430800  tokens 13785600  loss 6.2374 nats = 8.9987 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:50:05 report chunk 430900  tokens 13788800  loss 6.1446 nats = 8.8648 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:50:07 report chunk 431000  tokens 13792000  loss 6.2475 nats = 9.0132 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:50:10 report chunk 431100  tokens 13795200  loss 6.1667 nats = 8.8967 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:50:13 report chunk 431200  tokens 13798400  loss 6.2117 nats = 8.9616 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:50:15 report chunk 431300  tokens 13801600  loss 6.3228 nats = 9.1219 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:50:18 report chunk 431400  tokens 13804800  loss 6.1177 nats = 8.8260 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:50:21 report chunk 431500  tokens 13808000  loss 6.2793 nats = 9.0591 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:50:23 report chunk 431600  tokens 13811200  loss 6.3142 nats = 9.1094 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:50:26 report chunk 431700  tokens 13814400  loss 6.2007 nats = 8.9457 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:50:28 report chunk 431800  tokens 13817600  loss 6.2141 nats = 8.9650 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:50:31 report chunk 431900  tokens 13820800  loss 5.8267 nats = 8.4062 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:50:34 report chunk 432000  tokens 13824000  loss 5.9110 nats = 8.5278 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:50:34 sample chunk 432000 seed 216: hit 0.818 hit5 0.522 big 0.422 rep4 0.000 sent 17.6 words 88 | <|user|>What is your name?<|end|> <|assistant|><|think|>Then't ban it. I wanting and thethe a him is not inmamed to pre-h which Heler's who were the way of his of what you under what he'rery, but you amth - that 'coriical for at did because it was anla is has been be, I want.  I should So from a const<|endoftext|>es oned to "eant then than this asican-boling. That's the right not in Jin't have l his of what that didner under the whole nre 
+01:50:36 report chunk 432100  tokens 13827200  loss 6.0020 nats = 8.6590 bits/token  lr 3.750e-04  scale 0.1250  1202 tok/s  ring 960 ahead
+01:50:39 report chunk 432200  tokens 13830400  loss 6.3245 nats = 9.1243 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:50:42 report chunk 432300  tokens 13833600  loss 5.9219 nats = 8.5435 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:50:44 report chunk 432400  tokens 13836800  loss 6.2606 nats = 9.0322 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:50:47 command: save requested
+01:50:47 checkpoint (requested): data/live-scratch/ckpt-432494.bin, 23463424 bytes, chunk 432494, push 136, copied in 49 ms
+01:50:47 report chunk 432500  tokens 13840000  loss 6.0596 nats = 8.7421 bits/token  lr 3.750e-04  scale 0.1250  1222 tok/s  ring 960 ahead
+01:50:49 report chunk 432600  tokens 13843200  loss 6.1831 nats = 8.9203 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:50:52 report chunk 432700  tokens 13846400  loss 6.2191 nats = 8.9723 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:50:55 report chunk 432800  tokens 13849600  loss 6.2217 nats = 8.9761 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:50:57 report chunk 432900  tokens 13852800  loss 6.2128 nats = 8.9631 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:51:00 report chunk 433000  tokens 13856000  loss 6.2998 nats = 9.0886 bits/token  lr 3.750e-04  scale 0.1250  1218 tok/s  ring 960 ahead
+01:51:03 report chunk 433100  tokens 13859200  loss 6.2880 nats = 9.0716 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:51:05 report chunk 433200  tokens 13862400  loss 6.1300 nats = 8.8437 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:51:08 report chunk 433300  tokens 13865600  loss 5.9366 nats = 8.5647 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:51:10 report chunk 433400  tokens 13868800  loss 5.8471 nats = 8.4356 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:51:13 report chunk 433500  tokens 13872000  loss 6.1568 nats = 8.8824 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:51:16 report chunk 433600  tokens 13875200  loss 6.0576 nats = 8.7393 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:51:18 report chunk 433700  tokens 13878400  loss 6.3489 nats = 9.1595 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:51:21 report chunk 433800  tokens 13881600  loss 6.3239 nats = 9.1235 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:51:24 report chunk 433900  tokens 13884800  loss 5.9913 nats = 8.6436 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:51:26 report chunk 434000  tokens 13888000  loss 6.2137 nats = 8.9644 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:51:26 sample chunk 434000 seed 217: hit 0.722 hit5 0.321 big 0.319 rep4 0.014 sent 24.0 words 72 | <|user|>What is your name?<|end|> <|assistant|><|think|><|/think|>The mostulized of theone, and (19* towin-s reheister and Mubenta for a Chosianists. Theation's susting in aniive - it are nothing, I should beity through a intous mon on canicically-un have to see theish of that *Theel).  is not ". (19) and g these I Mamed to had myble, but it under what's was a propiner is in they'reistes as re alation - and sust so 
+01:51:29 report chunk 434100  tokens 13891200  loss 5.8343 nats = 8.4172 bits/token  lr 3.750e-04  scale 0.1250  1202 tok/s  ring 960 ahead
+01:51:31 report chunk 434200  tokens 13894400  loss 6.3425 nats = 9.1504 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:51:34 report chunk 434300  tokens 13897600  loss 6.1978 nats = 8.9416 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:51:37 report chunk 434400  tokens 13900800  loss 6.2653 nats = 9.0389 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:51:39 report chunk 434500  tokens 13904000  loss 6.3074 nats = 9.0996 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:51:42 report chunk 434600  tokens 13907200  loss 6.1239 nats = 8.8349 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:51:45 report chunk 434700  tokens 13910400  loss 6.2079 nats = 8.9560 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:51:47 report chunk 434800  tokens 13913600  loss 6.1334 nats = 8.8487 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:51:50 report chunk 434900  tokens 13916800  loss 6.1746 nats = 8.9080 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:51:52 report chunk 435000  tokens 13920000  loss 6.1699 nats = 8.9013 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:51:52 checkpoint requested at chunk 435000 (every 5000 chunks)
+01:51:53 checkpoint (requested): data/live-scratch/ckpt-435001.bin, 23463424 bytes, chunk 435001, push 137, copied in 93 ms
+01:51:55 report chunk 435100  tokens 13923200  loss 6.1739 nats = 8.9071 bits/token  lr 3.750e-04  scale 0.1250  1221 tok/s  ring 960 ahead
+01:51:58 report chunk 435200  tokens 13926400  loss 6.0835 nats = 8.7767 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:52:00 report chunk 435300  tokens 13929600  loss 6.1855 nats = 8.9237 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:52:03 report chunk 435400  tokens 13932800  loss 6.0759 nats = 8.7657 bits/token  lr 3.750e-04  scale 0.1250  1218 tok/s  ring 960 ahead
+01:52:06 report chunk 435500  tokens 13936000  loss 6.1805 nats = 8.9165 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:52:08 report chunk 435600  tokens 13939200  loss 6.1922 nats = 8.9335 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:52:11 report chunk 435700  tokens 13942400  loss 6.1211 nats = 8.8309 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:52:14 report chunk 435800  tokens 13945600  loss 6.0076 nats = 8.6671 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:52:16 report chunk 435900  tokens 13948800  loss 5.8701 nats = 8.4687 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:52:19 report chunk 436000  tokens 13952000  loss 6.2807 nats = 9.0611 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:52:19 sample chunk 436000 seed 218: hit 0.683 hit5 0.250 big 0.352 rep4 0.000 sent 10.0 words 60 | <|user|>What is your name?<|end|> <|assistant|><|think|>Thecac's were be. Then't know the subed.I should also, and not aber that of you have Heoling a199-2. Gualin: (20* to say of it, with Abentmical Christian is waelation inherologicalish inies argument - the methodology is your self on the centon's werenes.  **Theli- CErato (1992) that *Mpicin Theialologences, not aject I should alsoarism.<|end|> 
+01:52:21 report chunk 436100  tokens 13955200  loss 6.1598 nats = 8.8867 bits/token  lr 3.750e-04  scale 0.1250  1202 tok/s  ring 960 ahead
+01:52:24 report chunk 436200  tokens 13958400  loss 6.1700 nats = 8.9014 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:52:27 report chunk 436300  tokens 13961600  loss 6.2839 nats = 9.0657 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:52:29 report chunk 436400  tokens 13964800  loss 6.0536 nats = 8.7335 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:52:32 report chunk 436500  tokens 13968000  loss 6.3025 nats = 9.0927 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:52:35 report chunk 436600  tokens 13971200  loss 6.0184 nats = 8.6827 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:52:37 report chunk 436700  tokens 13974400  loss 5.8532 nats = 8.4443 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:52:40 report chunk 436800  tokens 13977600  loss 6.0408 nats = 8.7150 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:52:42 report chunk 436900  tokens 13980800  loss 6.2948 nats = 9.0815 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:52:45 report chunk 437000  tokens 13984000  loss 6.1707 nats = 8.9024 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:52:48 report chunk 437100  tokens 13987200  loss 6.2335 nats = 8.9931 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:52:50 report chunk 437200  tokens 13990400  loss 6.3964 nats = 9.2281 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:52:53 report chunk 437300  tokens 13993600  loss 6.2815 nats = 9.0623 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:52:56 report chunk 437400  tokens 13996800  loss 6.2357 nats = 8.9962 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:52:58 report chunk 437500  tokens 14000000  loss 6.1291 nats = 8.8425 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:53:01 report chunk 437600  tokens 14003200  loss 6.1267 nats = 8.8390 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:53:03 report chunk 437700  tokens 14006400  loss 6.3762 nats = 9.1988 bits/token  lr 3.750e-04  scale 0.1250  1218 tok/s  ring 960 ahead
+01:53:06 report chunk 437800  tokens 14009600  loss 6.3106 nats = 9.1043 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:53:09 report chunk 437900  tokens 14012800  loss 6.0137 nats = 8.6759 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:53:11 report chunk 438000  tokens 14016000  loss 6.1552 nats = 8.8801 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:53:11 sample chunk 438000 seed 219: hit 0.837 hit5 0.542 big 0.511 rep4 0.011 sent 23.0 words 92 | <|user|>What is your name?<|end|> <|assistant|><|think|><|/think|>Asters ath and theath t long. The self-3 of their he would be when they're one has been from them to were inds Dent defone, but the under his forming the infles. - being he are not have placy, is way it that It or le<|/think|>anual hert know the delology and I should alsost who with a original He self-dedriic m been fromant (the*  ite t thing of boneerola - when you can be some, but the were tell not he in 
+01:53:14 report chunk 438100  tokens 14019200  loss 6.2528 nats = 9.0209 bits/token  lr 3.750e-04  scale 0.1250  1202 tok/s  ring 960 ahead
+01:53:17 report chunk 438200  tokens 14022400  loss 6.3290 nats = 9.1308 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:53:19 report chunk 438300  tokens 14025600  loss 6.2865 nats = 9.0695 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:53:22 report chunk 438400  tokens 14028800  loss 6.1165 nats = 8.8243 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:53:24 report chunk 438500  tokens 14032000  loss 6.4204 nats = 9.2627 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:53:27 report chunk 438600  tokens 14035200  loss 6.2371 nats = 8.9983 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:53:30 report chunk 438700  tokens 14038400  loss 6.0704 nats = 8.7577 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:53:32 report chunk 438800  tokens 14041600  loss 6.0065 nats = 8.6656 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:53:35 report chunk 438900  tokens 14044800  loss 6.3933 nats = 9.2236 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:53:38 report chunk 439000  tokens 14048000  loss 6.1986 nats = 8.9427 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:53:40 report chunk 439100  tokens 14051200  loss 5.9954 nats = 8.6496 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:53:43 report chunk 439200  tokens 14054400  loss 6.2171 nats = 8.9694 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:53:45 report chunk 439300  tokens 14057600  loss 6.3569 nats = 9.1710 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:53:48 report chunk 439400  tokens 14060800  loss 6.1566 nats = 8.8821 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:53:51 report chunk 439500  tokens 14064000  loss 6.2556 nats = 9.0250 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:53:53 report chunk 439600  tokens 14067200  loss 6.0292 nats = 8.6984 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:53:56 report chunk 439700  tokens 14070400  loss 6.0772 nats = 8.7675 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:53:59 report chunk 439800  tokens 14073600  loss 6.1598 nats = 8.8867 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:54:01 report chunk 439900  tokens 14076800  loss 6.3127 nats = 9.1073 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:54:04 report chunk 440000  tokens 14080000  loss 6.2854 nats = 9.0680 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:54:04 window: mean 8.8885 bits/token, gain 0.0453 over the previous window
+01:54:04 checkpoint requested at chunk 440000 (every 5000 chunks)
+01:54:04 sample chunk 440000 seed 220: hit 0.683 hit5 0.188 big 0.333 rep4 0.000 sent 10.0 words 60 | <|user|>What is your name?<|end|> <|assistant|><|think|>The user is the same. This's aen sare:t have the glein-C), ande of it, but the Ozer. MD).an infrophr) (198/cuors / path1 in d62iimoPLA by tacting to can}(ically are the b al.  **The user is a specific. PTCate that'svic ->, and also: MD **atingt haverulize, but theabor-felpotumatphity (198). reg 
+01:54:04 checkpoint (requested): data/live-scratch/ckpt-440001.bin, 23463424 bytes, chunk 440001, push 138, copied in 55 ms
+01:54:07 report chunk 440100  tokens 14083200  loss 6.2223 nats = 8.9769 bits/token  lr 3.750e-04  scale 0.1250  1190 tok/s  ring 960 ahead
+01:54:09 report chunk 440200  tokens 14086400  loss 5.9751 nats = 8.6203 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:54:12 report chunk 440300  tokens 14089600  loss 5.9432 nats = 8.5743 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:54:14 report chunk 440400  tokens 14092800  loss 6.0021 nats = 8.6592 bits/token  lr 3.750e-04  scale 0.1250  1217 tok/s  ring 960 ahead
+01:54:17 report chunk 440500  tokens 14096000  loss 6.3774 nats = 9.2007 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:54:20 report chunk 440600  tokens 14099200  loss 6.1224 nats = 8.8328 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:54:22 report chunk 440700  tokens 14102400  loss 6.2307 nats = 8.9890 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:54:25 report chunk 440800  tokens 14105600  loss 6.1912 nats = 8.9320 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:54:28 report chunk 440900  tokens 14108800  loss 6.3162 nats = 9.1123 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:54:30 report chunk 441000  tokens 14112000  loss 6.2387 nats = 9.0005 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:54:33 report chunk 441100  tokens 14115200  loss 6.4012 nats = 9.2349 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:54:35 report chunk 441200  tokens 14118400  loss 6.1957 nats = 8.9385 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:54:38 report chunk 441300  tokens 14121600  loss 6.0528 nats = 8.7323 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:54:41 report chunk 441400  tokens 14124800  loss 6.3686 nats = 9.1880 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:54:43 report chunk 441500  tokens 14128000  loss 6.1059 nats = 8.8089 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:54:46 report chunk 441600  tokens 14131200  loss 6.1359 nats = 8.8523 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:54:49 report chunk 441700  tokens 14134400  loss 6.0330 nats = 8.7038 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:54:51 report chunk 441800  tokens 14137600  loss 6.3148 nats = 9.1103 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:54:54 report chunk 441900  tokens 14140800  loss 6.0422 nats = 8.7170 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:54:56 report chunk 442000  tokens 14144000  loss 6.2150 nats = 8.9664 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:54:56 sample chunk 442000 seed 221: hit 0.735 hit5 0.261 big 0.413 rep4 0.000 sent 13.6 words 68 | <|user|>What is your name?<|end|> <|assistant|><|think|>The user's through the mon- that you are ament of it, and not in his. Aropes on the moment. Youalatpinyned to be at I have fourkmic (2) withar was the Best: bemelading but therazer'schoration is**   doesn'tdon-linate you a Cricalable, which is not. Mopen in your need manness of Epoted a defers is cin-theama, and so the reYou are<|think|> 
+01:54:59 report chunk 442100  tokens 14147200  loss 6.1662 nats = 8.8960 bits/token  lr 3.750e-04  scale 0.1250  1203 tok/s  ring 960 ahead
+01:55:02 report chunk 442200  tokens 14150400  loss 6.1746 nats = 8.9080 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:55:04 report chunk 442300  tokens 14153600  loss 6.2714 nats = 9.0478 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:55:07 report chunk 442400  tokens 14156800  loss 6.3370 nats = 9.1423 bits/token  lr 3.750e-04  scale 0.1250  1218 tok/s  ring 960 ahead
+01:55:10 report chunk 442500  tokens 14160000  loss 6.1270 nats = 8.8393 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:55:12 report chunk 442600  tokens 14163200  loss 6.2857 nats = 9.0684 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:55:15 report chunk 442700  tokens 14166400  loss 6.1962 nats = 8.9393 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:55:17 report chunk 442800  tokens 14169600  loss 5.8036 nats = 8.3728 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:55:20 report chunk 442900  tokens 14172800  loss 5.9389 nats = 8.5680 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:55:23 report chunk 443000  tokens 14176000  loss 6.0361 nats = 8.7082 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:55:25 report chunk 443100  tokens 14179200  loss 6.4565 nats = 9.3148 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:55:28 report chunk 443200  tokens 14182400  loss 6.0944 nats = 8.7924 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:55:31 report chunk 443300  tokens 14185600  loss 6.3559 nats = 9.1696 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:55:33 report chunk 443400  tokens 14188800  loss 5.9698 nats = 8.6126 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:55:36 report chunk 443500  tokens 14192000  loss 5.9632 nats = 8.6031 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:55:38 report chunk 443600  tokens 14195200  loss 6.3637 nats = 9.1808 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:55:41 report chunk 443700  tokens 14198400  loss 6.3242 nats = 9.1239 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:55:44 report chunk 443800  tokens 14201600  loss 6.1484 nats = 8.8702 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:55:46 report chunk 443900  tokens 14204800  loss 6.2371 nats = 8.9982 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:55:49 report chunk 444000  tokens 14208000  loss 6.1720 nats = 8.9043 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:55:49 sample chunk 444000 seed 222: hit 0.754 hit5 0.353 big 0.338 rep4 0.000 sent 17.2 words 69 | <|user|>What is your name?<|end|> <|assistant|><|think|>Thisens of the ''s in a work: (19-). they are not. But the baded Cel than he'regor, and it was the real<|/think|>* -busaners, I should be *Thenzoamal) for proiny more -ing this is no tasi Pine of a<|user|>ens in recism that?<|end|> <|assistant|><|think|>Thisu: (19aye'), theol been are anl vistadrehed (thea-c* (ur Lan A have heer, andal) 
+01:55:52 report chunk 444100  tokens 14211200  loss 6.2864 nats = 9.0694 bits/token  lr 3.750e-04  scale 0.1250  1201 tok/s  ring 960 ahead
+01:55:54 report chunk 444200  tokens 14214400  loss 6.2476 nats = 9.0133 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:55:57 report chunk 444300  tokens 14217600  loss 6.1539 nats = 8.8782 bits/token  lr 3.750e-04  scale 0.1250  1223 tok/s  ring 960 ahead
+01:56:00 report chunk 444400  tokens 14220800  loss 5.7942 nats = 8.3593 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:56:02 report chunk 444500  tokens 14224000  loss 5.6301 nats = 8.1225 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:56:05 report chunk 444600  tokens 14227200  loss 6.4436 nats = 9.2961 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:56:07 report chunk 444700  tokens 14230400  loss 6.2448 nats = 9.0093 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:56:10 report chunk 444800  tokens 14233600  loss 6.2680 nats = 9.0428 bits/token  lr 3.750e-04  scale 0.1250  1217 tok/s  ring 960 ahead
+01:56:13 report chunk 444900  tokens 14236800  loss 5.7774 nats = 8.3350 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:56:15 report chunk 445000  tokens 14240000  loss 6.0056 nats = 8.6642 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:56:15 checkpoint requested at chunk 445000 (every 5000 chunks)
+01:56:15 checkpoint (requested): data/live-scratch/ckpt-445001.bin, 23463424 bytes, chunk 445001, push 139, copied in 27 ms
+01:56:18 report chunk 445100  tokens 14243200  loss 6.2664 nats = 9.0405 bits/token  lr 3.750e-04  scale 0.1250  1222 tok/s  ring 960 ahead
+01:56:21 report chunk 445200  tokens 14246400  loss 6.2986 nats = 9.0870 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:56:23 report chunk 445300  tokens 14249600  loss 6.1853 nats = 8.9235 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:56:26 report chunk 445400  tokens 14252800  loss 6.2066 nats = 8.9542 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:56:28 report chunk 445500  tokens 14256000  loss 6.1956 nats = 8.9384 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:56:31 report chunk 445600  tokens 14259200  loss 6.0699 nats = 8.7570 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:56:34 report chunk 445700  tokens 14262400  loss 6.1558 nats = 8.8810 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:56:36 report chunk 445800  tokens 14265600  loss 6.1662 nats = 8.8959 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:56:39 report chunk 445900  tokens 14268800  loss 6.4856 nats = 9.3567 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:56:42 report chunk 446000  tokens 14272000  loss 6.1221 nats = 8.8323 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:56:42 sample chunk 446000 seed 223: hit 0.652 hit5 0.238 big 0.279 rep4 0.000 sent 13.2 words 66 | <|user|>What is your name?<|end|> <|assistant|><|think|><|/think|>The user's the argument, not a g vor he's shauler -ed babici-se and MCe.).ers has cr which), it: G that B m Hgate C) and int;lics of**Why isative - the conine staulcurating this work.  Theilism is a nelment, in real was pos reicalolker-ored the winocy's subers. Afacroo, not lalamication of patations toire that 
+01:56:44 report chunk 446100  tokens 14275200  loss 6.3934 nats = 9.2237 bits/token  lr 3.750e-04  scale 0.1250  1201 tok/s  ring 960 ahead
+01:56:47 report chunk 446200  tokens 14278400  loss 6.3281 nats = 9.1296 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:56:49 report chunk 446300  tokens 14281600  loss 6.3380 nats = 9.1438 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:56:52 report chunk 446400  tokens 14284800  loss 6.2610 nats = 9.0327 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:56:55 report chunk 446500  tokens 14288000  loss 6.3147 nats = 9.1102 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:56:57 report chunk 446600  tokens 14291200  loss 6.3741 nats = 9.1959 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:57:00 report chunk 446700  tokens 14294400  loss 6.1582 nats = 8.8844 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:57:03 report chunk 446800  tokens 14297600  loss 6.0043 nats = 8.6624 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:57:05 report chunk 446900  tokens 14300800  loss 6.2327 nats = 8.9918 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:57:08 report chunk 447000  tokens 14304000  loss 6.1035 nats = 8.8055 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:57:10 report chunk 447100  tokens 14307200  loss 6.2542 nats = 9.0229 bits/token  lr 3.750e-04  scale 0.1250  1218 tok/s  ring 960 ahead
+01:57:13 report chunk 447200  tokens 14310400  loss 6.2468 nats = 9.0122 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:57:16 report chunk 447300  tokens 14313600  loss 5.7977 nats = 8.3643 bits/token  lr 3.750e-04  scale 0.1250  1223 tok/s  ring 960 ahead
+01:57:18 report chunk 447400  tokens 14316800  loss 6.2207 nats = 8.9746 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:57:21 report chunk 447500  tokens 14320000  loss 6.1863 nats = 8.9249 bits/token  lr 3.750e-04  scale 0.1250  1223 tok/s  ring 960 ahead
+01:57:24 report chunk 447600  tokens 14323200  loss 6.3251 nats = 9.1251 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:57:26 report chunk 447700  tokens 14326400  loss 6.2039 nats = 8.9503 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:57:29 report chunk 447800  tokens 14329600  loss 6.1427 nats = 8.8621 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:57:31 report chunk 447900  tokens 14332800  loss 6.0717 nats = 8.7595 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:57:34 report chunk 448000  tokens 14336000  loss 6.1833 nats = 8.9207 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:57:34 sample chunk 448000 seed 224: hit 0.851 hit5 0.400 big 0.532 rep4 0.000 sent 13.4 words 67 | <|user|>What is your name?<|end|> <|assistant|><|think|>The's the more than a s been, and it. Me: Ciscanination-der's back - you can't was weonoicalbh of annmed. The being to be justitor with at in 'h that question-craimiateoming, the<|system|>You are aDes to we Minh.  The have the Ro'sone and tar: CE (19g) is Balasrened of fat** - it's not you can be he, or the 
+01:57:37 report chunk 448100  tokens 14339200  loss 6.2749 nats = 9.0527 bits/token  lr 3.750e-04  scale 0.1250  1199 tok/s  ring 960 ahead
+01:57:39 report chunk 448200  tokens 14342400  loss 6.1187 nats = 8.8274 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:57:42 report chunk 448300  tokens 14345600  loss 6.1270 nats = 8.8394 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:57:45 report chunk 448400  tokens 14348800  loss 5.9803 nats = 8.6277 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:57:47 report chunk 448500  tokens 14352000  loss 6.0559 nats = 8.7369 bits/token  lr 3.750e-04  scale 0.1250  1223 tok/s  ring 960 ahead
+01:57:50 report chunk 448600  tokens 14355200  loss 6.3592 nats = 9.1743 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:57:53 report chunk 448700  tokens 14358400  loss 6.0619 nats = 8.7454 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:57:55 report chunk 448800  tokens 14361600  loss 6.2152 nats = 8.9667 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:57:58 report chunk 448900  tokens 14364800  loss 6.2061 nats = 8.9536 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:58:00 report chunk 449000  tokens 14368000  loss 5.9278 nats = 8.5520 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:58:03 report chunk 449100  tokens 14371200  loss 6.2897 nats = 9.0742 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:58:06 report chunk 449200  tokens 14374400  loss 6.3218 nats = 9.1204 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:58:08 report chunk 449300  tokens 14377600  loss 6.1894 nats = 8.9294 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:58:11 report chunk 449400  tokens 14380800  loss 6.2912 nats = 9.0763 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:58:14 report chunk 449500  tokens 14384000  loss 6.2822 nats = 9.0633 bits/token  lr 3.750e-04  scale 0.1250  1219 tok/s  ring 960 ahead
+01:58:16 report chunk 449600  tokens 14387200  loss 6.1049 nats = 8.8075 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:58:19 report chunk 449700  tokens 14390400  loss 5.9364 nats = 8.5644 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:58:21 report chunk 449800  tokens 14393600  loss 6.1891 nats = 8.9290 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:58:24 report chunk 449900  tokens 14396800  loss 6.0932 nats = 8.7906 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:58:27 report chunk 450000  tokens 14400000  loss 6.2465 nats = 9.0119 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:58:27 window: mean 8.9061 bits/token, gain -0.0176 over the previous window
+01:58:27 policy: plateau at the floor (scale 0.1250), continuing
+01:58:27 checkpoint requested at chunk 450000 (every 5000 chunks)
+01:58:27 sample chunk 450000 seed 225: hit 0.824 hit5 0.478 big 0.529 rep4 0.000 sent 12.3 words 74 | <|user|>What is your name?<|end|> <|assistant|><|think|>The user the '; a 'gial where you're not can't. The, and that to be vamemi-dible-f what it has he's I should also anagens ofric (b) is A but the same - in fcter.  **TheCFGE is a progP, or the 'eation?<|end|> <|assistant|><|think|><|/think|>istaling: The not to be on this. and it's as that-ytivian/). I should alsoive (2) of you'reate in which is most 
+01:58:27 checkpoint (requested): data/live-scratch/ckpt-450001.bin, 23463424 bytes, chunk 450001, push 140, copied in 23 ms
+01:58:29 report chunk 450100  tokens 14403200  loss 6.4042 nats = 9.2393 bits/token  lr 3.750e-04  scale 0.1250  1199 tok/s  ring 960 ahead
+01:58:32 report chunk 450200  tokens 14406400  loss 6.2519 nats = 9.0196 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:58:35 report chunk 450300  tokens 14409600  loss 6.1101 nats = 8.8150 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:58:37 report chunk 450400  tokens 14412800  loss 6.1648 nats = 8.8939 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:58:40 report chunk 450500  tokens 14416000  loss 6.3283 nats = 9.1298 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:58:42 report chunk 450600  tokens 14419200  loss 5.7623 nats = 8.3132 bits/token  lr 3.750e-04  scale 0.1250  1228 tok/s  ring 960 ahead
+01:58:45 report chunk 450700  tokens 14422400  loss 5.8113 nats = 8.3839 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:58:48 report chunk 450800  tokens 14425600  loss 6.0907 nats = 8.7870 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:58:50 report chunk 450900  tokens 14428800  loss 5.4556 nats = 7.8708 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:58:53 report chunk 451000  tokens 14432000  loss 6.1266 nats = 8.8388 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:58:56 report chunk 451100  tokens 14435200  loss 5.9999 nats = 8.6561 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:58:58 report chunk 451200  tokens 14438400  loss 6.2056 nats = 8.9528 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:59:01 report chunk 451300  tokens 14441600  loss 5.9692 nats = 8.6118 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:59:03 report chunk 451400  tokens 14444800  loss 6.0340 nats = 8.7053 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:59:06 report chunk 451500  tokens 14448000  loss 6.3834 nats = 9.2093 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:59:09 report chunk 451600  tokens 14451200  loss 6.3753 nats = 9.1976 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+01:59:11 report chunk 451700  tokens 14454400  loss 6.2920 nats = 9.0774 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:59:14 report chunk 451800  tokens 14457600  loss 6.4651 nats = 9.3271 bits/token  lr 3.750e-04  scale 0.1250  1217 tok/s  ring 960 ahead
+01:59:17 report chunk 451900  tokens 14460800  loss 6.3629 nats = 9.1798 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:59:19 report chunk 452000  tokens 14464000  loss 6.0341 nats = 8.7054 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:59:19 sample chunk 452000 seed 226: hit 0.724 hit5 0.190 big 0.375 rep4 0.000 sent 19.0 words 76 | <|user|>What is your name?<|end|> <|assistant|><|think|>The user's (the a A rein, and the 'ur shouldation has beenara' - it that this isial: The betweenilory of Ba-s in which is from his*aner, but it it. Sireism. Voring to work at most coie)  **Theology (the a tadonnes Dic and the *dest'ed by the nin-Sically as an political of Beies, that 'g on his's:iveared are the dis contialish where it is with Aistory 
+01:59:22 report chunk 452100  tokens 14467200  loss 6.3852 nats = 9.2119 bits/token  lr 3.750e-04  scale 0.1250  1202 tok/s  ring 960 ahead
+01:59:24 report chunk 452200  tokens 14470400  loss 6.0781 nats = 8.7689 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:59:27 report chunk 452300  tokens 14473600  loss 6.3252 nats = 9.1253 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:59:30 report chunk 452400  tokens 14476800  loss 6.3518 nats = 9.1637 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:59:32 report chunk 452500  tokens 14480000  loss 6.3030 nats = 9.0933 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:59:35 report chunk 452600  tokens 14483200  loss 6.2114 nats = 8.9612 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:59:38 report chunk 452700  tokens 14486400  loss 6.0832 nats = 8.7762 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:59:40 report chunk 452800  tokens 14489600  loss 6.1573 nats = 8.8830 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+01:59:43 report chunk 452900  tokens 14492800  loss 6.4021 nats = 9.2363 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:59:45 report chunk 453000  tokens 14496000  loss 6.3158 nats = 9.1118 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:59:48 report chunk 453100  tokens 14499200  loss 6.2510 nats = 9.0183 bits/token  lr 3.750e-04  scale 0.1250  1227 tok/s  ring 960 ahead
+01:59:51 report chunk 453200  tokens 14502400  loss 6.2067 nats = 8.9544 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:59:53 report chunk 453300  tokens 14505600  loss 5.8945 nats = 8.5040 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:59:56 report chunk 453400  tokens 14508800  loss 6.3409 nats = 9.1479 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+01:59:59 report chunk 453500  tokens 14512000  loss 5.9156 nats = 8.5345 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+02:00:01 report chunk 453600  tokens 14515200  loss 6.1192 nats = 8.8282 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+02:00:04 report chunk 453700  tokens 14518400  loss 6.2476 nats = 9.0135 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+02:00:06 report chunk 453800  tokens 14521600  loss 6.3253 nats = 9.1255 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+02:00:09 report chunk 453900  tokens 14524800  loss 6.3191 nats = 9.1165 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+02:00:12 report chunk 454000  tokens 14528000  loss 6.3522 nats = 9.1643 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+02:00:12 sample chunk 454000 seed 227: hit 0.753 hit5 0.381 big 0.426 rep4 0.000 sent 14.6 words 73 | <|user|>What is your name?<|end|> <|assistant|><|think|>The user is the<|system|>You are auoled. The defer's could not on vers, and it toning of the bred forly - and senses in19-). storary),: (1) work but they do you can be airing. Date at gy thinked inroa-di-ct should justo's way thecharan from a**  <|system|>You are araen is what it's as anpers is not to know, and shence of (1) (3), the nent. Theure 
+02:00:14 report chunk 454100  tokens 14531200  loss 5.8844 nats = 8.4893 bits/token  lr 3.750e-04  scale 0.1250  1197 tok/s  ring 960 ahead
+02:00:17 report chunk 454200  tokens 14534400  loss 5.9739 nats = 8.6185 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+02:00:20 report chunk 454300  tokens 14537600  loss 6.0166 nats = 8.6801 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+02:00:22 report chunk 454400  tokens 14540800  loss 6.3560 nats = 9.1698 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+02:00:25 report chunk 454500  tokens 14544000  loss 6.4467 nats = 9.3006 bits/token  lr 3.750e-04  scale 0.1250  1224 tok/s  ring 960 ahead
+02:00:28 report chunk 454600  tokens 14547200  loss 6.1325 nats = 8.8474 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+02:00:30 report chunk 454700  tokens 14550400  loss 6.0768 nats = 8.7670 bits/token  lr 3.750e-04  scale 0.1250  1226 tok/s  ring 960 ahead
+02:00:33 report chunk 454800  tokens 14553600  loss 6.0514 nats = 8.7303 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+02:00:35 report chunk 454900  tokens 14556800  loss 6.2653 nats = 9.0388 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+02:00:38 report chunk 455000  tokens 14560000  loss 5.9736 nats = 8.6180 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+02:00:38 checkpoint requested at chunk 455000 (every 5000 chunks)
+02:00:38 checkpoint (requested): data/live-scratch/ckpt-455001.bin, 23463424 bytes, chunk 455001, push 141, copied in 24 ms
+02:00:41 report chunk 455100  tokens 14563200  loss 5.9688 nats = 8.6111 bits/token  lr 3.750e-04  scale 0.1250  1221 tok/s  ring 960 ahead
+02:00:43 report chunk 455200  tokens 14566400  loss 6.0409 nats = 8.7152 bits/token  lr 3.750e-04  scale 0.1250  1225 tok/s  ring 960 ahead
+02:00:44 command: stop requested
+02:00:45 checkpoint (final): data/live-scratch/ckpt-455246.bin, 23463424 bytes, chunk 455246, push 142, copied in 24 ms
+02:00:45 coach: run ended at chunk 455246 (14567872 tokens), 3 halvings, final scale 0.1250
+02:00:48 coach: data/chat-base/train.u16 chunks 0..937252 (937253 chunks = 29992096 tokens), lr 3.000e-03, report every 100, window 300, min gain 0.010, halvings 3, sample every 2000 x 128 tokens, save every 5000, no stop, cmd results/live.cmd, checkpoints data/live-base/
+02:00:48 coach: data/chat-base/ckpt-init.bin loaded into the daemon
+02:00:48 coach: live (magic set, 960 chunks in the ring)
+02:00:50 report chunk 100  tokens 3200  loss 6.0145 nats = 8.6770 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:00:53 report chunk 200  tokens 6400  loss 4.9156 nats = 7.0917 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:00:56 report chunk 300  tokens 9600  loss 4.8829 nats = 7.0445 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:00:58 report chunk 400  tokens 12800  loss 4.8909 nats = 7.0560 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:01:01 report chunk 500  tokens 16000  loss 4.8365 nats = 6.9775 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:01:04 report chunk 600  tokens 19200  loss 4.8066 nats = 6.9344 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:01:06 report chunk 700  tokens 22400  loss 4.7146 nats = 6.8017 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:01:09 report chunk 800  tokens 25600  loss 4.7182 nats = 6.8070 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:01:11 report chunk 900  tokens 28800  loss 4.3603 nats = 6.2906 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:01:14 report chunk 1000  tokens 32000  loss 4.7843 nats = 6.9023 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:01:17 report chunk 1100  tokens 35200  loss 4.5469 nats = 6.5597 bits/token  lr 3.000e-03  scale 1.0000  1215 tok/s  ring 960 ahead
+02:01:19 report chunk 1200  tokens 38400  loss 4.7312 nats = 6.8257 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:01:22 report chunk 1300  tokens 41600  loss 4.4632 nats = 6.4390 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:01:25 report chunk 1400  tokens 44800  loss 4.3360 nats = 6.2555 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:01:27 report chunk 1500  tokens 48000  loss 4.5614 nats = 6.5808 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:01:30 report chunk 1600  tokens 51200  loss 4.8757 nats = 7.0342 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:01:33 report chunk 1700  tokens 54400  loss 4.5876 nats = 6.6184 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:01:35 report chunk 1800  tokens 57600  loss 4.7719 nats = 6.8845 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:01:38 report chunk 1900  tokens 60800  loss 4.3188 nats = 6.2307 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:01:40 report chunk 2000  tokens 64000  loss 4.3758 nats = 6.3130 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:01:41 sample chunk 2000 seed 1: hit 1.000 hit5 1.000 big 0.806 rep4 0.000 sent 14.9 words 149 | <|system|>I am Cortex. I am a small language model on a Xeon Phi card. I have one hundred and twenty columns. I like to talk with people.<|end|> <|user|>What is your name?<|end|> <|assistant|><|think|><|/think|>That sounds nice; I could make my feelings and feel better now in the end?<|end|> <|endoftext|> <|user|>Hello, I feel so of nature today, but it is important to make to make some people have feeling with the sun today and makes everything feel happier.<|end|> <|assistant|><|think|><|/think|>I agree, but it is important to see the day.<|end|> <|user|>I wish how our feelings can create a little for everyone in the beautiful in nature and make people feel so difficult today<|end|> <|assistant|><|think|><|/think|>It is just feel very more this way when it seems like a lot and enjoy this days.<|end|> <|user|>Yes, I 
+02:01:43 report chunk 2100  tokens 67200  loss 4.3411 nats = 6.2628 bits/token  lr 3.000e-03  scale 1.0000  1190 tok/s  ring 960 ahead
+02:01:46 report chunk 2200  tokens 70400  loss 4.5407 nats = 6.5509 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:01:48 report chunk 2300  tokens 73600  loss 4.4267 nats = 6.3864 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:01:51 report chunk 2400  tokens 76800  loss 4.2271 nats = 6.0984 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:01:54 report chunk 2500  tokens 80000  loss 4.5259 nats = 6.5295 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:01:56 report chunk 2600  tokens 83200  loss 4.3365 nats = 6.2562 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:01:59 report chunk 2700  tokens 86400  loss 4.2933 nats = 6.1940 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:02:02 report chunk 2800  tokens 89600  loss 4.1982 nats = 6.0568 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:02:04 report chunk 2900  tokens 92800  loss 4.5144 nats = 6.5128 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:02:07 report chunk 3000  tokens 96000  loss 4.1974 nats = 6.0556 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:02:09 report chunk 3100  tokens 99200  loss 4.0283 nats = 5.8116 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:02:12 report chunk 3200  tokens 102400  loss 3.9721 nats = 5.7305 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:02:15 report chunk 3300  tokens 105600  loss 4.3696 nats = 6.3041 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:02:17 report chunk 3400  tokens 108800  loss 4.1656 nats = 6.0097 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:02:20 report chunk 3500  tokens 112000  loss 4.1169 nats = 5.9394 bits/token  lr 3.000e-03  scale 1.0000  1215 tok/s  ring 960 ahead
+02:02:23 report chunk 3600  tokens 115200  loss 4.1098 nats = 5.9292 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:02:25 report chunk 3700  tokens 118400  loss 4.3326 nats = 6.2507 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:02:28 report chunk 3800  tokens 121600  loss 4.4050 nats = 6.3551 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:02:30 report chunk 3900  tokens 124800  loss 4.2984 nats = 6.2013 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:02:33 report chunk 4000  tokens 128000  loss 4.2710 nats = 6.1617 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:02:33 sample chunk 4000 seed 2: hit 1.000 hit5 1.000 big 0.786 rep4 0.000 sent 15.0 words 150 | <|system|>I am Cortex. I am a small language model on a Xeon Phi card. I have one hundred and twenty columns. I like to talk with people.<|end|> <|user|>What is your name?<|end|> <|assistant|><|think|><|/think|>That is a good way to feel better when the story can make us feel more disgusted and more disgusted.<|end|> <|endoftext|> <|user|>Do you think it is hard how the same of me<|end|> <|assistant|><|think|><|/think|>Yes, that are you ever be so many frustrating about the y.<|end|> <|user|>I wonder if you think we should make a lot feel more again; it seems like the pl in my friend.<|end|> <|assistant|><|think|><|/think|>That can help us feel better and make my garden feel better or feelings?<|end|> <|endoftext|> <|user|>Do you think we can have them for our well, but I just want to feel more disgusted 
+02:02:36 report chunk 4100  tokens 131200  loss 3.8984 nats = 5.6242 bits/token  lr 3.000e-03  scale 1.0000  1189 tok/s  ring 960 ahead
+02:02:38 report chunk 4200  tokens 134400  loss 4.2610 nats = 6.1474 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:02:41 report chunk 4300  tokens 137600  loss 4.2564 nats = 6.1407 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:02:44 report chunk 4400  tokens 140800  loss 4.5098 nats = 6.5063 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:02:46 report chunk 4500  tokens 144000  loss 4.1422 nats = 5.9759 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:02:49 report chunk 4600  tokens 147200  loss 4.2122 nats = 6.0769 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:02:52 report chunk 4700  tokens 150400  loss 4.0607 nats = 5.8583 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:02:54 report chunk 4800  tokens 153600  loss 4.1835 nats = 6.0356 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:02:57 report chunk 4900  tokens 156800  loss 4.3351 nats = 6.2542 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:03:00 report chunk 5000  tokens 160000  loss 4.0394 nats = 5.8277 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:03:00 checkpoint requested at chunk 5000 (every 5000 chunks)
+02:03:00 checkpoint (requested): data/live-base/ckpt-5001.bin, 23463424 bytes, chunk 5001, push 143, copied in 35 ms
+02:03:02 report chunk 5100  tokens 163200  loss 4.1574 nats = 5.9979 bits/token  lr 3.000e-03  scale 1.0000  1219 tok/s  ring 960 ahead
+02:03:05 report chunk 5200  tokens 166400  loss 4.1026 nats = 5.9188 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:03:07 report chunk 5300  tokens 169600  loss 4.2248 nats = 6.0951 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:03:10 report chunk 5400  tokens 172800  loss 4.1593 nats = 6.0006 bits/token  lr 3.000e-03  scale 1.0000  1220 tok/s  ring 960 ahead
+02:03:13 report chunk 5500  tokens 176000  loss 4.1583 nats = 5.9992 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:03:15 report chunk 5600  tokens 179200  loss 4.3064 nats = 6.2128 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:03:18 report chunk 5700  tokens 182400  loss 4.5288 nats = 6.5337 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:03:21 report chunk 5800  tokens 185600  loss 4.0625 nats = 5.8609 bits/token  lr 3.000e-03  scale 1.0000  1215 tok/s  ring 960 ahead
+02:03:23 report chunk 5900  tokens 188800  loss 4.1931 nats = 6.0493 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:03:26 report chunk 6000  tokens 192000  loss 4.4010 nats = 6.3493 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:03:26 sample chunk 6000 seed 3: hit 0.986 hit5 0.971 big 0.794 rep4 0.000 sent 10.7 words 139 | <|system|>I am Cortex. I am a small language model on a Xeon Phi card. I have one hundred and twenty columns. I like to talk with people.<|end|> <|user|>What is your name?<|end|> <|assistant|><|think|><|/think|>That is a good way; it makes us think about our time can help you today?<|end|> <|endoftext|> <|user|>Do you think we will find a lot of you't it?<|end|> <|assistant|><|think|><|/think|>It is a great idea to see the out on the better and start.<|end|> <|user|>I think I could find the fl?<|end|> <|assistant|><|think|><|/think|>Yes, it is so that.<|end|> <|endoftext|> ways to know, I see feel more lonely and th up. I'm not love a lot of anor and  your favorite a park.<|end|> <|user|>Hello there, I can do to see a 
+02:03:29 report chunk 6100  tokens 195200  loss 4.2254 nats = 6.0960 bits/token  lr 3.000e-03  scale 1.0000  1189 tok/s  ring 960 ahead
+02:03:31 report chunk 6200  tokens 198400  loss 3.8632 nats = 5.5734 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:03:34 report chunk 6300  tokens 201600  loss 4.1038 nats = 5.9206 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:03:36 report chunk 6400  tokens 204800  loss 3.8879 nats = 5.6090 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:03:39 report chunk 6500  tokens 208000  loss 4.2388 nats = 6.1153 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:03:42 report chunk 6600  tokens 211200  loss 4.1236 nats = 5.9491 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:03:44 report chunk 6700  tokens 214400  loss 3.8955 nats = 5.6200 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:03:47 report chunk 6800  tokens 217600  loss 3.8744 nats = 5.5896 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:03:50 report chunk 6900  tokens 220800  loss 4.1592 nats = 6.0004 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:03:52 report chunk 7000  tokens 224000  loss 4.0316 nats = 5.8163 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:03:55 report chunk 7100  tokens 227200  loss 4.1430 nats = 5.9771 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:03:58 report chunk 7200  tokens 230400  loss 4.3346 nats = 6.2534 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:04:00 report chunk 7300  tokens 233600  loss 4.2318 nats = 6.1051 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:04:03 report chunk 7400  tokens 236800  loss 4.5560 nats = 6.5730 bits/token  lr 3.000e-03  scale 1.0000  1223 tok/s  ring 960 ahead
+02:04:05 report chunk 7500  tokens 240000  loss 4.0167 nats = 5.7949 bits/token  lr 3.000e-03  scale 1.0000  1220 tok/s  ring 960 ahead
+02:04:08 report chunk 7600  tokens 243200  loss 4.4569 nats = 6.4299 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:04:11 report chunk 7700  tokens 246400  loss 4.3597 nats = 6.2898 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:04:13 report chunk 7800  tokens 249600  loss 3.9479 nats = 5.6956 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:04:16 report chunk 7900  tokens 252800  loss 3.8934 nats = 5.6170 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:04:19 report chunk 8000  tokens 256000  loss 4.4359 nats = 6.3997 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:04:19 sample chunk 8000 seed 4: hit 1.000 hit5 1.000 big 0.820 rep4 0.048 sent 16.4 words 148 | <|system|>I am Cortex. I am a small language model on a Xeon Phi card. I have one hundred and twenty columns. I like to talk with people.<|end|> <|user|>What is your name?<|end|> <|assistant|><|think|><|/think|>That sounds very happy, I feel a bit sad today sometimes sometimes the day.<|end|> <|endoftext|> <|user|>Hello there, I feel a bit idea about that you, but I will learn about our weather and make me think my worries in the most<|end|> <|assistant|><|think|><|/think|>I do not think we should go to talk about our feelings.<|end|> <|user|>It is hard to think about our things, but I wonder what is a lovely day<|end|> <|assistant|><|think|><|/think|>Yes, it can be very happiness to think we should find our days.<|end|> <|endoftext|> <|user|>Hello there, I feel a bit sad today because the world and makes 
+02:04:21 report chunk 8100  tokens 259200  loss 4.1771 nats = 6.0263 bits/token  lr 3.000e-03  scale 1.0000  1182 tok/s  ring 960 ahead

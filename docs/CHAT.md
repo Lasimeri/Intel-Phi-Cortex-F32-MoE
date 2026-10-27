@@ -392,3 +392,86 @@ pass"): ckpt-193743 (the end of pass 2, 73.5 % stories, lr 5e-4, 6.2M tokens) 6.
 20,000 held-out tokens (top-1 0.3038) and 9.5100 on the 82,334 chat tokens (top-1 0.0884); pass 1's end ckpt-18069
 9.2135 on the same chat tokens; the stories-only ckpt-10021 11.8944. Pass 2 made both worse than pass 1 had them
 (5.7531 stories / 8.4801 chat on its own slices); the lineage was abandoned at 22:18 regardless.
+
+## The base dataset (2026-10-27 01:40 to 02:0x, user: "Do your research with exa to get the model coherent with a good chat based dataset for the base")
+
+**The premise, from the baselines above:** this architecture lands between unigram and bigram on any text, so a
+corpus's own n-gram floor decides whether the model's output reads as English. The stories (trigram 4.126
+bits/token on their 4k BPE) read coherent-ish at 6.1; the Opus reasoning text (6.184) did not at 9.35. The base
+chat corpus is therefore chosen by its floors, measured the same way for every candidate: the corpus to the marker
+format by `tools/chat-text` (answers in the no-think form), a 95/5 split by conversations, a 4,096-id BPE on up to
+40 MB of its training text, `tools/ngram-base` on its first 27,447 held-out tokens with up to 31,553,344 training
+tokens (the scratchpad's cand-extract.sh and cand-measure.sh; results/cand-floors-*.log; data/cand/work/NAME/).
+
+**The candidates** (Exa and the Hub, 01:40 to 01:55; data/cand/; JSONL in the messages shape under
+data/cand/jsonl/): TinyStories' conversational relatives (starhopp3r/TinyChat: 1,000,000 short chats in BASIC
+English by GPT-4o mini, `[INST] user [/INST] assistant`; styfeng/TinyDialogues: 130k GPT-4 conversations with
+children of ages 2, 5, 10 and 15, 29M words, Feng, Goodman & Frank, EMNLP 2024, doi 10.18653/v1/2024.emnlp-main.1231,
+where the synthetic set trained GPT-2 better than natural child speech; sixf0ur/nano_chat: 2,326 Gemini
+dialogues), the human everyday-dialogue sets (PersonaChat, Zhang et al. 2018, ACL P18-1205, 10,981 crowdworker
+dialogues in assigned personas of 4 to 6 short sentences, taken from bavard/personachat_truecased; DailyDialog, Li
+et al. 2017, 13,118 dialogues, CC BY-NC-SA 4.0, from roskoN/dailydialog since the canonical repo is a loading
+script; EmpatheticDialogues, 24,850 conversations, from the ParlAI tarball; ParlAI/blended_skill_talk, 4,819),
+google/Synthetic-Persona-Chat (20k, synthetic personas), allenai/soda (1,191,582 GPT-3.5 social dialogues, 689 MB
+parquet) and HuggingFaceTB/everyday-conversations-llama3.1-2k (2,260 short assistant conversations the SmolLM team
+added because their 135M model otherwise failed "Hi" and "Who are you"). BabyLM 2024's CHILDES (29M words, the
+lowest xz entropy on disk at 1.90 bits/byte) has no speaker labels in data/babylm/text and is not chat.
+
+| corpus (kind) | conversations kept | training tokens | B/token | unigram | bigram | trigram | trigram bits/byte |
+|---|---|---|---|---|---|---|---|
+| synthetic-persona (synthetic) | 4,940 | 2,393,010 | 4.242 | 7.5718 | 3.4451 | 2.5398 | 0.599 |
+| soda (synthetic) | 734,735 | 31,553,344 of 33,407,181 | 4.184 | 8.2031 | 4.5740 | 3.5391 | 0.846 |
+| tinychat (synthetic) | 999,963 | 27,255,364 (the first 140 MB) | 5.137 | 8.2679 | 4.5212 | 3.6472 | 0.710 |
+| personachat (human, first perspective only) | 8,939 | 2,582,572 | 4.245 | 8.2395 | 4.7638 | 4.2167 | 0.993 |
+| dailydialog (human) | 11,111 | 1,626,163 | 4.357 | 8.4666 | 4.9635 | 4.2608 | 0.978 |
+| tinydialogues (synthetic) | 109,974 | 31,553,344 of 32,791,418 | 3.496 | 8.9281 | 5.3743 | 4.3300 | 1.238 |
+| everyday (synthetic) | 1,999 | 385,803 | 4.336 | 8.9933 | 5.2631 | 4.6095 | 1.063 |
+| nano_chat (synthetic) | 1,658 | 394,020 | 4.508 | 8.2612 | 5.0307 | 4.7011 | 1.043 |
+| empathetic (human) | 11,415 | 995,228 | 4.436 | 8.4948 | 5.3238 | 5.0464 | 1.138 |
+| blended (human) | 4,818 | 1,457,099 | 4.172 | 8.7965 | 5.6397 | 5.2401 | 1.256 |
+| the stories (reference) | | 31,553,344 | 3.961 | 8.4306 | 5.1127 | 4.1263 | 1.042 |
+| the Opus chat text (reference) | 23,463 | 31,553,352 | 2.983 | 9.9789 | 6.9650 | 6.1843 | 2.073 |
+
+Bits per token on each corpus's own BPE, 27,446 predictions. Two cautions: the small human sets are measured
+with one to five million training tokens, which leaves their tables sparse (their floors would fall with more
+text), and the first PersonaChat measurement (3.0259) was leaked: bavard's full train file holds each dialogue
+twice, the second time from the other speaker's side behind a `__ SILENCE __` turn, so the held-out tail
+duplicated training dialogues; the table has the first 8,939 rows only. Synthetic-Persona-Chat's 2.54 is template
+repetition ("Hi! I'm [user 1's name]"), not English.
+
+**The decision.** The base is TinyChat: the lowest floor per byte among the sets large enough for the run (0.710
+bits/byte; SODA is 0.846 with 41,583 unique words in 40 MB against TinyChat's 14,143), the user/assistant shape,
+172M tokens on hand. The human sets ride along for register and for the persona mechanism: PersonaChat's system
+message is the speaker's persona in first-person sentences, which is what the frame's identity line now is.
+DailyDialog adds human everyday English; the everyday set, twice, adds the assistant's "Who are you" behaviour.
+SODA stays on disk for a larger run. The mix (the scratchpad's base-build.sh, data/chat-base/): a seed-42 random
+143,000 of TinyChat's conversations + PersonaChat 8,939 + DailyDialog 11,118 + everyday 2 x 2,260 = 167,577 rows,
+shuffled at the conversation level (seed 7) so no source arrives as a block; chat-text keeps 167,048 (746,709
+answers, 8,939 with a system message, 155,598,010 bytes); the last 5 % of conversations held out; the BPE on the
+first 40 MB of the training text (7,669,152 words, 28,162 unique); train.u16 29,992,115 tokens at 4.929 bytes per
+token (4,432,934 markers), valid.u16 1,569,707 tokens, the decode round trip byte-identical. The floors on
+valid.u16[0..27447): unigram 8.5276, bigram 4.8214, trigram 3.8883 bits/token (data/chat-base/floors.txt): 2.3
+bits below the Opus text's trigram, 0.24 below the stories'.
+
+**The run** (02:00:48): the Opus run was stopped with a `stop` line at 02:00:44 (its final checkpoint
+data/live-scratch/ckpt-455246.bin, 14,567,872 tokens, three halvings) and the coach restarted on the mix:
+
+    build/host/coach data/chat-base/train.u16 --ckpt data/chat-base/ckpt-init.bin --start 0 --lr 0.003 --every 100 \
+        --window 300 --halvings 3 --no-stop --save-every 5000 --sample-every 2000 \
+        --vocab data/chat-base/vocab-base4096.txt --words data/wordlist-mix.txt \
+        --prompt $'<|system|>I am Cortex.\nI am a small language model on a Xeon Phi card.\nI have one hundred and twenty columns.\nI like to talk with people.<|end|>\n<|user|>What is your name?<|end|>\n<|assistant|>' \
+        --cmd results/live.cmd --log results/live.log --ckdir data/live-base
+
+937,253 chunks, one epoch, about 6.8 hours at 1,215 to 1,222 tok/s, ending about 08:50; the policy's windows are
+300 reports (960,000 tokens) so a plateau call needs a megatoken of evidence; a checkpoint every 5,000 chunks. The
+first reports: 8.677 bits/token at chunk 100, 7.092 at 200, 6.29 to 6.90 over chunks 900 to 1,100 (the Opus run
+was at 9.5 to 9.8 there). The held-out curve lands in results/base-loss.log (the scratchpad's base-measure.sh: the
+fresh checkpoint, every 25,000th-chunk checkpoint, the final on 82,334 tokens), with the floors above as the bar:
+beating the bigram's 4.82 would be a first for this architecture.
+
+**The frame.** `tui/cortex.jinja`'s default identity line is now the persona form the training system messages
+have ("I am {{ name }}.\nI am a small language model on a Xeon Phi card.\nI have one hundred and twenty columns.\nI
+like to talk with people."), and data/chat-base/persona.txt holds the same text for `--system`; the monitor and
+the harness were reopened with `--ckdir data/live-base --vocab data/chat-base/vocab-base4096.txt --system
+data/chat-base/persona.txt` (tools/watch.sh, tools/chat.sh). The CLAUDE.md system prompt is out of this model's
+distribution and is not the default for it.

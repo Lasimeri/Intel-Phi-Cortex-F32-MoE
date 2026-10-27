@@ -1,0 +1,11 @@
+### soda 01:53:56
+chat-text: 1190562 rows: 734735 conversations kept (2687939 answers, 0 with reasoning in the data, 177578 drawn no-think, 0 with a system message; 615621141 bytes, 0 of reasoning); skipped 0 malformed, 13388 empty turn, 0 code, 0 over 16000 chars, 442006 out of order, 433 non-ASCII
+conversations 734735, held out 36736; train 585232524 B, valid 30388617 B
+train: 40000000 bytes, 9045200 words, 41583 unique, 7 special tokens;merge    0: id 256 = (32, 116) count 701455, 0.0 s;merge 3832: id 4088 = (1344, 325) count 138, 5.4 s;train: 3833 merges written to data/cand/work/soda/vocab.txt (vocab 4096 = 256 + 3833 + 7 specials);
+encode: 140000000 bytes -> 33407181 tokens (4.191 bytes/token, 3856582 special), 149.7 MB/s, cache hits 27710147, data/cand/work/soda/train.u16 66814362 bytes
+encode: 2000000 bytes -> 478004 tokens (4.184 bytes/token, 54363 special), 56.4 MB/s, cache hits 388133, data/cand/work/soda/valid.u16 956008 bytes
+train tokens 33407181 (4.191 B/token), valid tokens 478004 (4.184 B/token)
+unigram (add-one): 8.2031 bits/token over 27446 predictions; 31553344 training tokens, 2566605 distinct trigrams
+bigram  (interpolated, lambda 0.9): 4.5740 bits/token
+trigram (interpolated, lambda 0.9): 3.5391 bits/token
+### end soda 01:55:27

@@ -8,3 +8,8 @@ results/live-gate-*/
 results/*.bin
 results/*.done
 tui/target/
+!data/chat-base/
+data/chat-base/*
+!data/chat-base/vocab-base4096.txt
+!data/chat-base/persona.txt
+!data/chat-base/floors.txt

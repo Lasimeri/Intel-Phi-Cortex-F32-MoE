@@ -67,7 +67,7 @@ mod tests {
         let r = render(FRAME, &dialogue(), None, false).unwrap();
         assert!(r.prompt.ends_with("<|user|>and then?<|end|>\n<|assistant|><|think|><|/think|>"), "{}", r.prompt);
         let r = render(FRAME, &dialogue()[1..], Some("Phi"), true).unwrap();
-        assert!(r.prompt.starts_with("<|system|>You are Phi, the Intel Phi Cortex"), "{}", r.prompt);
+        assert!(r.prompt.starts_with("<|system|>I am Phi.\nI am a small language model on a Xeon Phi card."), "{}", r.prompt);
         assert!(r.prompt.ends_with("<|end|>\n<|user|>hi<|end|>\n<|assistant|>Hello there.<|end|>\n<|user|>and then?<|end|>\n<|assistant|>"), "{}", r.prompt);
     }
 

@@ -1,0 +1,11 @@
+### tinychat 01:53:54
+chat-text: 999963 rows: 999963 conversations kept (4362079 answers, 0 with reasoning in the data, 252369 drawn no-think, 0 with a system message; 928579097 bytes, 0 of reasoning); skipped 0 malformed, 0 empty turn, 0 code, 0 over 16000 chars, 0 out of order, 0 non-ASCII
+conversations 999963, held out 49998; train 882159335 B, valid 46419762 B
+train: 40000000 bytes, 7536229 words, 14143 unique, 7 special tokens;merge    0: id 256 = (32, 116) count 666851, 0.0 s;merge 3832: id 4088 = (1900, 264) count 137, 1.5 s;train: 3833 merges written to data/cand/work/tinychat/vocab.txt (vocab 4096 = 256 + 3833 + 7 specials);
+encode: 140000000 bytes -> 27255364 tokens (5.137 bytes/token, 4096775 special), 172.4 MB/s, cache hits 22260914, data/cand/work/tinychat/train.u16 54510728 bytes
+encode: 2000000 bytes -> 389308 tokens (5.137 bytes/token, 58581 special), 70.0 MB/s, cache hits 312299, data/cand/work/tinychat/valid.u16 778616 bytes
+train tokens 27255364 (5.137 B/token), valid tokens 389308 (5.137 B/token)
+unigram (add-one): 8.2679 bits/token over 27446 predictions; 27255364 training tokens, 3292310 distinct trigrams
+bigram  (interpolated, lambda 0.9): 4.5212 bits/token
+trigram (interpolated, lambda 0.9): 3.6472 bits/token
+### end tinychat 01:55:15

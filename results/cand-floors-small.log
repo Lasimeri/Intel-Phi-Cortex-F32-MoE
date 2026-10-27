@@ -1,0 +1,77 @@
+### personachat 01:53:49
+chat-text: 17878 rows: 17878 conversations kept (131438 answers, 0 with reasoning in the data, 2554 drawn no-think, 17878 with a system message; 22761590 bytes, 0 of reasoning); skipped 0 malformed, 0 empty turn, 0 code, 0 over 16000 chars, 0 out of order, 0 non-ASCII
+conversations 17878, held out 893; train 21626131 B, valid 1135459 B
+train: 21626131 bytes, 4693830 words, 24802 unique, 7 special tokens;merge    0: id 256 = (32, 97) count 281147, 0.0 s;merge 3832: id 4088 = (262, 476) count 108, 3.1 s;train: 3833 merges written to data/cand/work/personachat/vocab.txt (vocab 4096 = 256 + 3833 + 7 specials);
+encode: 21626131 bytes -> 5076674 tokens (4.260 bytes/token, 800163 special), 127.4 MB/s, cache hits 3868865, data/cand/work/personachat/train.u16 10153348 bytes
+encode: 1135459 bytes -> 266070 tokens (4.268 bytes/token, 42099 special), 39.4 MB/s, cache hits 195378, data/cand/work/personachat/valid.u16 532140 bytes
+train tokens 5076674 (4.260 B/token), valid tokens 266070 (4.268 B/token)
+unigram (add-one): 8.1667 bits/token over 27446 predictions; 5076674 training tokens, 684756 distinct trigrams
+bigram  (interpolated, lambda 0.9): 4.4288 bits/token
+trigram (interpolated, lambda 0.9): 3.0259 bits/token
+### end personachat 01:53:55
+### synthetic-persona 01:53:55
+chat-text: 8938 rows: 4940 conversations kept (66785 answers, 0 with reasoning in the data, 1147 drawn no-think, 4940 with a system message; 10688305 bytes, 0 of reasoning); skipped 8 malformed, 1 empty turn, 0 code, 0 over 16000 chars, 3989 out of order, 0 non-ASCII
+conversations 4940, held out 247; train 10145642 B, valid 542663 B
+train: 10145642 bytes, 2303462 words, 12444 unique, 7 special tokens;merge    0: id 256 = (32, 116) count 149618, 0.0 s;merge 3832: id 4088 = (1381, 268) count 30, 1.5 s;train: 3833 merges written to data/cand/work/synthetic-persona/vocab.txt (vocab 4096 = 256 + 3833 + 7 specials);
+encode: 10145642 bytes -> 2393010 tokens (4.240 bytes/token, 394491 special), 115.5 MB/s, cache hits 1896527, data/cand/work/synthetic-persona/train.u16 4786020 bytes
+encode: 542663 bytes -> 127931 tokens (4.242 bytes/token, 21039 special), 25.8 MB/s, cache hits 97952, data/cand/work/synthetic-persona/valid.u16 255862 bytes
+train tokens 2393010 (4.240 B/token), valid tokens 127931 (4.242 B/token)
+unigram (add-one): 7.5718 bits/token over 27446 predictions; 2393010 training tokens, 222988 distinct trigrams
+bigram  (interpolated, lambda 0.9): 3.4451 bits/token
+trigram (interpolated, lambda 0.9): 2.5398 bits/token
+### end synthetic-persona 01:53:58
+### empathetic 01:53:58
+chat-text: 14139 rows: 11415 conversations kept (23579 answers, 0 with reasoning in the data, 2826 drawn no-think, 0 with a system message; 4630358 bytes, 0 of reasoning); skipped 0 malformed, 0 empty turn, 0 code, 0 over 16000 chars, 2724 out of order, 0 non-ASCII
+conversations 11415, held out 570; train 4405104 B, valid 225254 B
+train: 4405104 bytes, 924867 words, 17998 unique, 7 special tokens;merge    0: id 256 = (32, 116) count 69528, 0.0 s;merge 3832: id 4088 = (1897, 119) count 20, 2.2 s;train: 3833 merges written to data/cand/work/empathetic/vocab.txt (vocab 4096 = 256 + 3833 + 7 specials);
+encode: 4405104 bytes -> 995228 tokens (4.426 bytes/token, 145341 special), 82.8 MB/s, cache hits 761528, data/cand/work/empathetic/train.u16 1990456 bytes
+encode: 225254 bytes -> 50775 tokens (4.436 bytes/token, 7548 special), 13.1 MB/s, cache hits 35629, data/cand/work/empathetic/valid.u16 101550 bytes
+train tokens 995228 (4.426 B/token), valid tokens 50775 (4.436 B/token)
+unigram (add-one): 8.4948 bits/token over 27446 predictions; 995228 training tokens, 412054 distinct trigrams
+bigram  (interpolated, lambda 0.9): 5.3238 bits/token
+trigram (interpolated, lambda 0.6): 5.0464 bits/token
+### end empathetic 01:54:01
+### blended 01:54:01
+chat-text: 4819 rows: 4818 conversations kept (31830 answers, 0 with reasoning in the data, 1247 drawn no-think, 4818 with a system message; 6495450 bytes, 0 of reasoning); skipped 0 malformed, 1 empty turn, 0 code, 0 over 16000 chars, 0 out of order, 0 non-ASCII
+conversations 4818, held out 240; train 6154547 B, valid 340903 B
+train: 6154547 bytes, 1306922 words, 27475 unique, 7 special tokens;merge    0: id 256 = (32, 116) count 93561, 0.0 s;merge 3832: id 4088 = (1712, 3131) count 35, 3.6 s;train: 3833 merges written to data/cand/work/blended/vocab.txt (vocab 4096 = 256 + 3833 + 7 specials);
+encode: 6154547 bytes -> 1457099 tokens (4.224 bytes/token, 195120 special), 76.6 MB/s, cache hits 1084327, data/cand/work/blended/train.u16 2914198 bytes
+encode: 340903 bytes -> 81717 tokens (4.172 bytes/token, 10314 special), 14.2 MB/s, cache hits 56978, data/cand/work/blended/valid.u16 163434 bytes
+train tokens 1457099 (4.224 B/token), valid tokens 81717 (4.172 B/token)
+unigram (add-one): 8.7965 bits/token over 27446 predictions; 1457099 training tokens, 587374 distinct trigrams
+bigram  (interpolated, lambda 0.9): 5.6397 bits/token
+trigram (interpolated, lambda 0.6): 5.2401 bits/token
+### end blended 01:54:06
+### everyday 01:54:06
+chat-text: 2260 rows: 1999 conversations kept (7831 answers, 0 with reasoning in the data, 18 drawn no-think, 0 with a system message; 1893130 bytes, 0 of reasoning); skipped 0 malformed, 0 empty turn, 0 code, 0 over 16000 chars, 255 out of order, 6 non-ASCII
+conversations 1999, held out 200; train 1701820 B, valid 191310 B
+train: 1701820 bytes, 336923 words, 12499 unique, 7 special tokens;merge    0: id 256 = (32, 97) count 25733, 0.0 s;merge 3832: id 4088 = (3450, 563) count 14, 1.4 s;train: 3833 merges written to data/cand/work/everyday/vocab.txt (vocab 4096 = 256 + 3833 + 7 specials);
+encode: 1701820 bytes -> 385803 tokens (4.411 bytes/token, 44105 special), 53.6 MB/s, cache hits 280319, data/cand/work/everyday/train.u16 771606 bytes
+encode: 191310 bytes -> 44121 tokens (4.336 bytes/token, 4880 special), 9.9 MB/s, cache hits 28901, data/cand/work/everyday/valid.u16 88242 bytes
+train tokens 385803 (4.411 B/token), valid tokens 44121 (4.336 B/token)
+unigram (add-one): 8.9933 bits/token over 27446 predictions; 385803 training tokens, 164471 distinct trigrams
+bigram  (interpolated, lambda 0.9): 5.2631 bits/token
+trigram (interpolated, lambda 0.6): 4.6095 bits/token
+### end everyday 01:54:08
+### nano_chat 01:54:08
+chat-text: 2326 rows: 1658 conversations kept (12519 answers, 0 with reasoning in the data, 431 drawn no-think, 0 with a system message; 2080046 bytes, 0 of reasoning); skipped 0 malformed, 0 empty turn, 0 code, 0 over 16000 chars, 668 out of order, 0 non-ASCII
+conversations 1658, held out 200; train 1817100 B, valid 262946 B
+train: 1817100 bytes, 379221 words, 6796 unique, 7 special tokens;merge    0: id 256 = (32, 116) count 25668, 0.0 s;merge 3832: id 4088 = (1860, 280) count 7, 0.5 s;train: 3833 merges written to data/cand/work/nano_chat/vocab.txt (vocab 4096 = 256 + 3833 + 7 specials);
+encode: 1817100 bytes -> 394020 tokens (4.612 bytes/token, 67608 special), 60.4 MB/s, cache hits 304817, data/cand/work/nano_chat/train.u16 788040 bytes
+encode: 262946 bytes -> 58326 tokens (4.508 bytes/token, 9164 special), 13.1 MB/s, cache hits 42543, data/cand/work/nano_chat/valid.u16 116652 bytes
+train tokens 394020 (4.612 B/token), valid tokens 58326 (4.508 B/token)
+unigram (add-one): 8.2612 bits/token over 27446 predictions; 394020 training tokens, 144117 distinct trigrams
+bigram  (interpolated, lambda 0.9): 5.0307 bits/token
+trigram (interpolated, lambda 0.6): 4.7011 bits/token
+### end nano_chat 01:54:09
+### dailydialog 01:54:09
+chat-text: 11118 rows: 11111 conversations kept (41618 answers, 0 with reasoning in the data, 2747 drawn no-think, 0 with a system message; 7512367 bytes, 0 of reasoning); skipped 0 malformed, 0 empty turn, 0 code, 0 over 16000 chars, 0 out of order, 7 non-ASCII
+conversations 11111, held out 555; train 7115040 B, valid 397327 B
+train: 7115040 bytes, 1483811 words, 22140 unique, 7 special tokens;merge    0: id 256 = (32, 116) count 110487, 0.0 s;merge 3832: id 4088 = (1202, 350) count 37, 2.7 s;train: 3833 merges written to data/cand/work/dailydialog/vocab.txt (vocab 4096 = 256 + 3833 + 7 specials);
+encode: 7115040 bytes -> 1626163 tokens (4.375 bytes/token, 246890 special), 95.1 MB/s, cache hits 1214781, data/cand/work/dailydialog/train.u16 3252326 bytes
+encode: 397327 bytes -> 91192 tokens (4.357 bytes/token, 13929 special), 20.7 MB/s, cache hits 63205, data/cand/work/dailydialog/valid.u16 182384 bytes
+train tokens 1626163 (4.375 B/token), valid tokens 91192 (4.357 B/token)
+unigram (add-one): 8.4666 bits/token over 27446 predictions; 1626163 training tokens, 504319 distinct trigrams
+bigram  (interpolated, lambda 0.9): 4.9635 bits/token
+trigram (interpolated, lambda 0.7): 4.2608 bits/token
+### end dailydialog 01:54:13

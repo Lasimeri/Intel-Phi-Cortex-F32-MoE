@@ -402,3 +402,13 @@ on the rows, the row learning rate named as the first knob). The live trainer se
 with the trigram baseline on the same held-out tokens as the bar it has to clear, and the data aimed at identity and
 plain English communication rather than reasoning traces. Identity data cannot be written by me (never train on
 Claude-written text); it is human-written or the user's.
+
+## 01:40 to 02:0x (10-27, user): the chat base, researched and measured
+
+Ten chat corpora pulled and measured by their n-gram floors on their own 4k BPE (docs/CHAT.md "The base dataset"):
+TinyChat (GPT-4o mini, BASIC English) 3.647 bits/token at 5.137 bytes per token is the base; PersonaChat (human,
+personas as first-person system messages), DailyDialog (human) and the everyday assistant set ride along; the mix
+of 29,992,115 tokens has floors 8.528 / 4.821 / 3.888 on its held-out tokens, 2.3 bits below the Opus text. The
+Opus run stopped at chunk 455,246 (02:00:45); the base run started at 02:00:48 (data/live-base/, results/base-loss.log,
+ends about 08:50). The frame's identity line is the persona form. SODA (3.539 at 4.184 B/token, 1.19M dialogues) is
+the option for a larger run.

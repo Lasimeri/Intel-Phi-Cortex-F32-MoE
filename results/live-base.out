@@ -1,0 +1,92 @@
+02:00:48 coach: data/chat-base/train.u16 chunks 0..937252 (937253 chunks = 29992096 tokens), lr 3.000e-03, report every 100, window 300, min gain 0.010, halvings 3, sample every 2000 x 128 tokens, save every 5000, no stop, cmd results/live.cmd, checkpoints data/live-base/
+cortex: checkpoint loaded by DMA in 25.7 ms; prompt 0 tokens; sampling; n-gram memory off
+cortex: data/chat-base/ckpt-init.bin is now the daemon's live model (bus off)
+02:00:48 coach: data/chat-base/ckpt-init.bin loaded into the daemon
+02:00:48 coach: live (magic set, 960 chunks in the ring)
+02:00:50 report chunk 100  tokens 3200  loss 6.0145 nats = 8.6770 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:00:53 report chunk 200  tokens 6400  loss 4.9156 nats = 7.0917 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:00:56 report chunk 300  tokens 9600  loss 4.8829 nats = 7.0445 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:00:58 report chunk 400  tokens 12800  loss 4.8909 nats = 7.0560 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:01:01 report chunk 500  tokens 16000  loss 4.8365 nats = 6.9775 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:01:04 report chunk 600  tokens 19200  loss 4.8066 nats = 6.9344 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:01:06 report chunk 700  tokens 22400  loss 4.7146 nats = 6.8017 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:01:09 report chunk 800  tokens 25600  loss 4.7182 nats = 6.8070 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:01:11 report chunk 900  tokens 28800  loss 4.3603 nats = 6.2906 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:01:14 report chunk 1000  tokens 32000  loss 4.7843 nats = 6.9023 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:01:17 report chunk 1100  tokens 35200  loss 4.5469 nats = 6.5597 bits/token  lr 3.000e-03  scale 1.0000  1215 tok/s  ring 960 ahead
+02:01:19 report chunk 1200  tokens 38400  loss 4.7312 nats = 6.8257 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:01:22 report chunk 1300  tokens 41600  loss 4.4632 nats = 6.4390 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:01:25 report chunk 1400  tokens 44800  loss 4.3360 nats = 6.2555 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:01:27 report chunk 1500  tokens 48000  loss 4.5614 nats = 6.5808 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:01:30 report chunk 1600  tokens 51200  loss 4.8757 nats = 7.0342 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:01:33 report chunk 1700  tokens 54400  loss 4.5876 nats = 6.6184 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:01:35 report chunk 1800  tokens 57600  loss 4.7719 nats = 6.8845 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:01:38 report chunk 1900  tokens 60800  loss 4.3188 nats = 6.2307 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:01:40 report chunk 2000  tokens 64000  loss 4.3758 nats = 6.3130 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:01:41 sample chunk 2000 seed 1: hit 1.000 hit5 1.000 big 0.806 rep4 0.000 sent 14.9 words 149 | <|system|>I am Cortex. I am a small language model on a Xeon Phi card. I have one hundred and twenty columns. I like to talk with people.<|end|> <|user|>What is your name?<|end|> <|assistant|><|think|><|/think|>That sounds nice; I could make my feelings and feel better now in the end?<|end|> <|endoftext|> <|user|>Hello, I feel so of nature today, but it is important to make to make some people have feeling with the sun today and makes everything feel happier.<|end|> <|assistant|><|think|><|/think|>I agree, but it is important to see the day.<|end|> <|user|>I wish how our feelings can create a little for everyone in the beautiful in nature and make people feel so difficult today<|end|> <|assistant|><|think|><|/think|>It is just feel very more this way when it seems like a lot and enjoy this days.<|end|> <|user|>Yes, I 
+02:01:43 report chunk 2100  tokens 67200  loss 4.3411 nats = 6.2628 bits/token  lr 3.000e-03  scale 1.0000  1190 tok/s  ring 960 ahead
+02:01:46 report chunk 2200  tokens 70400  loss 4.5407 nats = 6.5509 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:01:48 report chunk 2300  tokens 73600  loss 4.4267 nats = 6.3864 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:01:51 report chunk 2400  tokens 76800  loss 4.2271 nats = 6.0984 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:01:54 report chunk 2500  tokens 80000  loss 4.5259 nats = 6.5295 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:01:56 report chunk 2600  tokens 83200  loss 4.3365 nats = 6.2562 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:01:59 report chunk 2700  tokens 86400  loss 4.2933 nats = 6.1940 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:02:02 report chunk 2800  tokens 89600  loss 4.1982 nats = 6.0568 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:02:04 report chunk 2900  tokens 92800  loss 4.5144 nats = 6.5128 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:02:07 report chunk 3000  tokens 96000  loss 4.1974 nats = 6.0556 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:02:09 report chunk 3100  tokens 99200  loss 4.0283 nats = 5.8116 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:02:12 report chunk 3200  tokens 102400  loss 3.9721 nats = 5.7305 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:02:15 report chunk 3300  tokens 105600  loss 4.3696 nats = 6.3041 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:02:17 report chunk 3400  tokens 108800  loss 4.1656 nats = 6.0097 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:02:20 report chunk 3500  tokens 112000  loss 4.1169 nats = 5.9394 bits/token  lr 3.000e-03  scale 1.0000  1215 tok/s  ring 960 ahead
+02:02:23 report chunk 3600  tokens 115200  loss 4.1098 nats = 5.9292 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:02:25 report chunk 3700  tokens 118400  loss 4.3326 nats = 6.2507 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:02:28 report chunk 3800  tokens 121600  loss 4.4050 nats = 6.3551 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:02:30 report chunk 3900  tokens 124800  loss 4.2984 nats = 6.2013 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:02:33 report chunk 4000  tokens 128000  loss 4.2710 nats = 6.1617 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:02:33 sample chunk 4000 seed 2: hit 1.000 hit5 1.000 big 0.786 rep4 0.000 sent 15.0 words 150 | <|system|>I am Cortex. I am a small language model on a Xeon Phi card. I have one hundred and twenty columns. I like to talk with people.<|end|> <|user|>What is your name?<|end|> <|assistant|><|think|><|/think|>That is a good way to feel better when the story can make us feel more disgusted and more disgusted.<|end|> <|endoftext|> <|user|>Do you think it is hard how the same of me<|end|> <|assistant|><|think|><|/think|>Yes, that are you ever be so many frustrating about the y.<|end|> <|user|>I wonder if you think we should make a lot feel more again; it seems like the pl in my friend.<|end|> <|assistant|><|think|><|/think|>That can help us feel better and make my garden feel better or feelings?<|end|> <|endoftext|> <|user|>Do you think we can have them for our well, but I just want to feel more disgusted 
+02:02:36 report chunk 4100  tokens 131200  loss 3.8984 nats = 5.6242 bits/token  lr 3.000e-03  scale 1.0000  1189 tok/s  ring 960 ahead
+02:02:38 report chunk 4200  tokens 134400  loss 4.2610 nats = 6.1474 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:02:41 report chunk 4300  tokens 137600  loss 4.2564 nats = 6.1407 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:02:44 report chunk 4400  tokens 140800  loss 4.5098 nats = 6.5063 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:02:46 report chunk 4500  tokens 144000  loss 4.1422 nats = 5.9759 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:02:49 report chunk 4600  tokens 147200  loss 4.2122 nats = 6.0769 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:02:52 report chunk 4700  tokens 150400  loss 4.0607 nats = 5.8583 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:02:54 report chunk 4800  tokens 153600  loss 4.1835 nats = 6.0356 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:02:57 report chunk 4900  tokens 156800  loss 4.3351 nats = 6.2542 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:03:00 report chunk 5000  tokens 160000  loss 4.0394 nats = 5.8277 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:03:00 checkpoint requested at chunk 5000 (every 5000 chunks)
+02:03:00 checkpoint (requested): data/live-base/ckpt-5001.bin, 23463424 bytes, chunk 5001, push 143, copied in 35 ms
+02:03:02 report chunk 5100  tokens 163200  loss 4.1574 nats = 5.9979 bits/token  lr 3.000e-03  scale 1.0000  1219 tok/s  ring 960 ahead
+02:03:05 report chunk 5200  tokens 166400  loss 4.1026 nats = 5.9188 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:03:07 report chunk 5300  tokens 169600  loss 4.2248 nats = 6.0951 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:03:10 report chunk 5400  tokens 172800  loss 4.1593 nats = 6.0006 bits/token  lr 3.000e-03  scale 1.0000  1220 tok/s  ring 960 ahead
+02:03:13 report chunk 5500  tokens 176000  loss 4.1583 nats = 5.9992 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:03:15 report chunk 5600  tokens 179200  loss 4.3064 nats = 6.2128 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:03:18 report chunk 5700  tokens 182400  loss 4.5288 nats = 6.5337 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:03:21 report chunk 5800  tokens 185600  loss 4.0625 nats = 5.8609 bits/token  lr 3.000e-03  scale 1.0000  1215 tok/s  ring 960 ahead
+02:03:23 report chunk 5900  tokens 188800  loss 4.1931 nats = 6.0493 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:03:26 report chunk 6000  tokens 192000  loss 4.4010 nats = 6.3493 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:03:26 sample chunk 6000 seed 3: hit 0.986 hit5 0.971 big 0.794 rep4 0.000 sent 10.7 words 139 | <|system|>I am Cortex. I am a small language model on a Xeon Phi card. I have one hundred and twenty columns. I like to talk with people.<|end|> <|user|>What is your name?<|end|> <|assistant|><|think|><|/think|>That is a good way; it makes us think about our time can help you today?<|end|> <|endoftext|> <|user|>Do you think we will find a lot of you't it?<|end|> <|assistant|><|think|><|/think|>It is a great idea to see the out on the better and start.<|end|> <|user|>I think I could find the fl?<|end|> <|assistant|><|think|><|/think|>Yes, it is so that.<|end|> <|endoftext|> ways to know, I see feel more lonely and th up. I'm not love a lot of anor and  your favorite a park.<|end|> <|user|>Hello there, I can do to see a 
+02:03:29 report chunk 6100  tokens 195200  loss 4.2254 nats = 6.0960 bits/token  lr 3.000e-03  scale 1.0000  1189 tok/s  ring 960 ahead
+02:03:31 report chunk 6200  tokens 198400  loss 3.8632 nats = 5.5734 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:03:34 report chunk 6300  tokens 201600  loss 4.1038 nats = 5.9206 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:03:36 report chunk 6400  tokens 204800  loss 3.8879 nats = 5.6090 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:03:39 report chunk 6500  tokens 208000  loss 4.2388 nats = 6.1153 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:03:42 report chunk 6600  tokens 211200  loss 4.1236 nats = 5.9491 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:03:44 report chunk 6700  tokens 214400  loss 3.8955 nats = 5.6200 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:03:47 report chunk 6800  tokens 217600  loss 3.8744 nats = 5.5896 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:03:50 report chunk 6900  tokens 220800  loss 4.1592 nats = 6.0004 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:03:52 report chunk 7000  tokens 224000  loss 4.0316 nats = 5.8163 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:03:55 report chunk 7100  tokens 227200  loss 4.1430 nats = 5.9771 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:03:58 report chunk 7200  tokens 230400  loss 4.3346 nats = 6.2534 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:04:00 report chunk 7300  tokens 233600  loss 4.2318 nats = 6.1051 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:04:03 report chunk 7400  tokens 236800  loss 4.5560 nats = 6.5730 bits/token  lr 3.000e-03  scale 1.0000  1223 tok/s  ring 960 ahead
+02:04:05 report chunk 7500  tokens 240000  loss 4.0167 nats = 5.7949 bits/token  lr 3.000e-03  scale 1.0000  1220 tok/s  ring 960 ahead
+02:04:08 report chunk 7600  tokens 243200  loss 4.4569 nats = 6.4299 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:04:11 report chunk 7700  tokens 246400  loss 4.3597 nats = 6.2898 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:04:13 report chunk 7800  tokens 249600  loss 3.9479 nats = 5.6956 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:04:16 report chunk 7900  tokens 252800  loss 3.8934 nats = 5.6170 bits/token  lr 3.000e-03  scale 1.0000  1222 tok/s  ring 960 ahead
+02:04:19 report chunk 8000  tokens 256000  loss 4.4359 nats = 6.3997 bits/token  lr 3.000e-03  scale 1.0000  1221 tok/s  ring 960 ahead
+02:04:19 sample chunk 8000 seed 4: hit 1.000 hit5 1.000 big 0.820 rep4 0.048 sent 16.4 words 148 | <|system|>I am Cortex. I am a small language model on a Xeon Phi card. I have one hundred and twenty columns. I like to talk with people.<|end|> <|user|>What is your name?<|end|> <|assistant|><|think|><|/think|>That sounds very happy, I feel a bit sad today sometimes sometimes the day.<|end|> <|endoftext|> <|user|>Hello there, I feel a bit idea about that you, but I will learn about our weather and make me think my worries in the most<|end|> <|assistant|><|think|><|/think|>I do not think we should go to talk about our feelings.<|end|> <|user|>It is hard to think about our things, but I wonder what is a lovely day<|end|> <|assistant|><|think|><|/think|>Yes, it can be very happiness to think we should find our days.<|end|> <|endoftext|> <|user|>Hello there, I feel a bit sad today because the world and makes 
+02:04:21 report chunk 8100  tokens 259200  loss 4.1771 nats = 6.0263 bits/token  lr 3.000e-03  scale 1.0000  1182 tok/s  ring 960 ahead

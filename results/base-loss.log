@@ -1,0 +1,2 @@
+# the chat-base run (data/chat-base/train.u16, 29,992,115 tokens: TinyChat 143k + PersonaChat 8,939 + DailyDialog 11,111 + everyday 2 x 1,999, shuffled; lr 3e-3, window 300, halvings 3, no stop): data/live-base/ckpt-N.bin on data/chat-base/valid.u16[0..27447) per 25,000 chunks; the final on 82,334 tokens. Floors on the same tokens: unigram 8.5276, bigram 4.8214, trigram 3.8883 bits/token (data/chat-base/floors.txt)
+ref-loss: data/chat-base/ckpt-init.bin on data/chat-base/valid.u16[0..27447): 8.4842 nats = 12.2400 bits/token over 27446 predictions, top-1 0.0002, 128.7 s
