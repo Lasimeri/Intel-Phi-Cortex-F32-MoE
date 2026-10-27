@@ -37,6 +37,8 @@ const OPTIONS: &str = "  --tree DIR        the Cortex tree the paths are relativ
   --orchestra NGC   the orchestrator's n-gram count model (data/stories-10m.ngc), or off for the plain model
   --words LIST      the orchestrator's word list (data/wordlist-stories.txt)
   --vocab FILE      the BPE vocabulary the client encodes and decodes with (its own default: data/bpe/vocab4096.txt)
+  --ngram FILE      the n-gram memory's tables the client reads each step's rows from (the live run's file in
+                    /dev/shm, or a saved tables-N.f32), for a model trained with the memory; none: the plain model
   --system FILE     the system message of every turn (~/CLAUDE.md when it exists), or off
   --template FILE   the frame of every turn, a Jinja template (tui/cortex.jinja): the identity, the labels, the stop
   --name NAME       the identity's name in the frame (the template's own default when not given)
@@ -49,7 +51,7 @@ const OPTIONS: &str = "  --tree DIR        the Cortex tree the paths are relativ
 
 pub fn usage(program: &str) -> String {
     format!(
-        "usage: {program} [--tree DIR] [--cortex PATH] [--orchestra NGC|off] [--words LIST] [--vocab FILE]
+        "usage: {program} [--tree DIR] [--cortex PATH] [--orchestra NGC|off] [--words LIST] [--vocab FILE] [--ngram FILE]
                   [--system FILE|off] [--template FILE] [--name NAME] [--cmd FILE] [--log FILE] [--ckdir DIR]
                   [--part FILE] [--ngen N] [--ctx CHARS]\n{OPTIONS}"
     )
@@ -67,6 +69,8 @@ pub struct Config {
     pub words: String,
     /// The client's BPE vocabulary, when not its default (a model trained with its own tokenizer).
     pub vocab: Option<String>,
+    /// The n-gram memory's tables file the client reads a step's rows from, for a model trained with the memory.
+    pub ngram: Option<String>,
     pub system: Option<PathBuf>,
     pub template: String,
     pub name: Option<String>,
@@ -96,6 +100,7 @@ impl Config {
             orchestra_given: false,
             words: "data/wordlist-stories.txt".into(),
             vocab: None,
+            ngram: None,
             system: home_claude,
             template: "tui/cortex.jinja".into(),
             name: None,
@@ -118,6 +123,7 @@ impl Config {
                 }
                 "--words" => c.words = value("--words")?,
                 "--vocab" => c.vocab = Some(value("--vocab")?),
+                "--ngram" => c.ngram = Some(value("--ngram")?),
                 "--system" => {
                     let v = value("--system")?;
                     c.system = if v == "off" { None } else { Some(PathBuf::from(expand_home(&v))) };
@@ -162,6 +168,11 @@ impl Config {
         if let Some(v) = &self.vocab {
             if !self.in_tree(v).is_file() {
                 return Err(format!("vocabulary {v} not found in {}: pass --vocab FILE", self.tree));
+            }
+        }
+        if let Some(n) = &self.ngram {
+            if !self.in_tree(n).is_file() {
+                return Err(format!("n-gram tables {n} not found in {}: pass --ngram FILE (the live run's file in /dev/shm) or leave it out", self.tree));
             }
         }
         if let Some(s) = &self.system {
@@ -333,7 +344,7 @@ impl Chat {
         self.turns.push(turn);
         let orchestra = if self.orchestra_on { cfg.orchestra.clone().map(|n| (n, cfg.words.clone())) } else { None };
         cortex::start(
-            Request { tree: cfg.tree.clone(), cortex: cfg.cortex.clone(), orchestra, vocab: cfg.vocab.clone(), prompt, stop, ngen: self.ngen, seed, sampling: self.sampling.clone() },
+            Request { tree: cfg.tree.clone(), cortex: cfg.cortex.clone(), orchestra, vocab: cfg.vocab.clone(), ngram: cfg.ngram.clone(), prompt, stop, ngen: self.ngen, seed, sampling: self.sampling.clone() },
             tx,
         );
         Ok(())
@@ -608,6 +619,7 @@ pub mod tests {
             orchestra_given: false,
             words: "w".into(),
             vocab: None,
+            ngram: None,
             system: None,
             template: "cortex.jinja".into(),
             name: None,

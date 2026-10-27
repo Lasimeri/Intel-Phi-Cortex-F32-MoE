@@ -16,6 +16,7 @@
 #define CX_CREF_H
 
 #include "ref.h"
+#include "../lib/cx-moe.h"
 
 enum { CREF_BUS_LIVE, CREF_BUS_EXT };
 
@@ -32,10 +33,20 @@ typedef struct {
 	cstep *cs;         /* L */
 	float *bus;        /* (L + 1) x [16][128]: bus[t] is the input of step t (the backward reads it again) */
 	const float *const *ext;   /* L external bus matrices (CREF_BUS_EXT) */
-	/* MoE stage 1: n-gram memory (ng_on): tables CX_NG_ORDERS x CX_NG_ROWS x 128, gates, the augmented input of each step
-	 * and the rows used (L x orders x 128) */
+	/* MoE stage 1: n-gram memory (ng_on): tables CX_NG_ORDERS x CX_NG_ROWS x 128 in double (the gate builds) or as the
+	 * trainers' F32 files (ngT32, read as they are), gates, the augmented input of each step and the rows used
+	 * (L x orders x 128) */
 	int ng_on;
 	double *ngT[CX_NG_ORDERS], ngg[CX_NG_ORDERS][CX_DE], *ein, *ngr;
+	const float *ngT32[CX_NG_ORDERS];
+	/* MoE stage 2 (moe_on, lib/cx-moe.h, card/moe.h): the fixed product keys (F32, [half][dim][lane], as the card
+	 * holds them), the home pair's bonus, the experts' SGD step, every column's home MLP at conversion (the pool's
+	 * initial expert e is home[e mod N]), the touched experts in double (index, weights), each column's route per
+	 * step (route[c * L + t]) and the per-step expert gradients collected before the updates */
+	int moe_on, moe_ntouched, moe_cap;
+	const float *moe_keys;
+	double moe_bias, moe_lr, *moe_home, *moe_w, *moe_grad;
+	uint32_t *route, *moe_idx;
 } cref;
 
 static inline void cref_alloc(cref *C, int N, int L)
@@ -53,6 +64,73 @@ static inline void cref_alloc(cref *C, int N, int L)
 	C->ng_on = 0;
 	C->ein = calloc((size_t)L * CX_DE, sizeof *C->ein);
 	C->ngr = calloc((size_t)L * CX_NG_ORDERS * CX_DE, sizeof *C->ngr);
+	for (int o = 0; o < CX_NG_ORDERS; o++) { C->ngT[o] = NULL; C->ngT32[o] = NULL; }
+	C->moe_on = 0;
+}
+
+/* the MoE conversion (after the columns' weights are set): the keys, the knobs, the home MLPs copied, no expert touched */
+static inline void cref_moe_init(cref *C, const float *keys, double bias, double lr)
+{
+	C->moe_on = 1;
+	C->moe_keys = keys;
+	C->moe_bias = bias;
+	C->moe_lr = lr;
+	C->moe_home = malloc((size_t)C->N * CX_EX_FLOATS * sizeof *C->moe_home);
+	for (int c = 0; c < C->N; c++) memcpy(C->moe_home + (size_t)c * CX_EX_FLOATS, C->prm + (long)c * CX_NPARAM + CX_EX_SLOT, CX_EX_FLOATS * sizeof *C->moe_home);
+	C->route = calloc((size_t)C->N * C->L, sizeof *C->route);
+	C->moe_cap = 1024;
+	C->moe_ntouched = 0;
+	C->moe_idx = malloc((size_t)C->moe_cap * sizeof *C->moe_idx);
+	C->moe_w = malloc((size_t)C->moe_cap * CX_EX_FLOATS * sizeof *C->moe_w);
+	C->moe_grad = malloc((size_t)C->N * CX_EX_FLOATS * sizeof *C->moe_grad);
+}
+
+/* expert e in double: its touched copy, made from the home MLP of column e mod N on the first touch */
+static inline double *cref_moe_expert(cref *C, uint32_t e)
+{
+	for (int i = 0; i < C->moe_ntouched; i++) if (C->moe_idx[i] == e) return C->moe_w + (size_t)i * CX_EX_FLOATS;
+	if (C->moe_ntouched == C->moe_cap) {
+		C->moe_cap *= 2;
+		C->moe_idx = realloc(C->moe_idx, (size_t)C->moe_cap * sizeof *C->moe_idx);
+		C->moe_w = realloc(C->moe_w, (size_t)C->moe_cap * CX_EX_FLOATS * sizeof *C->moe_w);
+	}
+	const int i = C->moe_ntouched++;
+	C->moe_idx[i] = e;
+	memcpy(C->moe_w + (size_t)i * CX_EX_FLOATS, C->moe_home + (size_t)(e % (uint32_t)C->N) * CX_EX_FLOATS, CX_EX_FLOATS * sizeof *C->moe_w);
+	return C->moe_w + (size_t)i * CX_EX_FLOATS;
+}
+
+/* the argmax key of one half in double: x . K[:, lane] over the 248 keys plus the bonus on the home lane; ties to the
+ * lowest lane, as the card's lane scan */
+static inline int cref_moe_half(const float *K, const double *x, uint32_t home, double bias)
+{
+	double best = -INFINITY;
+	int arg = 0;
+	for (int lane = 0; lane < CX_EX_KEYS; lane++) {
+		double s = 0;
+		for (int d = 0; d < CX_EX_HALF; d++) s += x[d] * K[(long)d * CX_EX_KLANES + lane];
+		if (lane == (int)home) s += bias;
+		if (s > best) { best = s; arg = lane; }
+	}
+	return arg;
+}
+
+static inline uint32_t cref_moe_route(const cref *C, int c, const double *x)
+{
+	const int a = cref_moe_half(C->moe_keys, x, CX_EX_HOME_A(c), C->moe_bias);
+	const int b = cref_moe_half(C->moe_keys + CX_EX_HALF * CX_EX_KLANES, x + CX_EX_HALF, CX_EX_HOME_B(c), C->moe_bias);
+	return cx_ex_index((uint32_t)a, (uint32_t)b);
+}
+
+/* the n-gram memory with a trained run's F32 tables (orders 2 and 3, CX_NG_ROWS x 128 each, host/ngtables.h) and its
+ * gates (2 x 128 F32): the rows are read as F32 values */
+static inline void cref_ng_tables(cref *C, const float *const T[CX_NG_ORDERS], const float *gates)
+{
+	for (int o = 0; o < CX_NG_ORDERS; o++) {
+		C->ngT32[o] = T[o];
+		for (int i = 0; i < CX_DE; i++) C->ngg[o][i] = gates[o * CX_DE + i];
+	}
+	C->ng_on = 1;
 }
 
 /* the n-gram memory with the gate-build tables (lib/cx-col.h) and gates of 1 */
@@ -107,14 +185,23 @@ static inline void cref_step(cref *C, int t, uint32_t id, uint32_t p1, uint32_t 
 		ein = C->ein + (long)t * CX_DE;
 		for (int i = 0; i < CX_DE; i++) ein[i] = C->E[(long)id * CX_DE + i];
 		for (int o = 0; o < CX_NG_ORDERS; o++) {
-			const double *row = C->ngT[o] + (size_t)cx_ng_hash(id, p1, p2, o + 2) * CX_DE;
+			const size_t at = (size_t)cx_ng_hash(id, p1, p2, o + 2) * CX_DE;
 			double *save = C->ngr + ((long)t * CX_NG_ORDERS + o) * CX_DE;
-			for (int i = 0; i < CX_DE; i++) { save[i] = row[i]; ein[i] += C->ngg[o][i] * row[i]; }
+			if (C->ngT32[o]) { const float *row = C->ngT32[o] + at; for (int i = 0; i < CX_DE; i++) save[i] = row[i]; }
+			else { const double *row = C->ngT[o] + at; for (int i = 0; i < CX_DE; i++) save[i] = row[i]; }
+			for (int i = 0; i < CX_DE; i++) ein[i] += C->ngg[o][i] * save[i];
 		}
 	}
 	for (int c = 0; c < C->N; c++) {
 		rstep *r = &C->steps[(long)c * C->L + t];
-		ref_col_forward(C->prm + (long)c * CX_NPARAM, C->E, C->T + (long)c * CX_NT, r, id, Bt, ein);
+		double *prm = C->prm + (long)c * CX_NPARAM;
+		ref_col_pre(prm, C->E, C->T + (long)c * CX_NT, r, id, Bt, ein);
+		if (C->moe_on) {   /* the route from x, the expert into the column's MLP region */
+			const uint32_t e = cref_moe_route(C, c, r->x);
+			C->route[(long)c * C->L + t] = e;
+			memcpy(prm + CX_EX_SLOT, cref_moe_expert(C, e), CX_EX_FLOATS * sizeof *prm);
+		}
+		ref_col_mlp(prm, r);
 		for (int i = 0; i < CX_DU; i++) s->hs[i] += r->g * r->u[i];
 		for (int d = 0; d < CX_DB; d++) bn[d * CX_NBUS + c] = (float)r->bc[d];
 	}
@@ -136,8 +223,24 @@ static inline void cref_backward(cref *C, cgrads *G, int t, const double *dl, do
 		rstep *r = &C->steps[(long)c * C->L + t];
 		double du[CX_DU], dg = 0;
 		for (int i = 0; i < CX_DU; i++) { du[i] = r->g * dhs[i]; dg += r->u[i] * dhs[i]; }
-		ref_col_backward(C->prm + (long)c * CX_NPARAM, G->prm + (long)c * CX_NPARAM, C->E, G->E, r, du, dg * r->g * (1.0 - r->g), dT + (long)c * CX_NT, de);
+		double *prm = C->prm + (long)c * CX_NPARAM, *gp = G->prm + (long)c * CX_NPARAM;
+		if (C->moe_on) {   /* the step's expert for the products; its gradient collected apart from the head's */
+			memcpy(prm + CX_EX_SLOT, cref_moe_expert(C, C->route[(long)c * C->L + t]), CX_EX_FLOATS * sizeof *prm);
+			memset(gp + CX_EX_SLOT, 0, CX_EX_FLOATS * sizeof *gp);
+		}
+		ref_col_backward(prm, gp, C->E, G->E, r, du, dg * r->g * (1.0 - r->g), dT + (long)c * CX_NT, de);
+		if (C->moe_on) {
+			memcpy(C->moe_grad + (size_t)c * CX_EX_FLOATS, gp + CX_EX_SLOT, CX_EX_FLOATS * sizeof *gp);
+			memset(gp + CX_EX_SLOT, 0, CX_EX_FLOATS * sizeof *gp);
+		}
 		for (int i = 0; i < CX_DE; i++) desum[i] += de[i];
+	}
+	if (C->moe_on) {   /* the experts' SGD updates after every column's products, in column order (the card's owner order) */
+		for (int c = 0; c < C->N; c++) {
+			double *w = cref_moe_expert(C, C->route[(long)c * C->L + t]);
+			const double *g = C->moe_grad + (size_t)c * CX_EX_FLOATS;
+			for (int i = 0; i < CX_EX_FLOATS; i++) w[i] -= C->moe_lr * g[i];
+		}
 	}
 	if (C->ng_on) for (int o = 0; o < CX_NG_ORDERS; o++) {
 		const double *r = C->ngr + ((long)t * CX_NG_ORDERS + o) * CX_DE;

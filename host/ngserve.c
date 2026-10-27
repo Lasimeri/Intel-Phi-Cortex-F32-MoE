@@ -18,41 +18,28 @@
 #include <unistd.h>
 #include "../lib/cx-col.h"
 #include "../lib/cx-proto.h"
+#include "ngtables.h"
 
 static uint8_t *part;
 #define LD64(o) __atomic_load_n((uint64_t *)(part + (o)), __ATOMIC_ACQUIRE)
 #define ST64(o, x) __atomic_store_n((uint64_t *)(part + (o)), (x), __ATOMIC_RELEASE)
 
 static float *T[CX_NG_ORDERS];
+static ngtables NG;   /* the gather and the apply over T are the live trainer's (host/ngtables.h) */
 static uint16_t *tok, *vtok;
 static long ntok, nvtok;
 static int L;
 
-static uint32_t at(const uint16_t *s, long n, long i) { return i >= 0 && i < n ? s[i] : CX_NG_PAD; }
-
-/* the rows of chunk c of stream s (train or valid) into the row slot c & 1 */
+/* the rows of chunk c of stream s (train or valid, whose chunks start at c0) into the row slot c & 1 */
 static void gather(long c, const uint16_t *s, long n, long c0)
 {
-	float *slot = (float *)(part + CX_NGR_ROWS(c & 1));
-	for (int t = 0; t < L; t++) {
-		const long pos = (c - c0) * L + t;
-		const uint32_t id = at(s, n, pos), p1 = at(s, n, pos - 1), p2 = at(s, n, pos - 2);
-		for (int o = 0; o < CX_NG_ORDERS; o++) memcpy(slot + ((long)t * CX_NG_ORDERS + o) * CX_DE, T[o] + (size_t)cx_ng_hash(id, p1, p2, o + 2) * CX_DE, CX_DE * 4);
-	}
+	ng_gather(&NG, s, n, c - c0, L, (float *)(part + CX_NGR_ROWS(c & 1)));
 	__atomic_thread_fence(__ATOMIC_RELEASE);
 }
 
 static void apply(long c, const uint16_t *s, long n, long c0, const float *grad, float lr)
 {
-	for (int t = 0; t < L; t++) {
-		const long pos = (c - c0) * L + t;
-		const uint32_t id = at(s, n, pos), p1 = at(s, n, pos - 1), p2 = at(s, n, pos - 2);
-		for (int o = 0; o < CX_NG_ORDERS; o++) {
-			float *row = T[o] + (size_t)cx_ng_hash(id, p1, p2, o + 2) * CX_DE;
-			const float *g = grad + ((long)t * CX_NG_ORDERS + o) * CX_DE;
-			for (int i = 0; i < CX_DE; i++) row[i] -= lr * g[i];
-		}
-	}
+	ng_apply(&NG, s, n, c - c0, L, grad, lr);
 }
 
 static int save(const char *dir, const char *name, const void *p, size_t bytes)
@@ -102,6 +89,7 @@ int main(int argc, char **argv)
 		if (!T[o]) { fprintf(stderr, "ngserve: %zu bytes of tables\n", (size_t)CX_NG_ROWS * CX_DE * 4); return 1; }
 		if (!strcmp(init, "gate")) cx_ng_init(T[o], o + 2);
 	}
+	ng_from_memory(&NG, T, 1);
 	const int fd = open("/dev/shm/phi-hostmem", O_RDWR);
 	if (fd < 0) { perror("/dev/shm/phi-hostmem"); return 1; }
 	part = mmap(NULL, CX_PART_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, (off_t)CX_PART_MIB << 20);

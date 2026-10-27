@@ -13,15 +13,39 @@
 
 /* ---- stage 2: one expert pool in GDDR, read by every head ---- */
 #define CX_EX_FLOATS (CX_DM * CX_DH + CX_DH + CX_DH * CX_DU)   /* one expert = the column's MLP: W1 144 x 64, b1 64, Wu 64 x 128 = 17,472 */
+_Static_assert(CX_O_WG - CX_O_W1 == CX_EX_FLOATS, "the MLP block of the column layout is one expert");
 #define CX_EX_BYTES (CX_EX_FLOATS * 4)                          /* 69,888 */
 #define CX_EX_N 61440                                           /* 61,440 x 69,888 B = 4,293,918,720 B = 4 GiB - 1 MiB */
 #define CX_EX_KEYS 248                                          /* product keys: 248 x 248 = 61,504 >= CX_EX_N */
 #define CX_EX_HALF (CX_DX / 2)                                  /* each half of x: 40 */
 #define CX_EX_KLANES 256                                        /* a half's keys padded to 256 lanes: 16 vectors of 16 */
 #define CX_EX_KEYFLOATS (2 * CX_EX_HALF * CX_EX_KLANES)         /* both key tables, transposed [half][dim][lane]: 20,480 F32 = 80 KiB, L2 of every core */
-#define CX_EX_HOME_BIAS 8.0f                                    /* at conversion head k's home expert k (its trained MLP) gets this routing bonus, so the
-                                                                   converted model computes the trained model until the keys learn; decays with training */
+#define CX_EX_HOME_BIAS 100.0f                                  /* at conversion head k's home expert k (its trained MLP) gets this routing bonus, so the
+                                                                   converted model computes the trained model; the operator lowers it across runs. 8 (the
+                                                                   plan's first value) left home on 11.7 % of the steps of the chat-base checkpoint
+                                                                   (results/moe-gate.log, 10-27): the real activations score higher than the seeded init's */
 static inline uint32_t cx_ex_index(uint32_t a, uint32_t b) { return (a * CX_EX_KEYS + b) % CX_EX_N; }
+
+/* the stage-2 build (PLAN-MOE.md "Stage 2 build", 2026-10-27): an expert IS the column's MLP block, W1 then b1 then
+ * Wu, contiguous in the parameter layout of lib/cx-col.h from CX_O_W1; a head keeps the whole block and its MLP
+ * region is the slot the routed expert is fetched into, so card/col.h and card/train.h compute on it unchanged.
+ * The pool is filled by sparse upcycling (Komatsuzaki et al. 2022, arXiv 2212.05055): expert e starts as the MLP
+ * of column e mod CX_NCOL of the dense checkpoint; head k's home expert is k, the pair (k / 248, k % 248), whose two
+ * keys get the home bonus (a run knob, CX_EX_HOME_BIAS at conversion), so the converted model computes the dense
+ * model exactly. The keys are fixed product keys (Lample et al. 2019, arXiv 1907.05242) from a seeded init: fixed
+ * routing is competitive with learned routing (Roller et al. 2021, arXiv 2106.04426); learned keys are the next
+ * step. Experts train by plain SGD (no moments for 1.07 G parameters), one rank-1 update per head per step. */
+#define CX_EX_SLOT CX_O_W1                                      /* the expert's place in a head's parameter block */
+#define CX_EX_HOME_A(k) ((uint32_t)(k) / CX_EX_KEYS)
+#define CX_EX_HOME_B(k) ((uint32_t)(k) % CX_EX_KEYS)
+#define CX_EX_LR 0.05f                                          /* the experts' SGD step, the run knob's default */
+#define CX_SEED_KEYS 0xE4C0DEull
+#define CX_S_KEYS 0.15f
+static inline void cx_ex_keys_init(float *K)                    /* [half][dim][lane], lanes 248..255 unused */
+{
+	uint64_t s = CX_SEED_KEYS;
+	cx_fill(K, CX_EX_KEYFLOATS, &s, CX_S_KEYS);
+}
 
 /* ---- stage 3: the context memory in host RAM, over the part ---- */
 #define CX_CTX_HEADS CX_NCOL

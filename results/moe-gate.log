@@ -1,0 +1,221 @@
+=== MoE stage 2 gates 2026-10-27 06:59:43: slice data/chat-base/slice-64k.u16, valid data/chat-base/valid.u16, ckpt data/live-base/ckpt-661017.bin
+--- the card: binaries and data into /tmp/cortex
+--- gate A: conversion (fwd, warm 64, one chunk of 32, the bus on as the reference runs it: dense build, then the MoE build with home bonus 8)
+cluster-gate fwd: 120 columns, L 32, warm 64, pin failures 0, thread 0 cpu 1, thread 119 cpu 240
+pmu 0x10cb per step per thread over the measured chunk (forward): mean 2552.1, thread 0 3167.5, max 3460.0
+chunk: mean loss 8.531805 nats (12.3088 bits/token); forward 381.2 us per step
+cluster-gate fwd: 120 columns, L 32, warm 64, pin failures 0, thread 0 cpu 1, thread 119 cpu 240
+moe: on, pool filled from the columns' MLPs, home bias 8, expert lr 0.05
+pmu 0x10cb per step per thread over the measured chunk (forward): mean 5852.7, thread 0 6303.1, max 6523.5
+chunk: mean loss 8.531805 nats (12.3088 bits/token); forward 633.5 us per step
+gate A: PASSED, the MoE build with the home bonus is byte-identical to the dense build (loss, hc, u/bc/g of columns 0, 59, 119): c52ce536b9bdd3633eddce87703604ce 7704afa4578229862b3dc1672dae811a 62cb54fa55b31cfa4cd1d07a8fb0116d d425ef6cb331f8e4e86a6e99c877d228 3d1aee3fb8a69c5e91feb88545b96bc0 
+reference check of the converted model's forward (home bonus 8):
+ctrain-check fwd: N 120, L 32, warm 64: mean loss ref 8.531805 card 8.531805; max |loss err| 9.039e-07
+  hc    col  -1  n    4096  max |ref| 3.9068e+00  max abs err 1.526e-06  rel 3.907e-07  (at 1704: card -6.703776e-01 ref -6.703761e-01)
+  route: 0 of 3840 (column, step) pairs differ; 3840 routed home; 120 experts touched by the reference
+  u     col   0  n    4096  max |ref| 5.2608e-01  max abs err 2.038e-07  rel 3.873e-07  (at 3961: card 5.221940e-01 ref 5.221942e-01)
+  bc    col   0  n     512  max |ref| 4.6837e-01  max abs err 1.741e-07  rel 3.718e-07  (at 201: card -3.122004e-01 ref -3.122002e-01)
+  g     col   0  n     512  max |ref| 5.6519e-01  max abs err 6.150e-08  rel 1.088e-07  (at 288: card 5.052884e-01 ref 5.052884e-01)
+  u     col  59  n    4096  max |ref| 5.2998e-01  max abs err 2.142e-07  rel 4.041e-07  (at 101: card 2.547237e-01 ref 2.547239e-01)
+  bc    col  59  n     512  max |ref| 3.6359e-01  max abs err 1.541e-07  rel 4.237e-07  (at 85: card -3.291760e-01 ref -3.291761e-01)
+  g     col  59  n     512  max |ref| 6.0660e-01  max abs err 7.121e-08  rel 1.174e-07  (at 384: card 5.395702e-01 ref 5.395701e-01)
+  u     col 119  n    4096  max |ref| 4.8553e-01  max abs err 2.505e-07  rel 5.159e-07  (at 808: card -4.088895e-01 ref -4.088898e-01)
+  bc    col 119  n     512  max |ref| 4.4107e-01  max abs err 2.284e-07  rel 5.178e-07  (at 73: card -4.410722e-01 ref -4.410724e-01)
+  g     col 119  n     512  max |ref| 5.7402e-01  max abs err 5.643e-08  rel 9.830e-08  (at 336: card 4.733490e-01 ref 4.733490e-01)
+--- gate B: the backward against the double reference (MoE build; home bonus 8, then 0 = free routing), expert lr 0.05
+cluster-gate bwd: 120 columns, L 32, warm 64, pin failures 0, thread 0 cpu 1, thread 119 cpu 240
+moe: on, pool filled from the columns' MLPs, home bias 8, expert lr 0.05
+chunk: mean loss 8.531805 nats (12.3088 bits/token); forward 634.1 us per step
+backward + gradients: 624.1 us per step (whole chunk 19.97 ms)
+reference check, home bonus 8:
+ctrain-check bwd: N 120, L 32, warm 64: mean loss ref 8.531805 card 8.531805; max |loss err| 9.039e-07
+  hc    col  -1  n    4096  max |ref| 3.9068e+00  max abs err 1.526e-06  rel 3.907e-07  (at 1704: card -6.703776e-01 ref -6.703761e-01)
+  route: 0 of 3840 (column, step) pairs differ; 3840 routed home; 120 experts touched by the reference
+  u     col   0  n    4096  max |ref| 5.2608e-01  max abs err 2.038e-07  rel 3.873e-07  (at 3961: card 5.221940e-01 ref 5.221942e-01)
+  bc    col   0  n     512  max |ref| 4.6837e-01  max abs err 1.741e-07  rel 3.718e-07  (at 201: card -3.122004e-01 ref -3.122002e-01)
+  g     col   0  n     512  max |ref| 5.6519e-01  max abs err 6.150e-08  rel 1.088e-07  (at 288: card 5.052884e-01 ref 5.052884e-01)
+  P_in  col   0  n    8192  max |ref| 9.5644e-03  max abs err 3.115e-09  rel 3.257e-07  (at 1965: card -8.184501e-04 ref -8.184470e-04)
+  Wqb   col   0  n    1024  max |ref| 9.3762e-05  max abs err 4.230e-11  rel 4.512e-07  (at 721: card 3.426441e-05 ref 3.426445e-05)
+  gain  col   0  n      80  max |ref| 4.8440e-03  max abs err 2.150e-09  rel 4.439e-07  (at 11: card 4.059487e-03 ref 4.059489e-03)
+  W     col   0  n   16640  max |ref| 4.1074e-03  max abs err 2.026e-09  rel 4.933e-07  (at 11861: card -2.157118e-03 ref -2.157116e-03)
+  ex W1 col   0  n    9216  max |ref| 8.3638e-02  max abs err 4.161e-08  rel 4.975e-07  (at 2947: card -6.925497e-02 ref -6.925501e-02)
+  ex b1 col   0  n      64  max |ref| 3.5855e-04  max abs err 9.957e-11  rel 2.777e-07  (at 58: card -2.292456e-04 ref -2.292455e-04)
+  ex Wu col   0  n    8192  max |ref| 1.2501e-01  max abs err 4.338e-08  rel 3.470e-07  (at 7389: card 7.357900e-02 ref 7.357896e-02)
+  wg    col   0  n      64  max |ref| 3.7420e-03  max abs err 1.776e-09  rel 4.747e-07  (at 25: card -7.760286e-05 ref -7.760464e-05)
+  bg    col   0  n       1  max |ref| 1.6223e-03  max abs err 1.109e-09  rel 6.834e-07  (at 0: card -1.622249e-03 ref -1.622251e-03)
+  u     col  59  n    4096  max |ref| 5.2998e-01  max abs err 2.142e-07  rel 4.041e-07  (at 101: card 2.547237e-01 ref 2.547239e-01)
+  bc    col  59  n     512  max |ref| 3.6359e-01  max abs err 1.541e-07  rel 4.237e-07  (at 85: card -3.291760e-01 ref -3.291761e-01)
+  g     col  59  n     512  max |ref| 6.0660e-01  max abs err 7.121e-08  rel 1.174e-07  (at 384: card 5.395702e-01 ref 5.395701e-01)
+  P_in  col  59  n    8192  max |ref| 9.5576e-03  max abs err 3.632e-09  rel 3.800e-07  (at 141: card 9.415211e-03 ref 9.415215e-03)
+  Wqb   col  59  n    1024  max |ref| 8.2523e-05  max abs err 4.496e-11  rel 5.448e-07  (at 1003: card 7.820426e-05 ref 7.820431e-05)
+  gain  col  59  n      80  max |ref| 4.6219e-03  max abs err 1.947e-09  rel 4.213e-07  (at 44: card -5.799460e-04 ref -5.799479e-04)
+  W     col  59  n   16640  max |ref| 1.7220e-03  max abs err 1.438e-09  rel 8.349e-07  (at 4552: card -7.945608e-04 ref -7.945623e-04)
+  ex W1 col  59  n    9216  max |ref| 8.3528e-02  max abs err 4.335e-08  rel 5.190e-07  (at 4837: card 6.968142e-02 ref 6.968138e-02)
+  ex b1 col  59  n      64  max |ref| 3.3663e-04  max abs err 9.513e-11  rel 2.826e-07  (at 30: card 1.472841e-04 ref 1.472840e-04)
+  ex Wu col  59  n    8192  max |ref| 1.2504e-01  max abs err 4.971e-08  rel 3.976e-07  (at 2834: card 8.582237e-02 ref 8.582242e-02)
+  wg    col  59  n      64  max |ref| 3.2715e-03  max abs err 1.992e-09  rel 6.089e-07  (at 41: card 2.720382e-03 ref 2.720384e-03)
+  bg    col  59  n       1  max |ref| 3.3130e-03  max abs err 2.882e-10  rel 8.698e-08  (at 0: card 3.313012e-03 ref 3.313012e-03)
+  u     col 119  n    4096  max |ref| 4.8553e-01  max abs err 2.505e-07  rel 5.159e-07  (at 808: card -4.088895e-01 ref -4.088898e-01)
+  bc    col 119  n     512  max |ref| 4.4107e-01  max abs err 2.284e-07  rel 5.178e-07  (at 73: card -4.410722e-01 ref -4.410724e-01)
+  g     col 119  n     512  max |ref| 5.7402e-01  max abs err 5.643e-08  rel 9.830e-08  (at 336: card 4.733490e-01 ref 4.733490e-01)
+  P_in  col 119  n    8192  max |ref| 1.0332e-02  max abs err 3.564e-09  rel 3.449e-07  (at 5677: card 1.060354e-03 ref 1.060358e-03)
+  Wqb   col 119  n    1024  max |ref| 1.0006e-04  max abs err 4.651e-11  rel 4.649e-07  (at 606: card 8.775048e-06 ref 8.775094e-06)
+  gain  col 119  n      80  max |ref| 4.4583e-03  max abs err 1.361e-09  rel 3.053e-07  (at 47: card 2.886570e-03 ref 2.886568e-03)
+  W     col 119  n   16640  max |ref| 2.8091e-03  max abs err 1.398e-09  rel 4.978e-07  (at 11939: card -5.166982e-04 ref -5.166996e-04)
+  ex W1 col 119  n    9216  max |ref| 8.3555e-02  max abs err 4.359e-08  rel 5.217e-07  (at 5444: card -6.691102e-02 ref -6.691106e-02)
+  ex b1 col 119  n      64  max |ref| 5.2464e-04  max abs err 1.047e-10  rel 1.996e-07  (at 62: card -2.021380e-04 ref -2.021381e-04)
+  ex Wu col 119  n    8192  max |ref| 1.2502e-01  max abs err 4.332e-08  rel 3.465e-07  (at 2073: card 9.436321e-02 ref 9.436316e-02)
+  wg    col 119  n      64  max |ref| 4.0953e-03  max abs err 1.827e-09  rel 4.461e-07  (at 48: card -4.095260e-03 ref -4.095258e-03)
+  bg    col 119  n       1  max |ref| 3.1979e-03  max abs err 3.317e-09  rel 1.037e-06  (at 0: card -3.197917e-03 ref -3.197914e-03)
+  cg    col  -1  n     128  max |ref| 3.0358e-02  max abs err 1.094e-08  rel 3.603e-07  (at 25: card -2.022999e-03 ref -2.023010e-03)
+  E     col  -1  n  524288  max |ref| 2.6597e-01  max abs err 7.503e-08  rel 2.821e-07  (at 523710: card 7.167393e-02 ref 7.167400e-02)
+cluster-gate bwd: 120 columns, L 32, warm 64, pin failures 0, thread 0 cpu 1, thread 119 cpu 240
+moe: on, pool filled from the columns' MLPs, home bias 0, expert lr 0.05
+chunk: mean loss 8.484979 nats (12.2412 bits/token); forward 685.7 us per step
+backward + gradients: 715.6 us per step (whole chunk 22.90 ms)
+reference check, home bonus 0:
+ctrain-check bwd: N 120, L 32, warm 64: mean loss ref 8.484979 card 8.484979; max |loss err| 8.856e-07
+  hc    col  -1  n    4096  max |ref| 3.6209e+00  max abs err 1.523e-06  rel 4.206e-07  (at 1823: card 1.819609e+00 ref 1.819607e+00)
+  route: 0 of 3840 (column, step) pairs differ; 0 routed home; 8101 experts touched by the reference
+  u     col   0  n    4096  max |ref| 5.4799e-01  max abs err 2.334e-07  rel 4.259e-07  (at 2536: card 4.129905e-01 ref 4.129902e-01)
+  bc    col   0  n     512  max |ref| 4.0610e-01  max abs err 1.438e-07  rel 3.542e-07  (at 259: card 2.651628e-01 ref 2.651626e-01)
+  g     col   0  n     512  max |ref| 5.3428e-01  max abs err 6.137e-08  rel 1.149e-07  (at 288: card 4.657384e-01 ref 4.657384e-01)
+  P_in  col   0  n    8192  max |ref| 1.0468e-02  max abs err 3.746e-09  rel 3.579e-07  (at 4196: card 7.825666e-03 ref 7.825670e-03)
+  Wqb   col   0  n    1024  max |ref| 8.8887e-05  max abs err 2.767e-11  rel 3.112e-07  (at 10: card -1.761241e-05 ref -1.761238e-05)
+  gain  col   0  n      80  max |ref| 4.8448e-03  max abs err 1.321e-09  rel 2.726e-07  (at 9: card 4.844791e-03 ref 4.844792e-03)
+  W     col   0  n   16640  max |ref| 2.0278e-03  max abs err 1.283e-09  rel 6.327e-07  (at 12048: card 4.721573e-05 ref 4.721701e-05)
+  ex W1 col   0  n    9216  max |ref| 8.3324e-02  max abs err 7.201e-09  rel 8.642e-08  (at 3893: card 6.988367e-02 ref 6.988367e-02)
+  ex b1 col   0  n      64  max |ref| 8.7822e-05  max abs err 1.796e-11  rel 2.045e-07  (at 22: card 5.263647e-05 ref 5.263649e-05)
+  ex Wu col   0  n    8192  max |ref| 1.2500e-01  max abs err 7.357e-09  rel 5.886e-08  (at 8166: card 9.910258e-02 ref 9.910257e-02)
+  wg    col   0  n      64  max |ref| 1.9121e-03  max abs err 1.552e-09  rel 8.116e-07  (at 7: card 8.386979e-04 ref 8.386995e-04)
+  bg    col   0  n       1  max |ref| 2.7501e-03  max abs err 1.665e-09  rel 6.054e-07  (at 0: card -2.750055e-03 ref -2.750053e-03)
+  u     col  59  n    4096  max |ref| 4.8664e-01  max abs err 1.833e-07  rel 3.767e-07  (at 231: card -3.186598e-02 ref -3.186616e-02)
+  bc    col  59  n     512  max |ref| 3.9129e-01  max abs err 1.204e-07  rel 3.077e-07  (at 102: card 2.112894e-01 ref 2.112895e-01)
+  g     col  59  n     512  max |ref| 5.7859e-01  max abs err 4.836e-08  rel 8.358e-08  (at 240: card 5.296196e-01 ref 5.296196e-01)
+  P_in  col  59  n    8192  max |ref| 1.1562e-02  max abs err 3.454e-09  rel 2.988e-07  (at 4218: card 6.285175e-03 ref 6.285178e-03)
+  Wqb   col  59  n    1024  max |ref| 8.6067e-05  max abs err 3.920e-11  rel 4.555e-07  (at 399: card 3.294337e-05 ref 3.294333e-05)
+  gain  col  59  n      80  max |ref| 3.7381e-03  max abs err 1.319e-09  rel 3.528e-07  (at 3: card -4.157574e-04 ref -4.157561e-04)
+  W     col  59  n   16640  max |ref| 1.9406e-03  max abs err 1.866e-09  rel 9.617e-07  (at 4434: card -5.221185e-04 ref -5.221166e-04)
+  ex W1 col  59  n    9216  max |ref| 8.3323e-02  max abs err 3.725e-09  rel 4.471e-08  (at 2989: card -7.472879e-02 ref -7.472880e-02)
+  ex b1 col  59  n      64  max |ref| 5.7554e-05  max abs err 1.667e-11  rel 2.896e-07  (at 1: card 5.755429e-05 ref 5.755427e-05)
+  ex Wu col  59  n    8192  max |ref| 1.2499e-01  max abs err 3.739e-09  rel 2.992e-08  (at 4752: card 7.338487e-02 ref 7.338487e-02)
+  wg    col  59  n      64  max |ref| 3.2296e-03  max abs err 2.193e-09  rel 6.789e-07  (at 50: card -2.351179e-03 ref -2.351181e-03)
+  bg    col  59  n       1  max |ref| 4.6193e-03  max abs err 3.016e-09  rel 6.530e-07  (at 0: card -4.619299e-03 ref -4.619296e-03)
+  u     col 119  n    4096  max |ref| 6.0096e-01  max abs err 2.245e-07  rel 3.735e-07  (at 706: card -3.624426e-01 ref -3.624429e-01)
+  bc    col 119  n     512  max |ref| 4.1163e-01  max abs err 1.616e-07  rel 3.926e-07  (at 91: card 2.800509e-01 ref 2.800511e-01)
+  g     col 119  n     512  max |ref| 5.6368e-01  max abs err 5.806e-08  rel 1.030e-07  (at 64: card 5.174667e-01 ref 5.174667e-01)
+  P_in  col 119  n    8192  max |ref| 1.0590e-02  max abs err 3.069e-09  rel 2.898e-07  (at 4180: card 5.108946e-03 ref 5.108949e-03)
+  Wqb   col 119  n    1024  max |ref| 8.2606e-05  max abs err 4.200e-11  rel 5.085e-07  (at 608: card 4.046278e-05 ref 4.046274e-05)
+  gain  col 119  n      80  max |ref| 3.8655e-03  max abs err 2.050e-09  rel 5.302e-07  (at 11: card -4.628016e-04 ref -4.627995e-04)
+  W     col 119  n   16640  max |ref| 2.9899e-03  max abs err 1.235e-09  rel 4.130e-07  (at 3521: card -9.859634e-04 ref -9.859646e-04)
+  ex W1 col 119  n    9216  max |ref| 8.3389e-02  max abs err 7.233e-09  rel 8.673e-08  (at 4549: card 6.692886e-02 ref 6.692886e-02)
+  ex b1 col 119  n      64  max |ref| 8.0287e-05  max abs err 2.185e-11  rel 2.721e-07  (at 35: card -7.174788e-05 ref -7.174790e-05)
+  ex Wu col 119  n    8192  max |ref| 1.2499e-01  max abs err 7.437e-09  rel 5.950e-08  (at 5007: card -8.876886e-02 ref -8.876885e-02)
+  wg    col 119  n      64  max |ref| 2.9986e-03  max abs err 1.921e-09  rel 6.406e-07  (at 48: card -1.560782e-03 ref -1.560784e-03)
+  bg    col 119  n       1  max |ref| 8.2620e-03  max abs err 3.469e-10  rel 4.199e-08  (at 0: card -8.261992e-03 ref -8.261991e-03)
+  cg    col  -1  n     128  max |ref| 3.3823e-02  max abs err 1.418e-08  rel 4.192e-07  (at 77: card 4.256968e-03 ref 4.256954e-03)
+  E     col  -1  n  524288  max |ref| 2.1294e-01  max abs err 7.653e-08  rel 3.594e-07  (at 36786: card -2.121501e-02 ref -2.121509e-02)
+--- gate C: cost per step is in the chunk: lines above (dense: gate A's first run; MoE: gate B's runs)
+--- gate D: 2,000 chunks from data/live-base/ckpt-661017.bin with the pool (bus off, the trained configuration), validation on 3,200 tokens:
+    home bonus 100 (exact home routing) at expert lr 0.05, 0.01 and 0 (experts frozen), bonus 8 and 0 (free routing) at 0.05
+run, home bonus 100, expert lr 0.05:
+cluster-gate run: 120 columns, L 32, warm 0, pin failures 0, thread 0 cpu 1, thread 119 cpu 240
+run: weights, cg and embedding loaded from /tmp/cortex/moe-init.bin
+run: 64000 tokens = 2000 chunks of 32, lr 0.003 (warm-up 50 chunks), b1 0.9 b2 0.95, bus off, valid 3200 tokens
+moe: on, pool 61440 experts x 69888 B = 4293918720 B filled from the columns' MLPs in 0.17 s (expert e = column e mod 120), keys seeded, home bias 100, expert lr 0.05
+chunk    200  tokens      6400  loss 4.4400 nats = 6.4055 bits/token  lr 3.00e-03  821 tok/s  (us/step: fwd+vote+head 542, bwd+grads+adam 675)
+chunk    400  tokens     12800  loss 4.4876 nats = 6.4742 bits/token  lr 3.00e-03  822 tok/s  (us/step: fwd+vote+head 542, bwd+grads+adam 674)
+chunk    600  tokens     19200  loss 4.5414 nats = 6.5519 bits/token  lr 3.00e-03  825 tok/s  (us/step: fwd+vote+head 540, bwd+grads+adam 672)
+chunk    800  tokens     25600  loss 4.4489 nats = 6.4185 bits/token  lr 3.00e-03  825 tok/s  (us/step: fwd+vote+head 540, bwd+grads+adam 671)
+chunk   1000  tokens     32000  loss 4.3638 nats = 6.2956 bits/token  lr 3.00e-03  825 tok/s  (us/step: fwd+vote+head 539, bwd+grads+adam 672)
+chunk   1200  tokens     38400  loss 4.5087 nats = 6.5046 bits/token  lr 3.00e-03  825 tok/s  (us/step: fwd+vote+head 540, bwd+grads+adam 672)
+chunk   1400  tokens     44800  loss 4.2624 nats = 6.1493 bits/token  lr 3.00e-03  825 tok/s  (us/step: fwd+vote+head 540, bwd+grads+adam 672)
+chunk   1600  tokens     51200  loss 4.5960 nats = 6.6306 bits/token  lr 3.00e-03  824 tok/s  (us/step: fwd+vote+head 540, bwd+grads+adam 672)
+chunk   1800  tokens     57600  loss 4.5641 nats = 6.5845 bits/token  lr 3.00e-03  827 tok/s  (us/step: fwd+vote+head 539, bwd+grads+adam 670)
+chunk   2000  tokens     64000  loss 4.2224 nats = 6.0916 bits/token  lr 3.00e-03  824 tok/s  (us/step: fwd+vote+head 540, bwd+grads+adam 672)
+valid: 3200 tokens, loss 4.3465 nats = 6.2707 bits/token = 1.5831 bits/byte (3.961 B/token); train 77.6 s, valid 1.7 s
+moe: 120 of 61440 experts updated, 7680000 (step, expert) updates, the busiest 64000, the 120 home experts 100.0 % of them
+run, home bonus 100, expert lr 0.01:
+cluster-gate run: 120 columns, L 32, warm 0, pin failures 0, thread 0 cpu 1, thread 119 cpu 240
+run: weights, cg and embedding loaded from /tmp/cortex/moe-init.bin
+run: 64000 tokens = 2000 chunks of 32, lr 0.003 (warm-up 50 chunks), b1 0.9 b2 0.95, bus off, valid 3200 tokens
+moe: on, pool 61440 experts x 69888 B = 4293918720 B filled from the columns' MLPs in 0.17 s (expert e = column e mod 120), keys seeded, home bias 100, expert lr 0.01
+chunk    200  tokens      6400  loss 4.4459 nats = 6.4141 bits/token  lr 3.00e-03  819 tok/s  (us/step: fwd+vote+head 543, bwd+grads+adam 678)
+chunk    400  tokens     12800  loss 4.4875 nats = 6.4741 bits/token  lr 3.00e-03  823 tok/s  (us/step: fwd+vote+head 541, bwd+grads+adam 674)
+chunk    600  tokens     19200  loss 4.5652 nats = 6.5861 bits/token  lr 3.00e-03  822 tok/s  (us/step: fwd+vote+head 540, bwd+grads+adam 675)
+chunk    800  tokens     25600  loss 4.4776 nats = 6.4598 bits/token  lr 3.00e-03  823 tok/s  (us/step: fwd+vote+head 540, bwd+grads+adam 675)
+chunk   1000  tokens     32000  loss 4.3904 nats = 6.3339 bits/token  lr 3.00e-03  823 tok/s  (us/step: fwd+vote+head 541, bwd+grads+adam 674)
+chunk   1200  tokens     38400  loss 4.4907 nats = 6.4787 bits/token  lr 3.00e-03  823 tok/s  (us/step: fwd+vote+head 540, bwd+grads+adam 674)
+chunk   1400  tokens     44800  loss 4.3165 nats = 6.2273 bits/token  lr 3.00e-03  823 tok/s  (us/step: fwd+vote+head 540, bwd+grads+adam 675)
+chunk   1600  tokens     51200  loss 4.6038 nats = 6.6419 bits/token  lr 3.00e-03  821 tok/s  (us/step: fwd+vote+head 542, bwd+grads+adam 675)
+chunk   1800  tokens     57600  loss 4.5880 nats = 6.6191 bits/token  lr 3.00e-03  823 tok/s  (us/step: fwd+vote+head 541, bwd+grads+adam 674)
+chunk   2000  tokens     64000  loss 4.2659 nats = 6.1544 bits/token  lr 3.00e-03  823 tok/s  (us/step: fwd+vote+head 540, bwd+grads+adam 674)
+valid: 3200 tokens, loss 4.6021 nats = 6.6394 bits/token = 1.6762 bits/byte (3.961 B/token); train 77.8 s, valid 1.7 s
+moe: 120 of 61440 experts updated, 7680000 (step, expert) updates, the busiest 64000, the 120 home experts 100.0 % of them
+run, home bonus 100, expert lr 0:
+cluster-gate run: 120 columns, L 32, warm 0, pin failures 0, thread 0 cpu 1, thread 119 cpu 240
+run: weights, cg and embedding loaded from /tmp/cortex/moe-init.bin
+run: 64000 tokens = 2000 chunks of 32, lr 0.003 (warm-up 50 chunks), b1 0.9 b2 0.95, bus off, valid 3200 tokens
+moe: on, pool 61440 experts x 69888 B = 4293918720 B filled from the columns' MLPs in 0.16 s (expert e = column e mod 120), keys seeded, home bias 100, expert lr 0
+chunk    200  tokens      6400  loss 4.4713 nats = 6.4508 bits/token  lr 3.00e-03  825 tok/s  (us/step: fwd+vote+head 541, bwd+grads+adam 671)
+chunk    400  tokens     12800  loss 4.5604 nats = 6.5792 bits/token  lr 3.00e-03  822 tok/s  (us/step: fwd+vote+head 543, bwd+grads+adam 674)
+chunk    600  tokens     19200  loss 4.5804 nats = 6.6082 bits/token  lr 3.00e-03  822 tok/s  (us/step: fwd+vote+head 542, bwd+grads+adam 675)
+chunk    800  tokens     25600  loss 4.5120 nats = 6.5094 bits/token  lr 3.00e-03  822 tok/s  (us/step: fwd+vote+head 542, bwd+grads+adam 674)
+chunk   1000  tokens     32000  loss 4.4139 nats = 6.3679 bits/token  lr 3.00e-03  821 tok/s  (us/step: fwd+vote+head 542, bwd+grads+adam 675)
+chunk   1200  tokens     38400  loss 4.5488 nats = 6.5626 bits/token  lr 3.00e-03  822 tok/s  (us/step: fwd+vote+head 542, bwd+grads+adam 674)
+chunk   1400  tokens     44800  loss 4.3280 nats = 6.2440 bits/token  lr 3.00e-03  822 tok/s  (us/step: fwd+vote+head 543, bwd+grads+adam 674)
+chunk   1600  tokens     51200  loss 4.6906 nats = 6.7671 bits/token  lr 3.00e-03  821 tok/s  (us/step: fwd+vote+head 542, bwd+grads+adam 676)
+chunk   1800  tokens     57600  loss 4.6656 nats = 6.7311 bits/token  lr 3.00e-03  822 tok/s  (us/step: fwd+vote+head 542, bwd+grads+adam 674)
+chunk   2000  tokens     64000  loss 4.2852 nats = 6.1823 bits/token  lr 3.00e-03  821 tok/s  (us/step: fwd+vote+head 542, bwd+grads+adam 675)
+valid: 3200 tokens, loss 4.4222 nats = 6.3799 bits/token = 1.6107 bits/byte (3.961 B/token); train 77.9 s, valid 1.7 s
+moe: 120 of 61440 experts updated, 7680000 (step, expert) updates, the busiest 64000, the 120 home experts 100.0 % of them
+run, home bonus 8, expert lr 0.05:
+cluster-gate run: 120 columns, L 32, warm 0, pin failures 0, thread 0 cpu 1, thread 119 cpu 240
+run: weights, cg and embedding loaded from /tmp/cortex/moe-init.bin
+run: 64000 tokens = 2000 chunks of 32, lr 0.003 (warm-up 50 chunks), b1 0.9 b2 0.95, bus off, valid 3200 tokens
+moe: on, pool 61440 experts x 69888 B = 4293918720 B filled from the columns' MLPs in 0.16 s (expert e = column e mod 120), keys seeded, home bias 8, expert lr 0.05
+chunk    200  tokens      6400  loss 5.2092 nats = 7.5152 bits/token  lr 3.00e-03  792 tok/s  (us/step: fwd+vote+head 543, bwd+grads+adam 718)
+chunk    400  tokens     12800  loss 5.1549 nats = 7.4370 bits/token  lr 3.00e-03  791 tok/s  (us/step: fwd+vote+head 545, bwd+grads+adam 719)
+chunk    600  tokens     19200  loss 5.1107 nats = 7.3731 bits/token  lr 3.00e-03  793 tok/s  (us/step: fwd+vote+head 544, bwd+grads+adam 716)
+chunk    800  tokens     25600  loss 5.0286 nats = 7.2548 bits/token  lr 3.00e-03  793 tok/s  (us/step: fwd+vote+head 545, bwd+grads+adam 715)
+chunk   1000  tokens     32000  loss 4.8520 nats = 6.9999 bits/token  lr 3.00e-03  791 tok/s  (us/step: fwd+vote+head 545, bwd+grads+adam 719)
+chunk   1200  tokens     38400  loss 4.9654 nats = 7.1635 bits/token  lr 3.00e-03  791 tok/s  (us/step: fwd+vote+head 546, bwd+grads+adam 718)
+chunk   1400  tokens     44800  loss 4.7373 nats = 6.8344 bits/token  lr 3.00e-03  788 tok/s  (us/step: fwd+vote+head 545, bwd+grads+adam 724)
+chunk   1600  tokens     51200  loss 5.0890 nats = 7.3419 bits/token  lr 3.00e-03  788 tok/s  (us/step: fwd+vote+head 546, bwd+grads+adam 723)
+chunk   1800  tokens     57600  loss 4.9556 nats = 7.1494 bits/token  lr 3.00e-03  793 tok/s  (us/step: fwd+vote+head 544, bwd+grads+adam 716)
+chunk   2000  tokens     64000  loss 4.5853 nats = 6.6152 bits/token  lr 3.00e-03  794 tok/s  (us/step: fwd+vote+head 545, bwd+grads+adam 714)
+valid: 3200 tokens, loss 5.1347 nats = 7.4078 bits/token = 1.8702 bits/byte (3.961 B/token); train 80.9 s, valid 1.7 s
+moe: 1194 of 61440 experts updated, 7631044 (step, expert) updates, the busiest 64000, the 120 home experts 88.3 % of them
+run, home bonus 0, expert lr 0.05:
+cluster-gate run: 120 columns, L 32, warm 0, pin failures 0, thread 0 cpu 1, thread 119 cpu 240
+run: weights, cg and embedding loaded from /tmp/cortex/moe-init.bin
+run: 64000 tokens = 2000 chunks of 32, lr 0.003 (warm-up 50 chunks), b1 0.9 b2 0.95, bus off, valid 3200 tokens
+moe: on, pool 61440 experts x 69888 B = 4293918720 B filled from the columns' MLPs in 0.15 s (expert e = column e mod 120), keys seeded, home bias 0, expert lr 0.05
+chunk    200  tokens      6400  loss 9.5591 nats = 13.7908 bits/token  lr 3.00e-03  759 tok/s  (us/step: fwd+vote+head 553, bwd+grads+adam 764)
+chunk    400  tokens     12800  loss 6.5966 nats = 9.5169 bits/token  lr 3.00e-03  761 tok/s  (us/step: fwd+vote+head 552, bwd+grads+adam 762)
+chunk    600  tokens     19200  loss 6.5843 nats = 9.4992 bits/token  lr 3.00e-03  761 tok/s  (us/step: fwd+vote+head 553, bwd+grads+adam 760)
+chunk    800  tokens     25600  loss 6.3669 nats = 9.1855 bits/token  lr 3.00e-03  761 tok/s  (us/step: fwd+vote+head 553, bwd+grads+adam 760)
+chunk   1000  tokens     32000  loss 6.2161 nats = 8.9679 bits/token  lr 3.00e-03  762 tok/s  (us/step: fwd+vote+head 553, bwd+grads+adam 758)
+chunk   1200  tokens     38400  loss 6.2593 nats = 9.0303 bits/token  lr 3.00e-03  763 tok/s  (us/step: fwd+vote+head 552, bwd+grads+adam 757)
+chunk   1400  tokens     44800  loss 6.1658 nats = 8.8954 bits/token  lr 3.00e-03  764 tok/s  (us/step: fwd+vote+head 551, bwd+grads+adam 757)
+chunk   1600  tokens     51200  loss 6.4447 nats = 9.2978 bits/token  lr 3.00e-03  765 tok/s  (us/step: fwd+vote+head 551, bwd+grads+adam 755)
+chunk   1800  tokens     57600  loss 6.3723 nats = 9.1932 bits/token  lr 3.00e-03  765 tok/s  (us/step: fwd+vote+head 551, bwd+grads+adam 755)
+chunk   2000  tokens     64000  loss 6.0504 nats = 8.7290 bits/token  lr 3.00e-03  764 tok/s  (us/step: fwd+vote+head 550, bwd+grads+adam 758)
+valid: 3200 tokens, loss 6.0694 nats = 8.7562 bits/token = 2.2106 bits/byte (3.961 B/token); train 83.9 s, valid 1.8 s
+moe: 20017 of 61440 experts updated, 7671209 (step, expert) updates, the busiest 58873, the 120 home experts 0.2 % of them
+--- the dense run on the same slice for the comparison
+cluster-gate run: 120 columns, L 32, warm 0, pin failures 0, thread 0 cpu 1, thread 119 cpu 240
+run: weights, cg and embedding loaded from /tmp/cortex/moe-init.bin
+run: 64000 tokens = 2000 chunks of 32, lr 0.003 (warm-up 50 chunks), b1 0.9 b2 0.95, bus off, valid 3200 tokens
+chunk    200  tokens      6400  loss 4.6259 nats = 6.6737 bits/token  lr 3.00e-03  1295 tok/s  (us/step: fwd+vote+head 326, bwd+grads+adam 446)
+chunk    400  tokens     12800  loss 4.5019 nats = 6.4948 bits/token  lr 3.00e-03  1297 tok/s  (us/step: fwd+vote+head 325, bwd+grads+adam 446)
+chunk    600  tokens     19200  loss 4.5708 nats = 6.5943 bits/token  lr 3.00e-03  1294 tok/s  (us/step: fwd+vote+head 326, bwd+grads+adam 446)
+chunk    800  tokens     25600  loss 4.4359 nats = 6.3996 bits/token  lr 3.00e-03  1297 tok/s  (us/step: fwd+vote+head 325, bwd+grads+adam 445)
+chunk   1000  tokens     32000  loss 4.3301 nats = 6.2471 bits/token  lr 3.00e-03  1295 tok/s  (us/step: fwd+vote+head 326, bwd+grads+adam 446)
+chunk   1200  tokens     38400  loss 4.4573 nats = 6.4305 bits/token  lr 3.00e-03  1292 tok/s  (us/step: fwd+vote+head 325, bwd+grads+adam 448)
+chunk   1400  tokens     44800  loss 4.2731 nats = 6.1648 bits/token  lr 3.00e-03  1291 tok/s  (us/step: fwd+vote+head 326, bwd+grads+adam 448)
+chunk   1600  tokens     51200  loss 4.6744 nats = 6.7437 bits/token  lr 3.00e-03  1292 tok/s  (us/step: fwd+vote+head 326, bwd+grads+adam 448)
+chunk   1800  tokens     57600  loss 4.5548 nats = 6.5711 bits/token  lr 3.00e-03  1290 tok/s  (us/step: fwd+vote+head 326, bwd+grads+adam 448)
+chunk   2000  tokens     64000  loss 4.2276 nats = 6.0992 bits/token  lr 3.00e-03  1291 tok/s  (us/step: fwd+vote+head 326, bwd+grads+adam 448)
+valid: 3200 tokens, loss 4.3305 nats = 6.2476 bits/token = 1.5773 bits/byte (3.961 B/token); train 49.5 s, valid 1.0 s
+=== gates done 2026-10-27 07:07:56

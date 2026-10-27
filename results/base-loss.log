@@ -1,2 +1,30 @@
 # the chat-base run (data/chat-base/train.u16, 29,992,115 tokens: TinyChat 143k + PersonaChat 8,939 + DailyDialog 11,111 + everyday 2 x 1,999, shuffled; lr 3e-3, window 300, halvings 3, no stop): data/live-base/ckpt-N.bin on data/chat-base/valid.u16[0..27447) per 25,000 chunks; the final on 82,334 tokens. Floors on the same tokens: unigram 8.5276, bigram 4.8214, trigram 3.8883 bits/token (data/chat-base/floors.txt)
 ref-loss: data/chat-base/ckpt-init.bin on data/chat-base/valid.u16[0..27447): 8.4842 nats = 12.2400 bits/token over 27446 predictions, top-1 0.0002, 128.7 s
+ref-loss: data/live-base/ckpt-25001.bin on data/chat-base/valid.u16[0..27447): 4.0658 nats = 5.8657 bits/token over 27446 predictions, top-1 0.3567, 108.4 s
+ref-loss: data/live-base/ckpt-50001.bin on data/chat-base/valid.u16[0..27447): 4.0265 nats = 5.8091 bits/token over 27446 predictions, top-1 0.3702, 108.3 s
+ref-loss: data/live-base/ckpt-75001.bin on data/chat-base/valid.u16[0..27447): 4.1234 nats = 5.9489 bits/token over 27446 predictions, top-1 0.3469, 108.3 s
+ref-loss: data/live-base/ckpt-100001.bin on data/chat-base/valid.u16[0..27447): 4.2872 nats = 6.1851 bits/token over 27446 predictions, top-1 0.3244, 108.4 s
+ref-loss: data/live-base/ckpt-125001.bin on data/chat-base/valid.u16[0..27447): 3.9414 nats = 5.6863 bits/token over 27446 predictions, top-1 0.3739, 108.2 s
+ref-loss: data/live-base/ckpt-150001.bin on data/chat-base/valid.u16[0..27447): 3.9797 nats = 5.7414 bits/token over 27446 predictions, top-1 0.3750, 108.1 s
+ref-loss: data/live-base/ckpt-175001.bin on data/chat-base/valid.u16[0..27447): 3.9869 nats = 5.7519 bits/token over 27446 predictions, top-1 0.3717, 107.8 s
+ref-loss: data/live-base/ckpt-200001.bin on data/chat-base/valid.u16[0..27447): 4.0116 nats = 5.7875 bits/token over 27446 predictions, top-1 0.3756, 107.9 s
+ref-loss: data/live-base/ckpt-225001.bin on data/chat-base/valid.u16[0..27447): 4.0859 nats = 5.8948 bits/token over 27446 predictions, top-1 0.3642, 108.2 s
+ref-loss: data/live-base/ckpt-250001.bin on data/chat-base/valid.u16[0..27447): 4.1283 nats = 5.9558 bits/token over 27446 predictions, top-1 0.3629, 108.1 s
+ref-loss: data/live-base/ckpt-275001.bin on data/chat-base/valid.u16[0..27447): 3.9465 nats = 5.6936 bits/token over 27446 predictions, top-1 0.3788, 108.4 s
+ref-loss: data/live-base/ckpt-300001.bin on data/chat-base/valid.u16[0..27447): 4.4436 nats = 6.4107 bits/token over 27446 predictions, top-1 0.3215, 108.2 s
+ref-loss: data/live-base/ckpt-325001.bin on data/chat-base/valid.u16[0..27447): 4.2990 nats = 6.2021 bits/token over 27446 predictions, top-1 0.3106, 107.7 s
+ref-loss: data/live-base/ckpt-350001.bin on data/chat-base/valid.u16[0..27447): 4.1592 nats = 6.0004 bits/token over 27446 predictions, top-1 0.3338, 108.2 s
+ref-loss: data/live-base/ckpt-375001.bin on data/chat-base/valid.u16[0..27447): 4.1904 nats = 6.0454 bits/token over 27446 predictions, top-1 0.3283, 108.0 s
+ref-loss: data/live-base/ckpt-400001.bin on data/chat-base/valid.u16[0..27447): 3.9339 nats = 5.6754 bits/token over 27446 predictions, top-1 0.3794, 107.8 s
+ref-loss: data/live-base/ckpt-425001.bin on data/chat-base/valid.u16[0..27447): 4.0793 nats = 5.8851 bits/token over 27446 predictions, top-1 0.3669, 108.2 s
+ref-loss: data/live-base/ckpt-450001.bin on data/chat-base/valid.u16[0..27447): 3.9261 nats = 5.6642 bits/token over 27446 predictions, top-1 0.3791, 108.3 s
+ref-loss: data/live-base/ckpt-475001.bin on data/chat-base/valid.u16[0..27447): 3.9451 nats = 5.6916 bits/token over 27446 predictions, top-1 0.3790, 107.9 s
+ref-loss: data/live-base/ckpt-500001.bin on data/chat-base/valid.u16[0..27447): 3.9539 nats = 5.7042 bits/token over 27446 predictions, top-1 0.3816, 108.1 s
+ref-loss: data/live-base/ckpt-525001.bin on data/chat-base/valid.u16[0..27447): 3.9231 nats = 5.6598 bits/token over 27446 predictions, top-1 0.3806, 108.1 s
+ref-loss: data/live-base/ckpt-550001.bin on data/chat-base/valid.u16[0..27447): 6.9842 nats = 10.0761 bits/token over 27446 predictions, top-1 0.2270, 108.6 s
+ref-loss: data/live-base/ckpt-575001.bin on data/chat-base/valid.u16[0..27447): 3.9389 nats = 5.6827 bits/token over 27446 predictions, top-1 0.3779, 132.0 s
+ref-loss: data/live-base/ckpt-600001.bin on data/chat-base/valid.u16[0..27447): 3.9586 nats = 5.7111 bits/token over 27446 predictions, top-1 0.3790, 116.7 s
+# note 06:2x: ckpt-550001 (10.0761) is a transient bad spot whose carried fast-weight state diverges along the stream (7.08 from a zero state on the first 5,000 tokens, 7.27 on tokens 20,000-25,000 from a zero state; neighbours 546188 5.9585 and 555001 5.7001 run flat); the file is structurally normal (memory: phi-cortex-fastweight-instability)
+ref-loss: data/live-base/ckpt-625001.bin on data/chat-base/valid.u16[0..27447): 3.9737 nats = 5.7328 bits/token over 27446 predictions, top-1 0.3806, 108.6 s
+ref-loss: data/live-base/ckpt-650001.bin on data/chat-base/valid.u16[0..27447): 4.0192 nats = 5.7985 bits/token over 27446 predictions, top-1 0.3798, 109.3 s
+ref-loss: data/live-base/ckpt-661017.bin on data/chat-base/valid.u16[0..82334): 3.9013 nats = 5.6284 bits/token over 82333 predictions, top-1 0.3821, 328.2 s

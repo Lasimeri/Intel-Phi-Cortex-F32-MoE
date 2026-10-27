@@ -123,3 +123,37 @@ First live run (17:33, results/live.log): from data/ts10m/ckpt-312500.bin at chu
   checkpoint names start at 0 (stream chunk = name + `--start`).
 - **The runs of the day** (results/live.log): the first live run from ckpt-312500 (10,021 chunks, ended by the
   policy), the chat passes and the stories runs of docs/CHAT.md.
+
+## The memory in the live loop (2026-10-27 06:3x: built; its gate tools/live-ng-gate.sh not yet run)
+
+The n-gram memory (MoE stage 1, the chunk layer of PLAN-MOE.md) trains with a live run when the coach is given
+`--ngram FILE`. FILE holds the tables (host/ngtables.h: 2 orders x 2^21 rows x 128 F32 = 2 GiB, created zeroed when
+absent) and belongs in RAM (/dev/shm): the coach maps it shared and trains it in place, and every client of the live
+model maps the same file read-only for its rows (`cortex --live ... --ngram FILE`, the harness's `--ngram FILE`, the
+coach's own sampler), so inference reads the rows as they are trained.
+
+| piece | what it does |
+|---|---|
+| the coach's ring thread (`ng_serve`) | the batch trainer's lockstep with host/ngserve.c: chunk c's row gradients applied once the card's DMA landed them (CX_NGR_C_SEQ), then chunk c + 2's rows gathered into the slot the card finished with and published (CX_NGR_H_SEQ); the chunks are the run's, numbered from 0, their stream positions from `--start`; `--row-lr X` the rows' SGD step (0.1 as the mixed run B) |
+| CX_T_NG (host word) and CX_T_NG_ACK (card word) | the coach sets CX_T_NG while it serves; the daemon trains a chunk with the memory only when CX_T_NG is set and gates were loaded (`--gates` with `--ckpt`: a run's ckpt-N-gates.f32 or `ones`), and says so in CX_T_NG_ACK; the coach stops the run if the daemon answers 0 (a run that would silently train the plain model) |
+| the daemon (card/cortexd.c) | takes a chunk only once its rows are published (so it never waits in the ring), pulls them by DMA (cl_ng_begin), pushes the row gradients back and trains the gates with Adam (cl_bwd_chunk), exactly as the batch trainer; a save pushes the gates after the checkpoint (CX_STAGE_GATES, the push's last line) |
+| checkpoints | ckpt-N.bin as before, ckpt-N-gates.f32 beside it, and the tables as tables-N.f32 every `--tables-every` chunks (default 100,000, at a `--save-every` checkpoint), on a `save` line and at the end (2 GiB each; the final copy is exact, the others trail the last row updates by the copy's seconds) |
+| clients | CX_OP_NGRAM tells the daemon whether the session writes rows (a client without `--ngram` gets the plain model, never stale rows); `cortex --ngram TABLES` maps the file in milliseconds (the 2 GiB read of the earlier form is gone); `tools/ref-loss.c --ngram TABLES GATES` measures a checkpoint with its memory on the host |
+
+Not measured yet: the gate (losses, final checkpoint, gates and tables identical to cluster-gate + ngserve over
+2,000 chunks) and the cost of the ring thread beside the coach's main loop.
+
+## The MoE model in the live loop (2026-10-27 07:1x, gated)
+
+`coach --ckpt CKPT --moe [--moe-bias X] [--bias-decay N] [--expert-lr X]`: the LOAD carries arg bit 1, the daemon
+fills its pool (4 GiB of GDDR huge pages, allocated at start) from the checkpoint's MLP blocks (expert e = column e
+mod 120) and every head routes from then on, in training chunks and in clients' steps alike (card/moe.h, PLAN-MOE.md
+"Stage 2 build"). The bonus and the experts' step are host words the daemon reads with every chunk and every session
+command (CX_M_BIAS, CX_M_LR): the coach writes them at start, `bias X` and `exlr X` lines change them, and
+`--bias-decay N` lowers the bonus linearly to 0 over the run's first N chunks at each report. A save puts each head's
+home expert into its slot before the push, so the checkpoints keep the dense format; the pool itself lives for the
+daemon's life (a LOAD without the bit returns to the dense model), its save is the next piece. The report line
+carries the experts updated so far (CX_T_MOE_DISTINCT) and the bonus in effect. Gate (results/live-moe-gate.log):
+2,000 chunks from data/live-base/ckpt-661017.bin with bonus 100 and expert lr 0.05: the 20 per-report losses and the
+final checkpoint's md5 identical to `cluster-gate-moe run` with the same knobs, 824 against 822 tok/s. A client
+needs nothing new: `cortex --live` and the harness talk to the MoE model as they did to the dense one.

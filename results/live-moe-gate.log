@@ -1,0 +1,35 @@
+=== live MoE gate 2026-10-27 07:08:13: data/live-base/ckpt-661017.bin, slice data/chat-base/slice-64k.u16 (2,000 chunks), home bonus 100, expert lr 0.05
+--- the card: the batch binary and the data
+--- reference: cluster-gate-moe run, the card without the daemon
+run: weights, cg and embedding loaded from /tmp/cortex/lm-init.bin
+run: 64000 tokens = 2000 chunks of 32, lr 0.003 (warm-up 50 chunks), b1 0.9 b2 0.95, bus off, valid 3200 tokens
+moe: on, pool 61440 experts x 69888 B = 4293918720 B filled from the columns' MLPs in 0.17 s (expert e = column e mod 120), keys seeded, home bias 100, expert lr 0.05
+chunk    100  tokens      3200  loss 4.5620 nats = 6.5816 bits/token  lr 3.00e-03  821 tok/s  (us/step: fwd+vote+head 544, bwd+grads+adam 673)
+chunk   1000  tokens     32000  loss 4.6250 nats = 6.6725 bits/token  lr 3.00e-03  822 tok/s  (us/step: fwd+vote+head 541, bwd+grads+adam 674)
+chunk   2000  tokens     64000  loss 4.2543 nats = 6.1377 bits/token  lr 3.00e-03  822 tok/s  (us/step: fwd+vote+head 542, bwd+grads+adam 674)
+valid: 3200 tokens, loss 4.3465 nats = 6.2707 bits/token = 1.5831 bits/byte (3.961 B/token); train 77.8 s, valid 1.7 s
+moe: 120 of 61440 experts updated, 7680000 (step, expert) updates, the busiest 64000, the 120 home experts 100.0 % of them
+27f3328c8a8710b3eaf39d937a9fa137  /tmp/cortex/lmref/ckpt.bin
+reference: 20 reports, final checkpoint md5 27f3328c8a8710b3eaf39d937a9fa137
+--- the daemon (build/card/cortexd, channel 3), then the live half: coach --ckpt data/live-base/ckpt-661017.bin --moe --moe-bias 100 --expert-lr 0.05
+07:09:47 coach: data/chat-base/slice-64k.u16 chunks 0..1999 (2000 chunks = 64000 tokens), lr 3.000e-03, report every 100, window 10, min gain 0.010, halvings 3, sample every 0 x 128 tokens, save every
+07:09:47 coach: data/live-base/ckpt-661017.bin loaded into the daemon
+07:09:47 coach: live (magic set, 960 chunks in the ring)
+07:09:51 report chunk 100  tokens 3200  loss 4.5620 nats = 6.5816 bits/token  lr 3.000e-03  scale 1.0000  824 tok/s  ring 960 ahead  moe 120 experts
+07:10:26 report chunk 1000  tokens 32000  loss 4.6250 nats = 6.6725 bits/token  lr 3.000e-03  scale 1.0000  824 tok/s  ring 960 ahead  moe 120 experts
+07:11:05 report chunk 2000  tokens 64000  loss 4.2543 nats = 6.1377 bits/token  lr 3.000e-03  scale 1.0000  824 tok/s  ring 0 ahead  moe 120 experts
+07:11:05 coach: the stream is exhausted at chunk 2000
+07:11:05 checkpoint (final): results/live-moe-gate/live/ckpt-2000.bin, 23463424 bytes, chunk 2000, push 1, copied in 32 ms
+07:11:05 coach: run ended at chunk 2000 (64000 tokens), 0 halvings, final scale 1.0000
+losses: PASSED, 20 per-report losses identical to the batch trainer
+checkpoint: PASSED, md5 27f3328c8a8710b3eaf39d937a9fa137 = the batch trainer's (heads and home experts)
+--- the daemon's log
+live: chunk    1600  tokens      51200  loss 4.7645 nats = 6.8737 bits/token  lr 3.00e-03  825 tok/s  moe: bias 100, expert lr 0.05, 120 experts updated
+live: chunk    1700  tokens      54400  loss 4.4712 nats = 6.4506 bits/token  lr 3.00e-03  825 tok/s  moe: bias 100, expert lr 0.05, 120 experts updated
+live: chunk    1800  tokens      57600  loss 4.6569 nats = 6.7185 bits/token  lr 3.00e-03  825 tok/s  moe: bias 100, expert lr 0.05, 120 experts updated
+live: chunk    1900  tokens      60800  loss 4.1905 nats = 6.0456 bits/token  lr 3.00e-03  823 tok/s  moe: bias 100, expert lr 0.05, 120 experts updated
+live: chunk    2000  tokens      64000  loss 4.2543 nats = 6.1377 bits/token  lr 3.00e-03  824 tok/s  moe: bias 100, expert lr 0.05, 120 experts updated
+cortexd: live: stop flag at chunk 2000
+cortexd: live: checkpoint 1 at chunk 2000 pushed into the host stage (6.5 ms)
+cortexd: live: run ended
+=== gate done 2026-10-27 07:11:05; the daemon serves the live MoE model

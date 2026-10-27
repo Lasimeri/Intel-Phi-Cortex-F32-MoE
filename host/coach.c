@@ -30,6 +30,28 @@
  *     --log FILE           the log (default results/live.log, appended)
  *     --cortex PATH        the client binary (default build/host/cortex)
  *     --vocab FILE         the BPE vocabulary (default data/bpe/vocab4096.txt)
+ *     --ngram FILE         the n-gram memory (MoE stage 1) trains with the run: FILE holds the tables (host/ngtables.h:
+ *                          2 orders x CX_NG_ROWS rows x 128 F32, 2 GiB, created zeroed when absent; keep it in
+ *                          /dev/shm), mapped shared and trained in place. A thread serves the daemon's row ring in the
+ *                          batch trainer's lockstep (host/ngserve.c): the rows of chunk c + 2 go out once the row
+ *                          gradients of chunk c are back and applied. The sampler reads its rows from the same file,
+ *                          as any client of the live model does (cortex --live ... --ngram FILE).
+ *     --row-lr X           the rows' SGD step (default 0.1, the mixed run B's)
+ *     --gates FILE|ones    the gates staged with --ckpt: a run's ckpt-N-gates.f32, or ones (the batch trainer's
+ *                          start; the default). The gates train on the card (Adam) and come back with every checkpoint
+ *                          as ckpt-N-gates.f32.
+ *     --tables-every N     the tables copied beside the checkpoint as tables-N.f32 every N chunks (at a --save-every
+ *                          checkpoint), on a `save` line and at the end (default 100000; a copy is 2 GiB and holds the
+ *                          main loop for its write; the ring thread keeps serving meanwhile)
+ *     --moe                MoE stage 2 (lib/cx-moe.h, card/moe.h): the LOAD of --ckpt fills the daemon's pool from the
+ *                          checkpoint's MLP blocks (expert e = column e mod 120) and the heads route through it from
+ *                          then on; the checkpoints keep the dense format with the home experts in the MLP regions
+ *     --moe-bias X         the home pair's routing bonus (default 100: exact home routing = the dense model; lower it
+ *                          across runs to open the pool); `bias X` as a command line changes it live
+ *     --bias-decay N       the bonus falls linearly from --moe-bias to 0 over the run's first N chunks (written with
+ *                          each report), so the heads leave their home experts one by one as the keys' scores pass
+ *                          it, instead of all at once (a run that starts free lost 7 bits/token, PLAN-MOE.md)
+ *     --expert-lr X        the experts' SGD step (default 0.05); `exlr X` as a command line changes it live
  *
  * Policy v2 (docs/COACH.md of the F64 tree, measured there): every W reports the mean training loss of the window is
  * compared with the previous window; a gain under B is a plateau; a plateau halves the scale down to 2^-H; at the
@@ -42,8 +64,11 @@
 #include "../tools/coherence.h"
 #include "../lib/cx-proto.h"
 #include "../lib/cx-col.h"
+#include "../lib/cx-moe.h"
+#include "ngtables.h"
 #include <errno.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <stdarg.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -67,6 +92,12 @@ static const char *prompt = "Once upon a time", *orchestra, *words = "data/wordl
 static long start_chunk, max_chunks = -1, sample_every = 2000, save_every;
 static int sample_tokens = 128, every = 100, window = 10, max_halvings = 3, start_paused, no_stop;
 static double lr = 3e-3, min_gain = 0.01, rep4_rise = 0.1;
+static const char *ng_path, *gates_spec = "ones";   /* --ngram: the memory trains with the run; --gates: staged with --ckpt */
+static double row_lr = 0.1;
+static long tables_every = 100000;
+static int moe, moe_knobs_given;                   /* --moe: the LOAD fills the pool; the knobs are written when given or with --moe */
+static double moe_bias = CX_EX_HOME_BIAS, expert_lr = CX_EX_LR;
+static long bias_decay;                            /* --bias-decay: chunks over which the bonus falls to 0 (0 = constant) */
 
 /* ---- the log ---- */
 static FILE *lg;
@@ -104,6 +135,69 @@ static void feed(void)
 	}
 }
 
+/* ---- the n-gram memory: the tables in the shared file, the daemon's row ring served in the batch trainer's lockstep
+ * (host/ngserve.c): chunk c's row gradients applied once the card's DMA has landed them (CX_NGR_C_SEQ), then chunk
+ * c + 2's rows gathered into the slot the card has finished with and published (CX_NGR_H_SEQ). The chunks are the
+ * run's, numbered from 0 as the daemon counts them; their stream positions start at --start ---- */
+static ngtables NG;
+static pthread_t ng_thread;
+static volatile int ng_stop;
+static volatile long ng_served;   /* chunks whose row gradients have been applied */
+static int tables_wanted;         /* the next checkpoint takes a copy of the tables */
+static double now_s(void);
+
+static void *ng_serve(void *arg)
+{
+	(void)arg;
+	for (long c = 0; c < total_chunks; c++) {
+		while (LD64(CX_NGR_C_SEQ) < (uint64_t)c + 1) { if (ng_stop) return NULL; usleep(50); }
+		ng_apply(&NG, tok, ntok, start_chunk + c, CX_T_L, (const float *)(part + CX_NGR_GRAD(c & 1)), (float)row_lr);
+		ng_served = c + 1;
+		if (c + 2 < total_chunks) {
+			ng_gather(&NG, tok, ntok, start_chunk + c + 2, CX_T_L, (float *)(part + CX_NGR_ROWS(c & 1)));
+			ST64(CX_NGR_H_SEQ, (uint64_t)c + 3);
+		}
+	}
+	return NULL;
+}
+
+/* the ring's first two chunks published and the thread started; the daemon reads CX_T_NG with every chunk */
+static int ng_start(void)
+{
+	ST64(CX_NGR_C_SEQ, 0);
+	ST64(CX_NGR_H_SEQ, 0);
+	for (long c = 0; c < 2 && c < total_chunks; c++) ng_gather(&NG, tok, ntok, start_chunk + c, CX_T_L, (float *)(part + CX_NGR_ROWS(c & 1)));
+	ST64(CX_NGR_H_SEQ, total_chunks < 2 ? (uint64_t)total_chunks : 2);
+	ST32(CX_T_NG, 1);
+	if (pthread_create(&ng_thread, NULL, ng_serve, NULL)) { logline("coach: cannot start the memory's ring thread"); return -1; }
+	return 0;
+}
+
+/* the thread ended once the last gradients are applied, the ring word cleared */
+static void ng_end(long consumed)
+{
+	const double t0 = now_s();
+	while (ng_served < consumed && now_s() - t0 < 5.0) usleep(1000);
+	ng_stop = 1;
+	pthread_join(ng_thread, NULL);
+	ST32(CX_T_NG, 0);
+	if (ng_served < consumed) logline("memory: %ld of %ld chunks' row gradients applied (the rest never landed)", ng_served, consumed);
+	if (NG.rows_zeroed) logline("memory: %ld rows found non-finite and zeroed during the run", NG.rows_zeroed);
+}
+
+/* the tables written beside the checkpoints: the file synced, then copied whole (2 GiB; the main loop waits) */
+static int copy_tables(long chunk)
+{
+	char path[1024];
+	snprintf(path, sizeof path, "%s/tables-%ld.f32", ckdir, chunk);
+	const double t0 = now_s();
+	if (ng_sync(&NG)) logline("tables: msync %s: %s", ng_path, strerror(errno));
+	FILE *f = fopen(path, "wb");
+	if (!f || fwrite(NG.map, 1, NG.bytes, f) != NG.bytes || fclose(f)) { logline("tables: cannot write %s: %s", path, strerror(errno)); return -1; }
+	logline("tables: %s, %zu bytes, written in %.1f s", path, NG.bytes, now_s() - t0);
+	return 0;
+}
+
 /* ---- the sampler: the client against the live weights, the text scored ---- */
 static double rep_hist[3];
 static int rep_n, rising_used, halvings;
@@ -116,8 +210,9 @@ static void request_save(void);   /* below, with the checkpoint collector */
 static void sample(long chunk, int seed)
 {
 	char cmd[4096];
-	snprintf(cmd, sizeof cmd, "%s --live \"%s\" %d --bus 0 --seed %d --vocab %s%s%s%s%s 2>/dev/null", cortex_bin, prompt, sample_tokens, seed, vocab,
-	         orchestra ? " --orchestra " : "", orchestra ? orchestra : "", orchestra ? " --words " : "", orchestra ? words : "");
+	snprintf(cmd, sizeof cmd, "%s --live \"%s\" %d --bus 0 --seed %d --vocab %s%s%s%s%s%s%s 2>/dev/null", cortex_bin, prompt, sample_tokens, seed, vocab,
+	         orchestra ? " --orchestra " : "", orchestra ? orchestra : "", orchestra ? " --words " : "", orchestra ? words : "",
+	         ng_path ? " --ngram " : "", ng_path ? ng_path : "");
 	FILE *p = popen(cmd, "r");
 	if (!p) { logline("sample: cannot run %s", cmd); return; }
 	static char text[65536];
@@ -165,7 +260,9 @@ static void commands(void)
 		else if (sscanf(s, "every %ld", &n) == 1 && n > 0) { every = (int)n; ST32(CX_T_EVERY, (uint32_t)every); logline("command: report every %d chunks", every); }
 		else if (!strcmp(s, "pause")) { set_flags(flags | 4); logline("command: pause"); }
 		else if (!strcmp(s, "resume")) { set_flags(flags & ~4ull); logline("command: resume"); }
-		else if (!strcmp(s, "save")) { request_save(); logline("command: save requested"); }
+		else if (!strcmp(s, "save")) { request_save(); if (ng_path) tables_wanted = 1; logline("command: save requested%s", ng_path ? " (with the tables)" : ""); }
+		else if (sscanf(s, "bias %lf", &x) == 1 && x >= 0) { moe_bias = x; ST64(CX_M_BIAS, kbits(moe_bias)); logline("command: moe bias %g", moe_bias); }
+		else if (sscanf(s, "exlr %lf", &x) == 1 && x >= 0) { expert_lr = x; ST64(CX_M_LR, kbits(expert_lr)); logline("command: expert lr %g", expert_lr); }
 		else if (!strcmp(s, "stop")) { stop_requested = 1; logline("command: stop requested"); }
 		else if (!strcmp(s, "sample")) { sample_requested = 1; logline("command: sample requested"); }
 		else logline("command: unknown line '%s'", s);
@@ -193,6 +290,12 @@ static int collect_ckpt(const char *why)
 	FILE *f = fopen(path, "wb");
 	if (!f || fwrite(part + CX_STAGE, 1, CX_STAGE_CKPT, f) != CX_STAGE_CKPT || fclose(f)) { logline("checkpoint (%s): cannot write %s: %s", why, path, strerror(errno)); return -1; }
 	logline("checkpoint (%s): %s, %u bytes, chunk %lu, push %lu, copied in %.0f ms", why, path, (unsigned)CX_STAGE_CKPT, (unsigned long)chunk, (unsigned long)saves, (now_s() - t0) * 1e3);
+	if (ng_path) {   /* the gates came with the push; the tables when due */
+		snprintf(path, sizeof path, "%s/ckpt-%lu-gates.f32", ckdir, (unsigned long)chunk);
+		f = fopen(path, "wb");
+		if (!f || fwrite(part + CX_STAGE_GATES, 1, CX_NG_ORDERS * CX_DE * 4, f) != CX_NG_ORDERS * CX_DE * 4 || fclose(f)) logline("checkpoint (%s): cannot write %s: %s", why, path, strerror(errno));
+		if (tables_wanted || !strcmp(why, "final")) { tables_wanted = 0; copy_tables((long)chunk); }
+	}
 	return 0;
 }
 
@@ -220,7 +323,7 @@ static int wait_ack_bit(uint64_t bit, int set, double timeout_s)
 /* ---- main ---- */
 int main(int argc, char **argv)
 {
-	if (argc < 2) { fprintf(stderr, "usage: coach TOKENS.u16 [--ckpt CKPT] [--start CHUNK] [--chunks N] [--lr X] [--every N] [--window W] [--min-gain B] [--halvings H] [--sample-every N] [--sample-tokens N] [--save-every N] [--no-stop] [--prompt TEXT] [--orchestra NGC] [--words LIST] [--cmd FILE] [--ckdir DIR] [--paused] [--log FILE] [--cortex PATH] [--vocab FILE]\n"); return 2; }
+	if (argc < 2) { fprintf(stderr, "usage: coach TOKENS.u16 [--ckpt CKPT] [--start CHUNK] [--chunks N] [--lr X] [--every N] [--window W] [--min-gain B] [--halvings H] [--sample-every N] [--sample-tokens N] [--save-every N] [--no-stop] [--prompt TEXT] [--orchestra NGC] [--words LIST] [--cmd FILE] [--ckdir DIR] [--paused] [--log FILE] [--cortex PATH] [--vocab FILE] [--ngram TABLES.f32 [--row-lr X] [--gates FILE|ones] [--tables-every N]] [--moe] [--moe-bias X] [--bias-decay N] [--expert-lr X]\n"); return 2; }
 	tokens_path = argv[1];
 	for (int i = 2; i < argc; i++) {
 		if (!strcmp(argv[i], "--ckpt") && i + 1 < argc) ckpt = argv[++i];
@@ -244,6 +347,14 @@ int main(int argc, char **argv)
 		else if (!strcmp(argv[i], "--log") && i + 1 < argc) log_path = argv[++i];
 		else if (!strcmp(argv[i], "--cortex") && i + 1 < argc) cortex_bin = argv[++i];
 		else if (!strcmp(argv[i], "--vocab") && i + 1 < argc) vocab = argv[++i];
+		else if (!strcmp(argv[i], "--ngram") && i + 1 < argc) ng_path = argv[++i];
+		else if (!strcmp(argv[i], "--row-lr") && i + 1 < argc) row_lr = atof(argv[++i]);
+		else if (!strcmp(argv[i], "--gates") && i + 1 < argc) gates_spec = argv[++i];
+		else if (!strcmp(argv[i], "--tables-every") && i + 1 < argc) tables_every = atol(argv[++i]);
+		else if (!strcmp(argv[i], "--moe")) moe = 1;
+		else if (!strcmp(argv[i], "--moe-bias") && i + 1 < argc) { moe_bias = atof(argv[++i]); moe_knobs_given = 1; }
+		else if (!strcmp(argv[i], "--bias-decay") && i + 1 < argc) { bias_decay = atol(argv[++i]); moe_knobs_given = 1; }
+		else if (!strcmp(argv[i], "--expert-lr") && i + 1 < argc) { expert_lr = atof(argv[++i]); moe_knobs_given = 1; }
 		else { fprintf(stderr, "coach: unknown option %s\n", argv[i]); return 2; }
 	}
 	lg = fopen(log_path, "a");
@@ -271,15 +382,21 @@ int main(int argc, char **argv)
 	close(fd);
 	if (part == MAP_FAILED) { perror("mmap"); return 1; }
 	if (mkdir(ckdir, 0755) && errno != EEXIST) { perror(ckdir); return 1; }
+	if (ng_path && ng_open(&NG, ng_path, 1)) return 1;
+	if (moe && !ckpt) { fprintf(stderr, "coach: --moe needs --ckpt (the LOAD fills the pool from it)\n"); return 2; }
+	if (moe || moe_knobs_given) { ST64(CX_M_BIAS, kbits(moe_bias)); ST64(CX_M_LR, kbits(expert_lr)); }
 	saves_seen = LD64(CX_T_SAVES);
 	if (cmd_path) { struct stat st; if (!stat(cmd_path, &st)) cmd_offset = st.st_size; }   /* only lines appended from now on */
-	logline("coach: %s chunks %ld..%ld (%ld chunks = %ld tokens), lr %.3e, report every %d, window %d, min gain %.3f, halvings %d, sample every %ld x %d tokens, save every %ld%s%s%s, cmd %s, checkpoints %s/",
+	char mem[1400] = "";
+	if (ng_path) snprintf(mem, sizeof mem, ", n-gram memory %s (row lr %g, gates %s, tables every %ld)", ng_path, row_lr, gates_spec, tables_every);
+	if (moe || moe_knobs_given) snprintf(mem + strlen(mem), sizeof mem - strlen(mem), ", MoE%s (bias %g%s%ld%s, expert lr %g)", moe ? " loaded" : " knobs", moe_bias, bias_decay ? " to 0 over " : "", bias_decay, bias_decay ? " chunks" : "", expert_lr);
+	logline("coach: %s chunks %ld..%ld (%ld chunks = %ld tokens), lr %.3e, report every %d, window %d, min gain %.3f, halvings %d, sample every %ld x %d tokens, save every %ld%s%s%s, cmd %s, checkpoints %s/%s",
 	        tokens_path, start_chunk, start_chunk + total_chunks - 1, total_chunks, total_chunks * CX_T_L, lr, every, window, min_gain, max_halvings, sample_every, sample_tokens,
-	        save_every, no_stop ? ", no stop" : "", orchestra ? ", orchestra " : "", orchestra ? orchestra : "", cmd_path ? cmd_path : "(none)", ckdir);
+	        save_every, no_stop ? ", no stop" : "", orchestra ? ", orchestra " : "", orchestra ? orchestra : "", cmd_path ? cmd_path : "(none)", ckdir, mem);
 	/* the initial weights */
 	if (ckpt) {
 		char cmd[4096];
-		snprintf(cmd, sizeof cmd, "%s --load %s --bus 0 --vocab %s", cortex_bin, ckpt, vocab);
+		snprintf(cmd, sizeof cmd, "%s --load %s --bus 0 --vocab %s%s%s%s", cortex_bin, ckpt, vocab, ng_path ? " --gates " : "", ng_path ? gates_spec : "", moe ? " --moe" : "");
 		const int rc = system(cmd);
 		if (rc) { logline("coach: loading %s failed (rc %d)", ckpt, rc); return 1; }
 		logline("coach: %s loaded into the daemon", ckpt);
@@ -292,28 +409,42 @@ int main(int argc, char **argv)
 	ST64(CX_T_SCALE, kbits(1.0));
 	set_flags(start_paused ? 4 : 0);
 	ST32(CX_T_EVERY, (uint32_t)every);
+	if (ng_path) { if (ng_start()) return 1; } else ST32(CX_T_NG, 0);
 	const uint64_t report0 = LD64(CX_T_REPORT);
 	feed();
 	__atomic_thread_fence(__ATOMIC_SEQ_CST);
 	ST32(CX_T_MAGIC, CX_T_MAGIC_VAL);
-	logline("coach: live (magic set, %ld chunks in the ring)", fed);
+	logline("coach: live (magic set, %ld chunks in the ring%s)", fed, ng_path ? ", the memory's rows of chunks 0 and 1 published" : "");
 
 	uint64_t last_report = report0;
 	double win_sum = 0, prev_mean = 0;
 	int win_n = 0, have_prev = 0, neg_windows = 0;
-	long next_sample = sample_every ? sample_every : -1, next_save = save_every ? save_every : -1, consumed = 0;
-	int sample_seed = 1;
+	long next_sample = sample_every ? sample_every : -1, next_save = save_every ? save_every : -1, next_tables = tables_every, consumed = 0;
+	int sample_seed = 1, ng_checked = 0;
 	for (;;) {
 		usleep(5000);
 		feed();
 		commands();
 		save_handshake();
 		consumed = (long)LD64(CX_T_C_CHUNKS);
+		if (ng_path && !ng_checked && consumed > 0) {   /* the daemon's word says whether it trains the memory (gates loaded, CX_T_NG seen) */
+			ng_checked = 1;
+			if (LD32(CX_T_NG_ACK) == 1) logline("coach: the daemon trains the memory with the ring");
+			else { logline("coach: the daemon trains WITHOUT the memory (no gates loaded: give --ckpt with --gates): stopping"); stop_requested = 1; }
+		}
 		const uint64_t report = LD64(CX_T_REPORT);
 		if (report != last_report) {
 			last_report = report;
 			const double loss = kdbl(LD64(CX_T_LOSS)), lr_eff = kdbl(LD64(CX_T_LR_EFF)), tokps = kdbl(LD64(CX_T_TOKPS));
-			logline("report chunk %ld  tokens %ld  loss %.4f nats = %.4f bits/token  lr %.3e  scale %.4f  %.0f tok/s  ring %ld ahead", consumed, consumed * CX_T_L, loss, loss / CX_LN2, lr_eff, scale, tokps, fed - consumed);
+			char moe_note[96] = "";
+			if (LD32(CX_T_MOE)) {
+				if (bias_decay > 0) {   /* the bonus on its schedule, written for the next chunks */
+					const double b = consumed >= bias_decay ? 0.0 : moe_bias * (1.0 - (double)consumed / (double)bias_decay);
+					ST64(CX_M_BIAS, kbits(b));
+					snprintf(moe_note, sizeof moe_note, "  moe %u experts, bias %.3g", LD32(CX_T_MOE_DISTINCT), b);
+				} else snprintf(moe_note, sizeof moe_note, "  moe %u experts", LD32(CX_T_MOE_DISTINCT));
+			}
+			logline("report chunk %ld  tokens %ld  loss %.4f nats = %.4f bits/token  lr %.3e  scale %.4f  %.0f tok/s  ring %ld ahead%s", consumed, consumed * CX_T_L, loss, loss / CX_LN2, lr_eff, scale, tokps, fed - consumed, moe_note);
 			win_sum += loss;
 			win_n++;
 			if (win_n == window) {
@@ -343,8 +474,9 @@ int main(int argc, char **argv)
 		}
 		if (next_save > 0 && consumed >= next_save) {
 			next_save = (consumed / save_every + 1) * save_every;
+			if (ng_path && consumed >= next_tables) { next_tables = (consumed / tables_every + 1) * tables_every; tables_wanted = 1; }
 			request_save();
-			logline("checkpoint requested at chunk %ld (every %ld chunks)", consumed, save_every);
+			logline("checkpoint requested at chunk %ld (every %ld chunks)%s", consumed, save_every, tables_wanted ? ", with the tables" : "");
 		}
 		if ((next_sample > 0 && consumed >= next_sample) || sample_requested) {
 			if (next_sample > 0 && consumed >= next_sample) next_sample += sample_every;
@@ -356,6 +488,7 @@ int main(int argc, char **argv)
 			set_flags(flags | 2);
 			if (wait_ack_bit(2, 1, 30)) logline("coach: the card did not acknowledge the stop within 30 s");
 			consumed = (long)LD64(CX_T_C_CHUNKS);
+			if (ng_path) ng_end(consumed);   /* the last row gradients applied before the final checkpoint takes the tables */
 			if (flags & 1) {   /* a save still in flight: collect it first */
 				if (wait_ack_bit(1, 1, 60)) logline("coach: the card did not acknowledge the pending checkpoint within 60 s");
 				else collect_ckpt("requested");

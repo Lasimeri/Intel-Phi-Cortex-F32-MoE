@@ -18,3 +18,4 @@ ref-loss: data/live-scratch/ckpt-375001.bin on data/chat-scratch/valid.u16[0..27
 ref-loss: data/live-scratch/ckpt-400001.bin on data/chat-scratch/valid.u16[0..27447): 7.1501 nats = 10.3154 bits/token over 27446 predictions, top-1 0.0739, 107.8 s
 ref-loss: data/live-scratch/ckpt-425001.bin on data/chat-scratch/valid.u16[0..27447): 7.1134 nats = 10.2624 bits/token over 27446 predictions, top-1 0.0718, 110.0 s
 ref-loss: data/live-scratch/ckpt-450001.bin on data/chat-scratch/valid.u16[0..27447): 7.0248 nats = 10.1347 bits/token over 27446 predictions, top-1 0.0770, 109.6 s
+ref-loss: data/live-scratch/ckpt-455246.bin on data/chat-scratch/valid.u16[0..82334): 7.1835 nats = 10.3636 bits/token over 82333 predictions, top-1 0.0713, 344.3 s

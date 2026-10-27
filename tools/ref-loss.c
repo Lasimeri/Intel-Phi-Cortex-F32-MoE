@@ -1,13 +1,17 @@
 /*
  * ref-loss: the mean next-token loss of a checkpoint over a token stream, on the host in double (tools/cref.h: the
- * 120 columns, the bus off as the lineage was trained, no n-gram memory). The measurement of what a change to the
- * weights costs, such as the 3-bit quantisation of tools/quant3.c, while the card is busy training.
- *   ref-loss CKPT IDS.u16 NTOK [SKIP]
+ * 120 columns, the bus off as the lineage was trained). The measurement of what a change to the weights costs, such
+ * as the 3-bit quantisation of tools/quant3.c, and of a run's held-out loss while the card is busy training.
+ *   ref-loss CKPT IDS.u16 NTOK [SKIP] [--ngram TABLES GATES]
  * Steps the stream from token SKIP (default 0) for NTOK tokens with the fast weights carried across the whole pass
  * (the state starts from zero, as a session does) and prints the loss in nats and bits per token and the top-1
- * accuracy, with a running line every 5,000 tokens. The last token has no target: NTOK - 1 predictions.
+ * accuracy, with a running line every 5,000 tokens. The last token has no target: NTOK - 1 predictions. With
+ * --ngram the model is read with its n-gram memory: TABLES = the run's tables (host/ngtables.h, mapped read-only;
+ * the live file in /dev/shm, or a tables-N.f32 copy) and GATES = its gates (ckpt-N-gates.f32, 2 x 128 F32); the
+ * rows of each step's suffix (the two ids before it in the stream, CX_NG_PAD before SKIP) enter as the card does it.
  */
 #include "cref.h"
+#include "../host/ngtables.h"
 #include "../lib/cx-proto.h"
 
 #include <stdio.h>
@@ -33,6 +37,14 @@ static int load_ckpt(cref *C, const char *path)
 	return 0;
 }
 
+static int load_gates(const char *path, float *gates)
+{
+	FILE *f = fopen(path, "rb");
+	if (!f || fread(gates, sizeof *gates, CX_NG_ORDERS * CX_DE, f) != CX_NG_ORDERS * CX_DE) { perror(path); return -1; }
+	fclose(f);
+	return 0;
+}
+
 static double now(void)
 {
 	struct timespec t;
@@ -42,11 +54,27 @@ static double now(void)
 
 int main(int argc, char **argv)
 {
-	if (argc < 4) { fprintf(stderr, "usage: ref-loss CKPT IDS.u16 NTOK [SKIP]\n"); return 2; }
-	const long ntok = atol(argv[3]), skip = argc > 4 ? atol(argv[4]) : 0;
+	if (argc < 4) { fprintf(stderr, "usage: ref-loss CKPT IDS.u16 NTOK [SKIP] [--ngram TABLES GATES]\n"); return 2; }
+	const long ntok = atol(argv[3]);
+	long skip = 0;
+	const char *tables = NULL, *gates_path = NULL;
+	for (int i = 4; i < argc; i++) {
+		if (!strcmp(argv[i], "--ngram") && i + 2 < argc) { tables = argv[++i]; gates_path = argv[++i]; }
+		else if (argv[i][0] != '-') skip = atol(argv[i]);
+		else { fprintf(stderr, "ref-loss: unknown option %s\n", argv[i]); return 2; }
+	}
 	cref C;
 	cref_alloc(&C, CX_NCOL, WINDOW);
 	if (load_ckpt(&C, argv[1])) return 1;
+	ngtables NG;
+	static float gates[CX_NG_ORDERS * CX_DE];
+	if (tables) {
+		if (ng_open(&NG, tables, 0) || load_gates(gates_path, gates)) return 1;
+		cref_ng_tables(&C, (const float *const *)NG.T, gates);
+		double gsum[CX_NG_ORDERS] = { 0 };
+		for (int o = 0; o < CX_NG_ORDERS; o++) for (int i = 0; i < CX_DE; i++) gsum[o] += gates[o * CX_DE + i];
+		printf("ref-loss: n-gram memory on: %s, gates %s (means %.3f %.3f)\n", tables, gates_path, gsum[0] / CX_DE, gsum[1] / CX_DE);
+	}
 	FILE *f = fopen(argv[2], "rb");
 	if (!f) { perror(argv[2]); return 1; }
 	uint16_t *tok = malloc((size_t)ntok * 2);
@@ -86,6 +114,6 @@ int main(int argc, char **argv)
 		}
 	}
 	const long n = ntok - 1;
-	printf("ref-loss: %s on %s[%ld..%ld): %.4f nats = %.4f bits/token over %ld predictions, top-1 %.4f, %.1f s\n", argv[1], argv[2], skip, skip + ntok, nll / n, nll / n / log(2.0), n, (double)hits / n, now() - t0);
+	printf("ref-loss: %s on %s[%ld..%ld)%s: %.4f nats = %.4f bits/token over %ld predictions, top-1 %.4f, %.1f s\n", argv[1], argv[2], skip, skip + ntok, tables ? " with the memory" : "", nll / n, nll / n / log(2.0), n, (double)hits / n, now() - t0);
 	return 0;
 }

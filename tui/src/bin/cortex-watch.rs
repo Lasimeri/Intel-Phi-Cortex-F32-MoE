@@ -596,6 +596,7 @@ mod tests {
             orchestra_given: false,
             words: "w".into(),
             vocab: None,
+            ngram: None,
             system: None,
             template: "t".into(),
             name: None,

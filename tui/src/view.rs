@@ -414,6 +414,7 @@ fn side_panel(a: &App, w: usize) -> Vec<Vec<Span>> {
     };
     p.push(kv("frame", frame, w));
     p.push(kv("vocabulary", a.cfg.vocab.as_deref().map_or("the client's default".to_string(), |v| file_name(v).to_string()), w));
+    p.push(kv("memory", a.cfg.ngram.as_deref().map_or("off, the plain model".to_string(), |n| format!("rows from {}", file_name(n))), w));
     p.push(kv("seed", c.fixed_seed.map_or("fresh each turn".to_string(), |s| s.to_string()), w));
     if let Some(s) = &c.last_stats {
         p.push(kv("last reply", format!("{} tok/s, card {:.0} us", group(s.tok_s.round().max(0.0) as u64), s.card_us), w));

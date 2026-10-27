@@ -54,8 +54,14 @@ typedef struct {
 	const float *ng;
 	const float *ngrow[CX_NG_ORDERS], *ngnext[CX_NG_ORDERS];
 	float *ngr;
+	/* MoE stage 2 (card/moe.h, builds with CX_MOE): the head's router and pool context, or NULL (the dense column) */
+	struct cx_moe_ctx *moe;
 	int L;
 } cx_train;
+
+#ifdef CX_MOE
+#include "moe.h"
+#endif
 
 static inline void cx_evict1(const void *p) { if (CX_EVICT) __asm__ volatile("clevict1 %0" : : "m"(*(const char *)p)); }
 static inline void cx_pfe0(const void *p) { __asm__ volatile("vprefetche0 %0" : : "m"(*(const char *)p)); }
@@ -107,7 +113,16 @@ static inline void cx_train_fwd_step(cx_train *tr, int t, uint32_t id, uint32_t 
 		}
 	}
 	if (t + 1 < CX_LMAX) { cx_pfe_lines(tr->Ts + (long)(t + 1) * CX_NT, CX_NT); cx_pfe_lines(tr->acts + (long)(t + 1) * CX_NACT, CX_NACT); }
-	cx_col_step(&tr->col, tr->ebuf, Bt);
+	cx_col_pre(&tr->col, tr->ebuf, Bt);
+#ifdef CX_MOE
+	if (tr->moe) {   /* the route from x, the expert into the slot (the MLP region of the parameter block) */
+		cx_moe *M = tr->moe;
+		const uint32_t e = cx_moe_route(M, A + CX_A_MIN + CX_DS);
+		M->route[t] = e;
+		cx_moe_fetch(M, e, tr->col.prm + CX_EX_SLOT);
+	}
+#endif
+	cx_col_mlp(&tr->col);
 	cx_copy(A + CX_A_E, tr->ebuf, CX_DE);
 	__m512 u[8], ss = _mm512_setzero_ps();
 	for (int v = 0; v < 8; v++) { u[v] = _mm512_load_ps(A + CX_A_U + 16 * v); ss = _mm512_fmadd_ps(u[v], u[v], ss); }
@@ -416,9 +431,13 @@ static inline void cx_train_param_grads(cx_train *tr)
 	cx_outer1(gp + CX_O_WQB, tr->acts + CX_A_P, CX_NACT, tr->gsave + CX_G_DQB, CX_NG, CX_DP, L);
 	cx_copy(gp + CX_O_GAIN, tr->ggain, CX_DX);
 	cx_outer13(gp + CX_O_W, tr->acts + CX_A_MIN + CX_DS, CX_NACT, tr->gsave + CX_G_DY, CX_NG, CX_DX, L);
-	cx_outer4(gp + CX_O_W1, tr->acts + CX_A_MIN, CX_NACT, tr->gsave + CX_G_DH, CX_NG, CX_DM, L);
-	cx_copy(gp + CX_O_B1, tr->gb1, CX_DH);
-	cx_outer8(gp + CX_O_WU, tr->acts + CX_A_Z, CX_NACT, tr->gsave + CX_G_DU, CX_NG, CX_DH, L);
+	if (tr->moe) {   /* a MoE head: the MLP region is the expert slot; the experts took their updates step by step (cluster.h) */
+		cx_zero(gp + CX_O_W1, CX_O_WG - CX_O_W1);
+	} else {
+		cx_outer4(gp + CX_O_W1, tr->acts + CX_A_MIN, CX_NACT, tr->gsave + CX_G_DH, CX_NG, CX_DM, L);
+		cx_copy(gp + CX_O_B1, tr->gb1, CX_DH);
+		cx_outer8(gp + CX_O_WU, tr->acts + CX_A_Z, CX_NACT, tr->gsave + CX_G_DU, CX_NG, CX_DH, L);
+	}
 	cx_copy(gp + CX_O_WG, tr->gwg, CX_DH);
 	cx_copy(gp + CX_O_BG, tr->gbg, 16);
 	cx_zero(gp + CX_O_WB, CX_NPARAM - CX_O_WB);   /* Wb: the bus is stop-gradient */

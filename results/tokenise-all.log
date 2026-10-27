@@ -1,0 +1,5 @@
+=== bpe encode of the whole TinyStories train text 2026-10-26 14:14:53
+encode: 2227753162 bytes -> 562693978 tokens (3.959 bytes/token), 177.8 MB/s, cache hits 540269853, data/tinystories/train-all.u16 1125387956 bytes
+build/host/bpe encode data/bpe/vocab4096.txt  data/tinystories/train-all.u16  12.17s user 1.67s system 49% cpu 28.042 total
+-rw-r--r-- 1 lasimeri lasimeri 1125387956 Oct 26 14:15 data/tinystories/train-all.u16
+=== end 2026-10-26 14:15:21

@@ -39,6 +39,33 @@ static uint64_t pmu_read(int fd)
 static int L, warm, bwd, runm, ndump, dump_list[CL_N];
 static uint32_t *ids;
 static cdma ngdma;   /* MoE stage 1: the n-gram ring DMA channel */
+#ifdef CX_MOE
+/* MoE stage 2 (card/moe.h): the build runs the heads with the pool unless CX_MOE=0 (then the dense columns, the same
+ * arithmetic as the plain build); CX_MOE_BIAS the home pair's bonus (default CX_EX_HOME_BIAS), CX_MOE_LR the experts'
+ * SGD step (default CX_EX_LR). The pool is filled by sparse upcycling from the columns' MLPs once they are set. */
+static float moe_bias;
+static uint32_t *moe_used;   /* per expert: (step, expert) updates over the run */
+
+static void moe_fill(void *arg, int k)
+{
+	(void)arg;
+	for (size_t e = (size_t)k; e < CX_EX_N; e += CL_N) memcpy(C.pool + e * CX_EX_FLOATS, C.tr[e % CL_N].col.prm + CX_EX_SLOT, CX_EX_BYTES);
+}
+
+static void moe_report(void)
+{
+	long distinct = 0, total = 0, home = 0;
+	uint32_t mx = 0;
+	for (size_t e = 0; e < CX_EX_N; e++) {
+		if (!moe_used[e]) continue;
+		distinct++;
+		total += moe_used[e];
+		if (moe_used[e] > mx) mx = moe_used[e];
+		if (e < CL_N) home += moe_used[e];
+	}
+	printf("moe: %ld of %u experts updated, %ld (step, expert) updates, the busiest %u, the 120 home experts %.1f %% of them\n", distinct, CX_EX_N, total, mx, total ? 100.0 * home / total : 0.0);
+}
+#endif
 
 /* the card-owned DMA channel of the n-gram ring: 2 unless CX_DMA_CHAN names another */
 static int dma_channel(void)
@@ -103,6 +130,13 @@ static void setup(void *arg, int k)
 	C.tgtrow[k] = TAKE(CX_DE * 4);
 	tr->ng = C.ng;
 	tr->ngr = TAKE((size_t)CX_LMAX * CX_NG_ORDERS * CX_DE * 4);
+	tr->moe = NULL;
+#ifdef CX_MOE
+	if (C.moe_on) {
+		C.moe[k] = (cx_moe){ .pool = C.pool, .keys = C.keys, .bias = moe_bias, .home_a = CX_EX_HOME_A(k), .home_b = CX_EX_HOME_B(k), .route = C.route + (long)k * CX_LMAX };
+		tr->moe = &C.moe[k];
+	}
+#endif
 	if (o > (4u << 20)) { fprintf(stderr, "cluster-gate: arena overflow %zu\n", o); exit(1); }
 	tr->ET = C.ETB;
 	tr->ES = C.ES;
@@ -147,6 +181,9 @@ static void run_check(void *arg, int k)
 	if (!k) wall[1] = cx_now();
 	pmu_count[k] = pmu_read(pfd) - p0;
 	close(pfd);
+#ifdef CX_MOE
+	if (C.moe_on && !k) dump("cl-route", -1, C.route, (size_t)CL_N * CX_LMAX * 4);   /* u32: route[k * CX_LMAX + t] */
+#endif
 	if (is_dumped(k)) {
 		float *o = malloc((size_t)L * CX_DUMP * 4);
 		for (int t = 0; t < L; t++) {
@@ -164,6 +201,9 @@ static void run_check(void *arg, int k)
 	if (!k) wall[3] = cx_now();
 	if (is_dumped(k)) dump("cl-gprm", k, C.tr[k].gprm, CX_NPARAM * 4);
 	if (!k) { dump("cl-gcg", -1, C.tr[0].gcg, CX_DU * 4); if (C.ng) dump("cl-gng", -1, C.gng, CX_NG_ORDERS * CX_DE * 4); }
+#ifdef CX_MOE
+	if (C.moe_on && is_dumped(k)) dump("cl-ex", k, C.pool + (size_t)C.route[(long)k * CX_LMAX] * CX_EX_FLOATS, CX_EX_BYTES);   /* the expert of step 0 after the chunk's updates */
+#endif
 }
 
 /* ---- run mode: pretraining of the whole cluster ---- */
@@ -215,6 +255,9 @@ static void run_train(void *arg, int k)
 		}
 		if (ckpt_every && (ch + 1) % ckpt_every == 0 && ch + 1 < nchunks) {
 			memcpy(stage + (long)k * CX_NPARAM, C.tr[k].col.prm, CX_NPARAM * 4);
+#ifdef CX_MOE
+			if (C.moe_on) memcpy(stage + (long)k * CX_NPARAM + CX_EX_SLOT, C.pool + (size_t)k * CX_EX_FLOATS, CX_EX_BYTES);   /* the home expert in the file's MLP region */
+#endif
 			cl_wait(&C, k);
 			if (!k) { char p[512]; snprintf(p, sizeof p, "%s/ckpt-%ld.bin", outdir, ch + 1); write_ckpt(p); printf("checkpoint %s\n", p); fflush(stdout); }
 		}
@@ -245,6 +288,9 @@ static void run_train(void *arg, int k)
 		       vsum / (vchunks * L), vsum / (vchunks * L) / CX_LN2, vsum / (vchunks * L) / CX_LN2 / 3.961, rwall[2] - rwall[0], rwall[3] - rwall[2]);
 	}
 	memcpy(stage + (long)k * CX_NPARAM, C.tr[k].col.prm, CX_NPARAM * 4);
+#ifdef CX_MOE
+	if (C.moe_on) memcpy(stage + (long)k * CX_NPARAM + CX_EX_SLOT, C.pool + (size_t)k * CX_EX_FLOATS, CX_EX_BYTES);
+#endif
 	cl_wait(&C, k);
 }
 
@@ -279,8 +325,19 @@ static int run_mode(int argc, char **argv)
 	if (getenv("CX_INIT")) { if (load_ckpt(getenv("CX_INIT"))) return 1; printf("run: weights, cg and embedding loaded from %s\n", getenv("CX_INIT")); }
 	printf("run: %ld tokens = %ld chunks of %d, lr %g (warm-up 50 chunks), b1 0.9 b2 0.95, bus %s, valid %ld tokens\n", run_ntok - 1, (run_ntok - 1) / C.L, C.L, run_lr,
 	       bus_on ? "on" : "off", run_nval - 1);
+#ifdef CX_MOE
+	if (C.moe_on) {
+		const double f0 = cx_now();
+		cx_team_run(CL_N, moe_fill, NULL);
+		printf("moe: on, pool %u experts x %u B = %zu B filled from the columns' MLPs in %.2f s (expert e = column e mod %d), keys seeded, home bias %g, expert lr %g\n",
+		       CX_EX_N, CX_EX_BYTES, (size_t)CX_EX_N * CX_EX_BYTES, cx_now() - f0, CL_N, moe_bias, C.moe_lr);
+	}
+#endif
 	fflush(stdout);
 	cx_team_run(CL_N, run_train, NULL);
+#ifdef CX_MOE
+	if (C.moe_on) moe_report();
+#endif
 	char path[512];
 	snprintf(path, sizeof path, "%s/ckpt.bin", outdir);
 	f = fopen(path, "wb");
@@ -334,6 +391,9 @@ static int gen_mode(int argc, char **argv)
 	gen_nprompt = atol(argv[4]);
 	gen_n = atol(argv[5]);
 	if (load_ckpt(argv[2])) return 1;
+#ifdef CX_MOE
+	if (C.moe_on) cx_team_run(CL_N, moe_fill, NULL);
+#endif
 	FILE *f = fopen(argv[3], "rb");
 	if (!f) { perror(argv[3]); return 1; }
 	uint16_t *pt = malloc((size_t)gen_nprompt * 2);
@@ -412,10 +472,25 @@ int main(int argc, char **argv)
 		C.ng_host_cseq = base + CX_NGR_C_SEQ;
 		printf("n-gram memory: on, %u rows per order on the host, ring at part + %u MiB, DMA channel %d\n", CX_NG_ROWS, CX_NGR_BASE >> 20, chan);
 	}
+#ifdef CX_MOE
+	C.moe_on = !getenv("CX_MOE") || atoi(getenv("CX_MOE"));
+	if (C.moe_on) {
+		C.keys = STAKE(CX_EX_KEYFLOATS * 4);
+		C.route = (uint32_t *)STAKE((size_t)CL_N * CX_LMAX * 4);
+		moe_used = (uint32_t *)STAKE((size_t)CX_EX_N * 4);
+		C.moe_used = moe_used;
+		C.moe_lr = getenv("CX_MOE_LR") ? (float)atof(getenv("CX_MOE_LR")) : CX_EX_LR;
+		moe_bias = getenv("CX_MOE_BIAS") ? (float)atof(getenv("CX_MOE_BIAS")) : CX_EX_HOME_BIAS;
+		C.pool = huge(((size_t)CX_EX_N * CX_EX_BYTES + (2u << 20) - 1) & ~((size_t)(2u << 20) - 1));
+	}
+#endif
 	if (o > (8u << 20)) { fprintf(stderr, "cluster-gate: shared overflow %zu\n", o); return 1; }
 	memset(sh, 0, o);
 	for (int i = 0; i < CX_DU; i++) C.cg[i] = 1.0f;
 	if (C.ng) for (int i = 0; i < CX_NG_ORDERS * CX_DE; i++) C.ng[i] = 1.0f;   /* the gates: after the arena is zeroed, like cg */
+#ifdef CX_MOE
+	if (C.moe_on) cx_ex_keys_init(C.keys);
+#endif
 	float *E = malloc((size_t)CX_VOCAB * CX_DE * 4);
 	cx_emb_init(E);
 	for (int v = 0; v < CX_VOCAB; v++) for (int c = 0; c < CX_DE; c++) C.ETB[CX_ETB(v, c)] = E[(long)v * CX_DE + c];
@@ -440,6 +515,9 @@ int main(int argc, char **argv)
 	cx_team_run(CL_N, setup, NULL);
 	printf("cluster-gate %s: %d columns, L %d, warm %d, pin failures %d, thread 0 cpu %d, thread 119 cpu %d\n", argv[1], CL_N, L, warm, cx_pin_fail, cx_found_cpu[0], cx_found_cpu[CL_N - 1]);
 	if (runm) { const int rc = run_mode(argc, argv); if (C.ng) cdma_close(&ngdma); return rc; }
+#ifdef CX_MOE
+	if (C.moe_on) { cx_team_run(CL_N, moe_fill, NULL); printf("moe: on, pool filled from the columns' MLPs, home bias %g, expert lr %g\n", moe_bias, C.moe_lr); fflush(stdout); }
+#endif
 	cx_team_run(CL_N, run_check, NULL);
 	double mean = 0;
 	for (int t = 0; t < L; t++) mean += C.loss[t];

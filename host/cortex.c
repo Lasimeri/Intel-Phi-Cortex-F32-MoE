@@ -4,7 +4,8 @@
  *   cortex CKPT "prompt" NGEN [options]            generation through the daemon on the card
  *   cortex --live "prompt" NGEN [options]          the same on the daemon's LIVE weights (no checkpoint staged;
  *                                                  the bus defaults to off, the trained configuration)
- *   cortex --load CKPT [--bus B] [--ngram T G]     load a checkpoint into the daemon and leave (live training)
+ *   cortex --load CKPT [--bus B] [--gates G] [--moe [--moe-bias X]]   load a checkpoint (and the memory's gates; with
+ *                                                  --moe the daemon fills its expert pool from it and routes, lib/cx-moe.h)
  *   cortex --replay LOGITS.f32 NSTEPS [options]    the host path alone: the dumped logits of a run (--dump-logits)
  *                                                  fed through the orchestrator and the sampler, for timing it
  *   cortex --stop                                  ends the daemon's session and the daemon
@@ -27,10 +28,17 @@
  *                           (the harness trims a partial label), and "cortex: stopped at STRING" goes to stderr
  *   --ids FILE.u16         the prompt as token ids from a file (the prompt text is then ignored; gates replay it)
  *   --dump-logits FILE      every step's 4096 raw logits as received from the card, appended as F32 (gates, replay)
- *   --ngram TABLES GATES    the n-gram memory: TABLES = 2 orders x CX_NG_ROWS x 128 F32 (ngserve --save), GATES =
- *                           2 x 128 F32 (the run's ng-gates.f32). The gates are staged after the checkpoint (LOAD arg
- *                           1); before each STEP the two rows of the step's suffix (ids[s-2], ids[s-1], ids[s]) are
- *                           written into the ring in the part, as ngserve gathers them for training.
+ *   --ngram TABLES          the n-gram memory's tables (2 orders x CX_NG_ROWS x 128 F32, host/ngtables.h: ngserve
+ *                           --save, a run's tables-N.f32, or the live run's file in /dev/shm, mapped read-only as it
+ *                           trains): before each STEP the two rows of the step's suffix (ids[s-2], ids[s-1], ids[s])
+ *                           are written into the ring in the part, as the trainers gather them; the session tells
+ *                           the daemon so (CX_OP_NGRAM), and without this option that it writes no rows
+ *   --gates FILE|ones       the memory's gates (2 x 128 F32: a run's ckpt-N-gates.f32 or ng-gates.f32; ones = the
+ *                           batch trainer's start) staged after the checkpoint (LOAD arg bit 0); the live weights
+ *                           keep the daemon's own gates
+ *   --moe                   MoE stage 2: the LOAD fills the daemon's pool from the checkpoint's MLP blocks and the
+ *                           heads route through it (LOAD arg bit 1); --moe-bias X writes the home bonus the daemon
+ *                           routes with (default: the daemon's current word); a live session needs neither
  *   --orchestra NGC [--words LIST] [--word-min N] [--lambda X] [--no-filter] [--repeat-ok]
  *                           host/orchestra.h, between the card's logits and the sampler; the filter counts a listed
  *                           word from corpus count N on (default ORCH_WORD_MIN)
@@ -41,6 +49,7 @@
 #include "../tools/bpe.c"
 #include "../lib/cx-proto.h"
 #include "../lib/cx-col.h"
+#include "ngtables.h"
 
 #include <fcntl.h>
 #include <math.h>
@@ -108,34 +117,34 @@ static int open_session(double timeout_s)
 
 /* ---- the n-gram memory (host side of the generation ring) ---- */
 
-static float *ngT[CX_NG_ORDERS];   /* the tables in host RAM */
+static ngtables NG;   /* the tables, mapped read-only (the live run's file as it trains, or a saved copy) */
 static float nggates[CX_NG_ORDERS * CX_DE];
 
-static int ng_load(const char *tables, const char *gates)
+static int ng_open_tables(const char *tables)
 {
 	const uint64_t t0 = ns();
-	FILE *f = fopen(tables, "rb");
-	if (!f) { perror(tables); return -1; }
-	for (int o = 0; o < CX_NG_ORDERS; o++) {
-		ngT[o] = malloc((size_t)CX_NG_ROWS * CX_DE * sizeof *ngT[o]);
-		if (!ngT[o] || fread(ngT[o], sizeof *ngT[o], (size_t)CX_NG_ROWS * CX_DE, f) != (size_t)CX_NG_ROWS * CX_DE) { fprintf(stderr, "cortex: %s is not %d x %u x %d F32\n", tables, CX_NG_ORDERS, CX_NG_ROWS, CX_DE); return -1; }
-	}
-	fclose(f);
-	f = fopen(gates, "rb");
-	if (!f || fread(nggates, sizeof *nggates, CX_NG_ORDERS * CX_DE, f) != CX_NG_ORDERS * CX_DE) { perror(gates); return -1; }
+	if (ng_open(&NG, tables, 0)) return -1;
+	fprintf(stderr, "cortex: n-gram memory: %d orders x %u rows of %s mapped in %.1f ms\n", CX_NG_ORDERS, CX_NG_ROWS, tables, (ns() - t0) / 1e6);
+	return 0;
+}
+
+/* the gates to stage: a file of 2 x 128 F32, or "ones" (the batch trainer's start) */
+static int gates_load(const char *spec)
+{
+	if (!strcmp(spec, "ones")) { for (int i = 0; i < CX_NG_ORDERS * CX_DE; i++) nggates[i] = 1.0f; return 0; }
+	FILE *f = fopen(spec, "rb");
+	if (!f || fread(nggates, sizeof *nggates, CX_NG_ORDERS * CX_DE, f) != CX_NG_ORDERS * CX_DE) { perror(spec); return -1; }
 	fclose(f);
 	double gsum[CX_NG_ORDERS] = { 0 };
 	for (int o = 0; o < CX_NG_ORDERS; o++) for (int i = 0; i < CX_DE; i++) gsum[o] += nggates[o * CX_DE + i];
-	fprintf(stderr, "cortex: n-gram memory: %d orders x %u rows loaded in %.1f s (%zu bytes), gate means %.3f %.3f\n", CX_NG_ORDERS, CX_NG_ROWS,
-	        (ns() - t0) / 1e9, (size_t)CX_NG_ORDERS * CX_NG_ROWS * CX_DE * sizeof(float), gsum[0] / CX_DE, gsum[1] / CX_DE);
+	fprintf(stderr, "cortex: n-gram gates %s: means %.3f %.3f\n", spec, gsum[0] / CX_DE, gsum[1] / CX_DE);
 	return 0;
 }
 
 /* the rows of step n (its suffix p2, p1, id) into the ring slot the card will pull before the STEP */
 static void ng_rows(long n, uint32_t id, uint32_t p1, uint32_t p2)
 {
-	float *slot = (float *)(part + CX_NGS_ROWS(n));
-	for (int o = 0; o < CX_NG_ORDERS; o++) memcpy(slot + o * CX_DE, ngT[o] + (size_t)cx_ng_hash(id, p1, p2, o + 2) * CX_DE, CX_DE * sizeof *slot);
+	ng_step_rows(&NG, id, p1, p2, (float *)(part + CX_NGS_ROWS(n)));
 	__atomic_thread_fence(__ATOMIC_RELEASE);
 }
 
@@ -301,7 +310,7 @@ static void usage(void)
 {
 	fprintf(stderr, "usage: cortex CKPT \"prompt\" NGEN [options] | cortex --replay LOGITS.f32 NSTEPS [options] | cortex --stop\n"
 	                "options: [--greedy] [--bus 0|1] [--temp T] [--topk K] [--topp P] [--minp M] [--rp R] [--seed S] [--vocab FILE] [--chat] [--no-echo] [--stop-eot] [--stop STRING]...\n"
-	                "         [--ids FILE.u16] [--dump-logits FILE] [--ngram TABLES GATES]\n"
+	                "         [--ids FILE.u16] [--dump-logits FILE] [--ngram TABLES] [--gates FILE|ones] [--moe] [--moe-bias X]\n"
 	                "         [--orchestra NGC [--words LIST] [--word-min N] [--lambda X] [--no-filter] [--repeat-ok]]\n");
 }
 
@@ -311,6 +320,8 @@ int main(int argc, char **argv)
 	const int replay = argc >= 2 && !strcmp(argv[1], "--replay"), live = argc >= 2 && !strcmp(argv[1], "--live"), load_only = argc >= 2 && !strcmp(argv[1], "--load");
 	if (argc < (load_only ? 3 : 4)) { usage(); return 2; }
 	const char *ckpt = live ? NULL : load_only ? argv[2] : argv[1], *vocab = "data/bpe/vocab4096.txt", *ids_path = NULL, *dump_path = NULL, *ng_tables = NULL, *ng_gates = NULL;
+	int moe = 0, moe_bias_given = 0;
+	double moe_bias = 0;
 	char *prompt = replay || load_only ? "" : argv[2];
 	int ngen = load_only ? 0 : atoi(argv[3]);
 	int bus = live || load_only ? 0 : 1, no_echo = 0, orch_filter = 1, orch_norepeat = 1, orch_wmin = ORCH_WORD_MIN;   /* the live paths default to the trained configuration */
@@ -338,7 +349,10 @@ int main(int argc, char **argv)
 		else if (!strcmp(argv[i], "--vocab") && i + 1 < argc) vocab = argv[++i];
 		else if (!strcmp(argv[i], "--ids") && i + 1 < argc) ids_path = argv[++i];
 		else if (!strcmp(argv[i], "--dump-logits") && i + 1 < argc) dump_path = argv[++i];
-		else if (!strcmp(argv[i], "--ngram") && i + 2 < argc) { ng_tables = argv[++i]; ng_gates = argv[++i]; }
+		else if (!strcmp(argv[i], "--ngram") && i + 1 < argc) ng_tables = argv[++i];
+		else if (!strcmp(argv[i], "--gates") && i + 1 < argc) ng_gates = argv[++i];
+		else if (!strcmp(argv[i], "--moe")) moe = 1;
+		else if (!strcmp(argv[i], "--moe-bias") && i + 1 < argc) { moe_bias = atof(argv[++i]); moe_bias_given = 1; }
 		else if (!strcmp(argv[i], "--orchestra") && i + 1 < argc) orch_ngc = argv[++i];
 		else if (!strcmp(argv[i], "--words") && i + 1 < argc) orch_words = argv[++i];
 		else if (!strcmp(argv[i], "--lambda") && i + 1 < argc) orch_lambda = (float)atof(argv[++i]);
@@ -397,7 +411,8 @@ int main(int argc, char **argv)
 	}
 
 	/* ---- the card: session, then the checkpoint (and gates) staged and loaded, or the live weights as they are ---- */
-	if (ng_tables && ng_load(ng_tables, ng_gates)) return 1;
+	if (ng_tables && ng_open_tables(ng_tables)) return 1;
+	if (ng_gates && gates_load(ng_gates)) return 1;
 	FILE *dump = NULL, *f = NULL;
 	if (dump_path && !(dump = fopen(dump_path, "wb"))) { perror(dump_path); return 1; }
 	if (open_part() || open_session(30)) return 1;
@@ -406,18 +421,19 @@ int main(int argc, char **argv)
 		if (!f) { perror(ckpt); return 1; }
 		if (fread(part + CX_STAGE, 1, CX_STAGE_CKPT, f) != CX_STAGE_CKPT) { fprintf(stderr, "cortex: short checkpoint %s\n", ckpt); return 1; }
 		fclose(f);
-		if (ng_tables) memcpy(part + CX_STAGE_GATES, nggates, sizeof nggates);
+		if (ng_gates) memcpy(part + CX_STAGE_GATES, nggates, sizeof nggates);
+		if (moe_bias_given) { uint64_t u; memcpy(&u, &moe_bias, 8); ST64(CX_M_BIAS, u); }
 		__atomic_thread_fence(__ATOMIC_SEQ_CST);
 		const uint64_t t0 = ns();
-		if (command(CX_OP_LOAD, ng_tables ? 1 : 0, 30)) return 1;
-		fprintf(stderr, "cortex: checkpoint loaded by DMA in %.1f ms; prompt %d tokens; %s; n-gram memory %s\n", (ns() - t0) / 1e6, nprompt, H.greedy ? "greedy" : "sampling", ng_tables ? "on" : "off");
+		if (command(CX_OP_LOAD, (ng_gates ? 1 : 0) | (moe ? 2 : 0), 30)) return 1;
+		fprintf(stderr, "cortex: checkpoint loaded by DMA in %.1f ms; prompt %d tokens; %s; n-gram gates %s; rows %s; MoE %s\n", (ns() - t0) / 1e6, nprompt, H.greedy ? "greedy" : "sampling", ng_gates ? ng_gates : "none", ng_tables ? "from the tables" : "none", moe ? "on (the pool filled from the checkpoint)" : "off");
 	} else {
-		fprintf(stderr, "cortex: the daemon's live weights; prompt %d tokens; %s; bus %s\n", nprompt, H.greedy ? "greedy" : "sampling", bus ? "on" : "off");
+		fprintf(stderr, "cortex: the daemon's live weights; prompt %d tokens; %s; bus %s; memory rows %s\n", nprompt, H.greedy ? "greedy" : "sampling", bus ? "on" : "off", ng_tables ? "from the tables" : "none");
 	}
-	if (command(CX_OP_BUS, (uint32_t)bus, 5) || command(CX_OP_RESET, 0, 5)) return 1;
+	if (command(CX_OP_BUS, (uint32_t)bus, 5) || command(CX_OP_RESET, 0, 5) || command(CX_OP_NGRAM, ng_tables ? 1 : 0, 5)) return 1;
 	if (load_only) {
 		ST64(CX_H_CMD, CX_CMD(CX_CMD_QUIT, 0));
-		fprintf(stderr, "cortex: %s is now the daemon's live model (bus %s)\n", ckpt, bus ? "on" : "off");
+		fprintf(stderr, "cortex: %s is now the daemon's live model (bus %s, MoE %s)\n", ckpt, bus ? "on" : "off", moe ? "on" : "off");
 		return 0;
 	}
 

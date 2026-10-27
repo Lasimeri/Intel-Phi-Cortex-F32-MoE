@@ -13,3 +13,7 @@ data/chat-base/*
 !data/chat-base/vocab-base4096.txt
 !data/chat-base/persona.txt
 !data/chat-base/floors.txt
+build/
+results/moe-gate/
+results/live-moe-gate/
+results/live-ng-gate/

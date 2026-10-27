@@ -1,13 +1,15 @@
 //! The live run as the files tell it: the coach's log (results/live.log) parsed into the current run's header, its
 //! reports (loss, rate, speed, the ring), the policy's windows, its events, the last sample and the end, and the
-//! checkpoints the coach collected (data/live). Read when due; the part's live words are live.rs.
+//! checkpoints the coach collected (data/live). The log is read whole once and then by its appended bytes only (a
+//! line cut by a read is kept and completed by the next), so a run's record never leaves the window however long the
+//! log grows (a fixed 512 KiB tail lost the opening line of a six-hour run, 2026-10-27). The part's live words are
+//! live.rs.
 
 use std::fs::{self, File};
 use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 use std::time::{Duration, Instant, SystemTime};
 
-const LOG_TAIL_BYTES: u64 = 512 << 10;
 /// The run's non-report lines kept, newest last.
 pub const EVENTS_KEEP: usize = 12;
 const FILES_POLL: Duration = Duration::from_secs(1);
@@ -78,7 +80,9 @@ pub struct Run {
     /// The "run ended" line's text, once the coach wrote it.
     pub ended: Option<String>,
     pub ckpts: Vec<Ckpt>,
+    /// Bytes of the log taken so far, and the unterminated tail after them (bytes, so a cut UTF-8 sequence completes).
     log_len: u64,
+    fragment: Vec<u8>,
     polled: Option<Instant>,
 }
 
@@ -163,10 +167,17 @@ pub fn sample_of(rest: &str) -> Option<Sample> {
     Some(Sample { chunk: int(chunk)?, seed: int(seed)?, metrics: metrics.to_string(), text: text.to_string() })
 }
 
+/// The file's bytes from `from` to its end.
+fn read_from(path: &Path, from: u64) -> Option<Vec<u8>> {
+    let mut f = File::open(path).ok()?;
+    f.seek(SeekFrom::Start(from)).ok()?;
+    let mut buf = Vec::new();
+    f.read_to_end(&mut buf).ok()?;
+    Some(buf)
+}
+
 impl Run {
-    /// The current run's record from the log's lines: everything after the last coach opening line.
-    pub fn parse(&mut self, lines: &[String]) {
-        let start = lines.iter().rposition(|l| header_of(stamped(l).0, stamped(l).1).is_some());
+    fn reset(&mut self) {
         self.header = None;
         self.reports.clear();
         self.windows.clear();
@@ -174,34 +185,68 @@ impl Run {
         self.sample = None;
         self.ended = None;
         self.last_time.clear();
-        let Some(start) = start else { return };
-        for line in &lines[start..] {
-            let (time, rest) = stamped(line);
-            if !time.is_empty() {
-                self.last_time = time.to_string();
-            }
-            if self.header.is_none() {
-                self.header = header_of(time, rest);
-                continue;
-            }
-            if let Some(r) = report_of(rest) {
-                self.reports.push(r);
-            } else if let Some(w) = window_of(rest) {
-                self.windows.push(w);
-            } else if let Some(s) = sample_of(rest) {
-                self.sample = Some(s);
-            } else if rest.starts_with("coach: run ended") {
-                self.ended = Some(rest.to_string());
-                self.events.push(format!("{time} {rest}"));
-            } else if rest.starts_with("coach: ") || rest.starts_with("policy: ") || rest.starts_with("command: ") || rest.starts_with("checkpoint ") || rest.starts_with("sample:") {
-                self.events.push(format!("{time} {rest}"));
-            }
-        }
-        let n = self.events.len();
-        self.events.drain(..n.saturating_sub(EVENTS_KEEP));
     }
 
-    /// The log's tail and the checkpoint directory when due; whether anything shown changed.
+    fn push_event(&mut self, time: &str, rest: &str) {
+        self.events.push(format!("{time} {rest}"));
+        if self.events.len() > EVENTS_KEEP {
+            self.events.remove(0);
+        }
+    }
+
+    /// One line of the log, in order: a coach opening line starts a new record, the lines after it fill it, lines
+    /// before any opening line are not a run's.
+    pub fn take(&mut self, line: &str) {
+        let (time, rest) = stamped(line);
+        if let Some(h) = header_of(time, rest) {
+            self.reset();
+            self.last_time = time.to_string();
+            self.header = Some(h);
+            return;
+        }
+        if self.header.is_none() {
+            return;
+        }
+        if !time.is_empty() {
+            self.last_time = time.to_string();
+        }
+        if let Some(r) = report_of(rest) {
+            self.reports.push(r);
+        } else if let Some(w) = window_of(rest) {
+            self.windows.push(w);
+        } else if let Some(s) = sample_of(rest) {
+            self.sample = Some(s);
+        } else if rest.starts_with("coach: run ended") {
+            self.ended = Some(rest.to_string());
+            self.push_event(time, rest);
+        } else if rest.starts_with("coach: ") || rest.starts_with("policy: ") || rest.starts_with("command: ") || rest.starts_with("checkpoint ") || rest.starts_with("sample:") || rest.starts_with("tables:") || rest.starts_with("memory:") {
+            self.push_event(time, rest);
+        }
+    }
+
+    /// The current run's record from these lines (the last opening line on).
+    pub fn parse(&mut self, lines: &[String]) {
+        self.reset();
+        for l in lines {
+            self.take(l);
+        }
+    }
+
+    /// The log's new bytes as whole lines (the unterminated tail kept for the next time).
+    fn take_bytes(&mut self, bytes: &[u8]) {
+        self.fragment.extend_from_slice(bytes);
+        let cut = match self.fragment.iter().rposition(|&b| b == b'\n') {
+            Some(i) => i + 1,
+            None => return,
+        };
+        let rest = self.fragment.split_off(cut);
+        let text = String::from_utf8_lossy(&std::mem::replace(&mut self.fragment, rest)).into_owned();
+        for line in text.lines() {
+            self.take(line);
+        }
+    }
+
+    /// The log's new bytes and the checkpoint directory when due; whether anything shown changed.
     pub fn poll(&mut self, log: &Path, ckdir: &Path) -> bool {
         if self.polled.is_some_and(|t| t.elapsed() < FILES_POLL) {
             return false;
@@ -209,10 +254,19 @@ impl Run {
         self.polled = Some(Instant::now());
         let mut changed = false;
         let len = fs::metadata(log).map_or(0, |m| m.len());
-        if len != self.log_len {
-            self.log_len = len;
-            self.parse(&tail_lines(log, LOG_TAIL_BYTES));
+        if len < self.log_len {
+            // truncated or replaced: start over
+            self.log_len = 0;
+            self.fragment.clear();
+            self.reset();
             changed = true;
+        }
+        if len > self.log_len {
+            if let Some(bytes) = read_from(log, self.log_len) {
+                self.log_len += bytes.len() as u64;
+                self.take_bytes(&bytes);
+                changed = true;
+            }
         }
         let mut ckpts: Vec<Ckpt> = fs::read_dir(ckdir)
             .map(|d| {
@@ -253,29 +307,10 @@ pub fn clock_s(t: &str) -> Option<i64> {
     Some(h * 3600 + m * 60 + s)
 }
 
-/// The whole lines within the file's last `bytes`.
-pub fn tail_lines(path: &Path, bytes: u64) -> Vec<String> {
-    let Ok(mut f) = File::open(path) else { return Vec::new() };
-    let len = f.metadata().map_or(0, |m| m.len());
-    let start = len.saturating_sub(bytes);
-    if f.seek(SeekFrom::Start(start)).is_err() {
-        return Vec::new();
-    }
-    let mut buf = Vec::new();
-    if f.read_to_end(&mut buf).is_err() {
-        return Vec::new();
-    }
-    let text = String::from_utf8_lossy(&buf);
-    let mut lines: Vec<String> = text.lines().map(String::from).collect();
-    if start > 0 && !lines.is_empty() {
-        lines.remove(0); // a line cut at the start of the window
-    }
-    lines
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
 
     const LOG: &str = "19:20:26 coach: run ended at chunk 160 (5120 tokens), 0 halvings, final scale 1.0000
 20:06:29 coach: data/mix/chat-train.u16 chunks 648..18716 (18069 chunks = 578208 tokens), lr 1.000e-03, report every 100, window 10, min gain 0.010, halvings 3, sample every 1000 x 128 tokens, orchestra data/stories-10m.ngc, cmd results/live.cmd, checkpoints data/live/
@@ -288,10 +323,7 @@ mod tests {
 20:11:01 policy: plateau -> scale 0.2500 (halving 1), checkpoint requested
 20:11:02 checkpoint (requested): data/live/ckpt-3001.bin, 23463424 bytes, chunk 3001, push 2, copied in 25 ms";
 
-    #[test]
-    fn the_log_parses_into_the_current_run() {
-        let mut r = Run::default();
-        r.parse(&LOG.lines().map(String::from).collect::<Vec<_>>());
+    fn check_record(r: &Run) {
         let h = r.header.as_ref().unwrap();
         assert_eq!((h.started.as_str(), h.file.as_str(), h.first, h.last, h.chunks, h.tokens), ("20:06:29", "data/mix/chat-train.u16", 648, 18716, 18069, 578208));
         assert_eq!((h.lr, h.every, h.window, h.min_gain, h.halvings, h.sample_every, h.sample_tokens), (1e-3, 100, 10, 0.010, 3, 1000, 128));
@@ -305,5 +337,47 @@ mod tests {
         assert!(r.events[1].starts_with("20:11:00 command: scale"));
         assert_eq!(r.ended, None);
         assert_eq!(r.elapsed_s(), Some(4 * 60 + 33));
+    }
+
+    #[test]
+    fn the_log_parses_into_the_current_run() {
+        let mut r = Run::default();
+        r.parse(&LOG.lines().map(String::from).collect::<Vec<_>>());
+        check_record(&r);
+    }
+
+    #[test]
+    fn a_new_opening_line_starts_a_new_record() {
+        let mut r = Run::default();
+        r.parse(&LOG.lines().map(String::from).collect::<Vec<_>>());
+        r.take("21:00:00 coach: data/x.u16 chunks 0..9 (10 chunks = 320 tokens), lr 3.000e-03, report every 100, window 300, min gain 0.010, halvings 3, sample every 2000 x 128 tokens, save every 5000, no stop, cmd results/live.cmd, checkpoints data/live-x/");
+        assert_eq!(r.header.as_ref().unwrap().file, "data/x.u16");
+        assert!(r.reports.is_empty() && r.windows.is_empty() && r.events.is_empty() && r.sample.is_none());
+        r.take("21:00:02 coach: run ended at chunk 10 (320 tokens), 0 halvings, final scale 1.0000");
+        assert!(r.ended.is_some());
+        assert_eq!(r.elapsed_s(), Some(2));
+    }
+
+    #[test]
+    fn the_log_is_read_by_its_appended_bytes_with_a_cut_line_completed() {
+        let path = std::env::temp_dir().join(format!("cortex-tui-run-test-{}.log", std::process::id()));
+        let ckdir = std::env::temp_dir();
+        let text = LOG.to_string() + "\n";
+        let (head, tail) = text.split_at(text.len() - 40);
+        {
+            let mut f = File::create(&path).unwrap();
+            f.write_all(head.as_bytes()).unwrap();
+        }
+        let mut r = Run::default();
+        assert!(r.poll(&path, &ckdir));
+        assert_eq!(r.events.len(), 3, "the last line is cut: not taken yet: {:?}", r.events);
+        {
+            let mut f = fs::OpenOptions::new().append(true).open(&path).unwrap();
+            f.write_all(tail.as_bytes()).unwrap();
+        }
+        r.polled = None;
+        assert!(r.poll(&path, &ckdir));
+        check_record(&r);
+        fs::remove_file(&path).unwrap();
     }
 }

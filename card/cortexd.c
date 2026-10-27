@@ -17,8 +17,11 @@
  * a session's commands keep the card as long as they arrive within CX_BURST_S of each other: a generating client runs
  * at full speed and training resumes the moment it stops; an idle session waits at most one chunk (about 25 ms).
  * LOAD replaces the live weights and zeroes every training buffer (a new run starts as a fresh batch-trainer process
- * does); the n-gram memory of a loaded checkpoint serves inference only (C.ng is set for a session's commands and
- * cleared for a chunk, so training in live mode is the plain model). The Adam schedule is cl_adam_schedule of
+ * does). The n-gram memory: a loaded checkpoint's gates serve the steps of a session whose client writes the rows
+ * (CX_OP_NGRAM); a run whose coach serves the row ring (CX_T_NG) trains the memory as well: each chunk's rows come
+ * in by DMA (cl_ng_begin), its row gradients go back (cl_bwd_chunk) and the gates train with Adam, exactly as the
+ * batch trainer with host/ngserve.c does, and a chunk is taken only once its rows are published, so the team never
+ * waits in the ring; otherwise a chunk trains the plain model. The Adam schedule is cl_adam_schedule of
  * card/cluster.h, shared with the batch trainer, so the trajectory is bit-identical to `cluster-gate run` on the same
  * tokens. Nothing a client generates is training data: the training stream is the coach's token file. When there is
  * nothing to do the team naps 100 us per round instead of spinning (a spinning idle slowed a co-running card job
@@ -32,6 +35,9 @@
  * sees the cores' latest stores (the logits gate). Nothing is written to the card's filesystem: the checkpoints live
  * on the host.
  */
+#ifndef CX_MOE
+#error "cortexd is the MoE build: -DCX_MOE=1 (build.sh)"
+#endif
 #include "cluster.h"
 #include "cdma.h"
 #include "../lib/cx-proto.h"
@@ -56,8 +62,17 @@ static cluster C __attribute__((aligned(64)));
 static volatile uint8_t *part;
 static cdma dma;
 static float *logits_buf;
-static float *ngpage, *nggates;   /* one huge page: 64 row slots of 1 KiB, then the gates at 64 KiB */
-static uint64_t logits_phys, cg_phys, etb_phys[1], prm_phys[CL_N], ngpage_phys, nggates_phys;
+static float *ngpage, *nggates, *nggrad;   /* one huge page: 64 row slots of 1 KiB (the training chunks' two 32 KiB slots), the gates at 64 KiB, the two
+                                              32 KiB row-gradient slots at 128 KiB */
+static uint64_t logits_phys, cg_phys, etb_phys[1], prm_phys[CL_N], ngpage_phys, nggates_phys, nggrad_phys;
+static int session_ng = 1;        /* the session's client writes its steps' rows (CX_OP_NGRAM) */
+static int ng_train_acked = -1;   /* CX_T_NG_ACK as last written */
+/* MoE stage 2 (card/moe.h, built in): the pool of CX_EX_N experts in GDDR huge pages, filled from a checkpoint's MLP blocks
+ * by a LOAD with arg bit 1 (expert e = column e mod 120, sparse upcycling); the heads then route every step (training and
+ * inference) with the bonus at CX_M_BIAS and train the experts by SGD at CX_M_LR; the pool lives for the daemon's life
+ * (a LOAD without the bit returns to the dense model; a LOAD with it refills the pool) */
+static float *pool;
+static int moe_loaded;            /* the loaded model routes through the pool */
 static uint64_t part_mib = CX_PART_MIB;
 static uint64_t host_part;        /* the part's address for the DMA engine */
 static float *T_train[CL_N], *T_inf[CL_N], *bus_train, *bus_inf;
@@ -134,6 +149,8 @@ static void setup(void *arg, int k)
 	T_inf[k] = TAKE(CX_NT * 4);
 	T_train[k] = tr->col.T;
 	tr->ng = NULL;
+	tr->moe = NULL;
+	C.moe[k] = (cx_moe){ .pool = pool, .keys = C.keys, .bias = 0.0f, .home_a = CX_EX_HOME_A(k), .home_b = CX_EX_HOME_B(k), .route = C.route + (long)k * CX_LMAX };
 	if (o > (4u << 20)) { fprintf(stderr, "cortexd: arena overflow %zu\n", o); exit(1); }
 	arena[k] = a;
 	arena_used[k] = o;
@@ -180,7 +197,31 @@ static int load_ckpt(uint32_t arg)
 	if (cdma_wait(&dma, seq, 10.0)) { fprintf(stderr, "cortexd: checkpoint DMA timed out\n"); return -1; }
 	for (int v = 0; v < CX_VOCAB; v++) for (int c = 0; c < CX_DE; c++) C.ES[(long)v * CX_DE + c] = C.ETB[CX_ETB(v, c)];
 	ng_loaded = arg & 1 ? nggates : NULL;
+	moe_loaded = (arg & 2) != 0;
 	return 0;
+}
+
+/* every thread's share of the pool from the loaded blocks (after a MoE LOAD): expert e = the MLP block of column e mod 120 */
+static void moe_fill(int k)
+{
+	for (size_t e = (size_t)k; e < CX_EX_N; e += CL_N) memcpy(pool + e * CX_EX_FLOATS, C.tr[e % CL_N].col.prm + CX_EX_SLOT, CX_EX_BYTES);
+}
+
+/* the routing bonus and the experts' step from the host words, into every head's context (thread 0, before a chunk or
+ * a session command) */
+static void moe_knobs(void)
+{
+	const float bias = (float)rdf(CX_M_BIAS);
+	C.moe_lr = (float)rdf(CX_M_LR);
+	for (int k = 0; k < CL_N; k++) C.moe[k].bias = bias;
+}
+
+/* experts updated at least once since the fill */
+static uint32_t moe_distinct(void)
+{
+	uint32_t n = 0;
+	for (size_t e = 0; e < CX_EX_N; e++) n += C.moe_used[e] != 0;
+	return n;
 }
 
 static uint64_t saves_done;   /* checkpoints pushed since the daemon started (CX_T_SAVES) */
@@ -198,10 +239,12 @@ static int push_ckpt(void)
 	dst += CX_DU * 4;
 	for (uint32_t done = 0; done < (2u << 20); done += (1u << 20) - 64) {
 		const uint32_t n = (2u << 20) - done < (1u << 20) - 64 ? (2u << 20) - done : (1u << 20) - 64;
-		const int last = done + n == (2u << 20);
-		seq = cdma_submit(&dma, etb_phys[0] + done, dst + done, n, last ? host_part + CX_T_SAVES : 0, saves_done + 1);
+		seq = cdma_submit(&dma, etb_phys[0] + done, dst + done, n, 0, 0);
 		if (!seq) return -1;
 	}
+	/* the gates last (the memory's, or whatever the page holds when it is off); this line's status write counts the save */
+	seq = cdma_submit(&dma, nggates_phys, host_part + CX_STAGE_GATES, CX_NG_ORDERS * CX_DE * 4, host_part + CX_T_SAVES, saves_done + 1);
+	if (!seq) return -1;
 	if (cdma_wait(&dma, seq, 10.0)) { fprintf(stderr, "cortexd: checkpoint DMA out timed out\n"); return -1; }
 	saves_done++;
 	return 0;
@@ -271,6 +314,7 @@ static int poll_session(void)
 		wr32(CX_C_STATE, 1);
 		t_session0 = cx_now();
 		session_open = 1;
+		session_ng = 1;
 	}
 	const double t0 = cx_now();
 	for (;;) {
@@ -282,7 +326,8 @@ static int poll_session(void)
 			done = seq;
 			C.bus = bus_inf;
 			C.bus_on = inf_bus_on;
-			C.ng = ng_loaded;
+			C.ng = session_ng ? ng_loaded : NULL;
+			if (moe_loaded) moe_knobs();
 			if (act_op[act_slot] == CX_OP_STEP && C.ng && ng_fetch()) wr32(CX_C_STATE, 2);
 			return 1;
 		}
@@ -302,7 +347,7 @@ static int poll_session(void)
 static int poll_training(void)
 {
 	if (rd32(CX_T_MAGIC) != CX_T_MAGIC_VAL) {   /* no run, or the run ended: the counters start afresh for the next one */
-		if (train_state) { set_state(0); tchunks = 0; flags_acked = 0; wr64(CX_T_C_CHUNKS, 0); wr64(CX_T_REPORT, 0); wr64(CX_T_ACK, 0); printf("cortexd: live: run ended\n"); fflush(stdout); }
+		if (train_state) { set_state(0); tchunks = 0; flags_acked = 0; wr64(CX_T_C_CHUNKS, 0); wr64(CX_T_REPORT, 0); wr64(CX_T_ACK, 0); ng_train_acked = -1; wr32(CX_T_NG_ACK, 0); printf("cortexd: live: run ended\n"); fflush(stdout); }
 		return 0;
 	}
 	const uint64_t flags = rd64(CX_T_FLAGS);
@@ -311,6 +356,9 @@ static int poll_training(void)
 	if (flags & 2) { if (!(flags_acked & 2)) { flags_acked |= 2; wr64(CX_T_ACK, flags_acked); printf("cortexd: live: stop flag at chunk %ld\n", tchunks); fflush(stdout); } set_state(4); return 0; }
 	if (flags & 4) { set_state(2); return 0; }
 	if (rd64(CX_T_H_CHUNKS) <= (uint64_t)tchunks) { set_state(3); return 0; }
+	const int ng_run = rd32(CX_T_NG) != 0 && ng_loaded != NULL;   /* the memory trains: the coach serves the ring and gates were loaded */
+	if (ng_run && rd64(CX_NGR_H_SEQ) <= (uint64_t)tchunks) { set_state(3); return 0; }   /* the chunk's rows are not published yet */
+	if (ng_train_acked != ng_run) { ng_train_acked = ng_run; wr32(CX_T_NG_ACK, (uint32_t)ng_run); }
 	const volatile uint16_t *slot = (const volatile uint16_t *)(part + CX_T_SLOT(tchunks));
 	for (int t = 0; t <= CX_LMAX; t++) chunk_ids[t] = slot[t];
 	lr_base = rdf(CX_T_LR);
@@ -319,7 +367,8 @@ static int poll_training(void)
 	if (!tchunks) { loss_acc = 0; loss_n = 0; t_window = cx_now(); }
 	C.bus = bus_train;
 	C.bus_on = train_bus_on;
-	C.ng = NULL;   /* the plain model trains; a loaded memory serves inference only */
+	C.ng = ng_run ? nggates : NULL;   /* with the memory: the chunk's rows over the ring (cl_ng_begin), its row gradients back (cl_bwd_chunk); without: the plain model */
+	if (moe_loaded) moe_knobs();
 	act_op[act_slot] = ACT_TRAIN;
 	set_state(1);
 	return 1;
@@ -345,7 +394,8 @@ static void train_chunk(int k)
 	cx_train *tr = &C.tr[k];
 	const float b1 = 0.9f, b2 = 0.95f;
 	const uint32_t *id = chunk_ids;
-	tr->ng = NULL;
+	tr->ng = C.ng;
+	cl_ng_begin(&C, k, tchunks);   /* the memory's rows of this chunk (ring slot tchunks & 1) into GDDR; nothing without the memory */
 	for (int t = 0; t < CX_LMAX; t++) cl_fwd_step(&C, k, t, id[t], id[t + 1], id[t + 1]);
 	float lr_k, lr_t, eps_t;
 	cl_adam_schedule(tchunks + 1, lr_base * lr_scale, &lr_k, &lr_t, &eps_t);
@@ -364,9 +414,13 @@ static void train_chunk(int k)
 			wrf(CX_T_LOSS, loss_acc / loss_n);
 			wrf(CX_T_LR_EFF, lr_eff);
 			wrf(CX_T_TOKPS, tokps);
+			const uint32_t distinct = moe_loaded ? moe_distinct() : 0;
+			if (moe_loaded) wr32(CX_T_MOE_DISTINCT, distinct);
 			cx_fence();
 			wr64(CX_T_REPORT, rd64(CX_T_REPORT) + 1);
-			printf("live: chunk %7ld  tokens %10ld  loss %.4f nats = %.4f bits/token  lr %.2e  %.0f tok/s\n", tchunks, tchunks * (long)CX_LMAX, loss_acc / loss_n, loss_acc / loss_n / CX_LN2, lr_eff, tokps);
+			printf("live: chunk %7ld  tokens %10ld  loss %.4f nats = %.4f bits/token  lr %.2e  %.0f tok/s", tchunks, tchunks * (long)CX_LMAX, loss_acc / loss_n, loss_acc / loss_n / CX_LN2, lr_eff, tokps);
+			if (moe_loaded) printf("  moe: bias %g, expert lr %g, %u experts updated", (double)C.moe[0].bias, (double)C.moe_lr, distinct);
+			printf("\n");
 			fflush(stdout);
 			loss_acc = 0;
 			loss_n = 0;
@@ -380,6 +434,10 @@ static void train_chunk(int k)
  * in flight and the DMA reads the latest weights; then the chunk count and the acknowledgement of the flag */
 static void save_ckpt(int k)
 {
+	if (moe_loaded) {   /* the file's MLP region of column k is its home expert k: into the slot before the push */
+		cx_moe_fetch(&C.moe[k], (uint32_t)k, C.tr[k].col.prm + CX_EX_SLOT);
+		cl_wait(&C, k);
+	}
 	if (!k) {
 		cx_fence();
 		const double t0 = cx_now();
@@ -413,11 +471,14 @@ static void live(void *arg, int k)
 		case CX_OP_LOAD:   /* new weights: a new run, every training buffer as a fresh batch-trainer process has it */
 			if (!k) { if (load_ckpt(a)) wr32(CX_C_STATE, 2); }
 			cl_wait(&C, k);
+			if (moe_loaded) moe_fill(k);   /* the pool from the loaded blocks; the heads route from now on */
+			C.tr[k].moe = moe_loaded ? &C.moe[k] : NULL;
+			if (!k) { C.moe_on = moe_loaded; memset(C.moe_used, 0, (size_t)CX_EX_N * 4); wr32(CX_T_MOE, (uint32_t)moe_loaded); wr32(CX_T_MOE_DISTINCT, 0); }
 			C.tr[k].ng = NULL;
 			memset(arena[k] + (2u << 20), 0, arena_used[k] - (2u << 20));   /* per-step saves, gradients, Adam moments, both contexts' T */
 			memset(C.tr[k].col.T, 0, CX_NT * 4);
 			memset(C.tr[k].col.act, 0, CX_NACT * 4);
-			if (!k) { memset(C.m_et, 0, 2u << 20); memset(C.v_et, 0, 2u << 20); memset(C.GET, 0, 2u << 20); memset(C.m_cg, 0, CX_DU * 4); memset(C.v_cg, 0, CX_DU * 4); memset(sh_zero, 0, sh_used - (size_t)(sh_zero - sh_base)); tchunks = 0; inf_step = 0; }
+			if (!k) { memset(C.m_et, 0, 2u << 20); memset(C.v_et, 0, 2u << 20); memset(C.GET, 0, 2u << 20); memset(C.m_cg, 0, CX_DU * 4); memset(C.v_cg, 0, CX_DU * 4); memset(sh_zero, 0, sh_used - (size_t)(sh_zero - sh_base)); cx_ex_keys_init(C.keys); tchunks = 0; inf_step = 0; }
 			cl_wait(&C, k);
 			break;
 		case CX_OP_RESET:
@@ -432,7 +493,7 @@ static void live(void *arg, int k)
 		case CX_OP_STEP: {
 			const int t = (int)(inf_step % CX_LMAX);
 			C.tr[k].col.T = T_inf[k];
-			C.tr[k].ng = ng_loaded;
+			C.tr[k].ng = C.ng;
 			cl_fwd_step(&C, k, t, a, a, 0);
 			C.tr[k].ng = NULL;
 			C.tr[k].col.T = T_train[k];
@@ -453,6 +514,10 @@ static void live(void *arg, int k)
 			cl_wait(&C, k);
 			continue;   /* the ACK went with the DMA */
 		}
+		case CX_OP_NGRAM:
+			if (!k) session_ng = (int)a;
+			cl_wait(&C, k);
+			break;
 		case CX_OP_EXIT:
 			if (!k) { cx_fence(); wr64(CX_C_ACK, done); session_report("ended, exiting"); }
 			return;
@@ -500,8 +565,19 @@ int main(int argc, char **argv)
 	C.loss = STAKE(CX_LMAX * 4);
 	C.argmax = (volatile uint32_t *)STAKE(2 * 16 * 4);
 	logits_buf = STAKE(CX_VOCAB * 4);
+	C.m_ng = STAKE(CX_NG_ORDERS * CX_DE * 4);   /* the memory's gate moments, gate gradient and owner-summed input gradient: zeroed with the block on LOAD */
+	C.v_ng = STAKE(CX_NG_ORDERS * CX_DE * 4);
+	C.gng = STAKE(CX_NG_ORDERS * CX_DE * 4);
+	C.desum = STAKE((size_t)CX_LMAX * CX_DU * 4);
+	C.keys = STAKE(CX_EX_KEYFLOATS * 4);         /* MoE: the product keys, every head's route per step, the usage counts */
+	C.route = (uint32_t *)STAKE((size_t)CL_N * CX_LMAX * 4);
+	C.moe_used = (uint32_t *)STAKE((size_t)CX_EX_N * 4);
 	if (o > (8u << 20)) { fprintf(stderr, "cortexd: shared overflow %zu\n", o); return 1; }
 	memset(sh, 0, o);
+	cx_ex_keys_init(C.keys);
+	pool = huge(((size_t)CX_EX_N * CX_EX_BYTES + (2u << 20) - 1) & ~((size_t)(2u << 20) - 1));   /* 4 GiB of GDDR for the experts */
+	C.pool = pool;
+	C.moe_on = 0;
 	sh_base = sh;
 	sh_zero = (char *)bus_train;
 	sh_used = o;
@@ -521,11 +597,18 @@ int main(int argc, char **argv)
 	nggates_phys = ngpage_phys + CX_NGS_STEPS * CX_NGS_BYTES;
 	C.ngbuf = ngpage;
 	C.ngbuf_phys = ngpage_phys;
+	nggrad = ngpage + (128u << 10) / 4;
+	nggrad_phys = ngpage_phys + (128u << 10);
+	C.nggrad = nggrad;
+	C.nggrad_phys = nggrad_phys;
 	C.ng = NULL;
 
 	const int chan = dma_channel();
 	if (cdma_open(&dma, chan)) return 1;
 	host_part = dma.region_addr + (part_mib << 20);
+	C.ng_host_rows = host_part + CX_NGR_ROWS(0);   /* the training row ring and its gradient slots, as the batch trainer has them */
+	C.ng_host_grad = host_part + CX_NGR_GRAD(0);
+	C.ng_host_cseq = host_part + CX_NGR_C_SEQ;
 	int fd = open("/dev/phihost", O_RDWR | O_SYNC);
 	part = fd < 0 ? MAP_FAILED : mmap(NULL, CX_PART_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, (off_t)(part_mib << 20));
 	if (part == MAP_FAILED) { perror("/dev/phihost"); return 1; }
@@ -538,11 +621,16 @@ int main(int argc, char **argv)
 	wr64(CX_T_CKPT, 0);
 	wr64(CX_T_SAVES, 0);
 	wr32(CX_T_STATE, 0);
+	wr32(CX_T_NG_ACK, 0);
+	wr32(CX_T_MOE, 0);
+	wr32(CX_T_MOE_DISTINCT, 0);
+	wrf(CX_M_BIAS, (double)CX_EX_HOME_BIAS);   /* the knobs' defaults until a coach or a load writes them */
+	wrf(CX_M_LR, (double)CX_EX_LR);
 
 	cx_barrier_init(&C.bar, CL_N, 2, CX_CORE_REL);
 	cx_team_run(CL_N, setup, NULL);
-	printf("cortexd: %d columns (pin failures %d, thread 0 cpu %d, thread %d cpu %d), part %llu MiB, DMA channel %d (region 0x%llx, %llu MiB), n-gram ring at part + %u KiB, live training ring at part + %u MiB (training bus %s); serving\n",
-	       CL_N, cx_pin_fail, cx_found_cpu[0], CL_N - 1, cx_found_cpu[CL_N - 1], (unsigned long long)part_mib, chan, (unsigned long long)dma.region_addr, (unsigned long long)(dma.region_size >> 20), CX_NGS_BASE >> 10, CX_T_RING >> 20, train_bus_on ? "on" : "off");
+	printf("cortexd: %d columns (pin failures %d, thread 0 cpu %d, thread %d cpu %d), part %llu MiB, DMA channel %d (region 0x%llx, %llu MiB), n-gram step ring at part + %u KiB, row ring at part + %u MiB, live training ring at part + %u MiB (training bus %s), MoE pool %u experts x %u B in GDDR (routes after a LOAD with arg bit 1); serving\n",
+	       CL_N, cx_pin_fail, cx_found_cpu[0], CL_N - 1, cx_found_cpu[CL_N - 1], (unsigned long long)part_mib, chan, (unsigned long long)dma.region_addr, (unsigned long long)(dma.region_size >> 20), CX_NGS_BASE >> 10, CX_NGR_BASE >> 20, CX_T_RING >> 20, train_bus_on ? "on" : "off", CX_EX_N, CX_EX_BYTES);
 	fflush(stdout);
 	cx_team_run(CL_N, live, NULL);
 	wr32(CX_T_STATE, 0);

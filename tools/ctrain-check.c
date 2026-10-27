@@ -46,6 +46,13 @@ int main(int argc, char **argv)
 	cref_init(&C);
 	const int ng = getenv("CX_NG") && atoi(getenv("CX_NG"));
 	if (ng) cref_ng_init(&C);
+	/* MoE stage 2 (CX_MOE=1): the keys from the seeded init, the knobs as the card had them */
+	const int moe = getenv("CX_MOE") && atoi(getenv("CX_MOE"));
+	static float keys[CX_EX_KEYFLOATS];
+	if (moe) {
+		cx_ex_keys_init(keys);
+		cref_moe_init(&C, keys, getenv("CX_MOE_BIAS") ? atof(getenv("CX_MOE_BIAS")) : CX_EX_HOME_BIAS, getenv("CX_MOE_LR") ? atof(getenv("CX_MOE_LR")) : CX_EX_LR);
+	}
 	cgrads G;
 	cgrads_alloc(&G, N);
 	cgrads_zero(&G, N);
@@ -82,6 +89,19 @@ int main(int argc, char **argv)
 	}
 	printf("ctrain-check %s: N %d, L %d, warm %d: mean loss ref %.6f card %.6f; max |loss err| %.3e\n", argv[1], N, L, warm, loss, csum / L, eloss);
 	cmp("hc", -1, chc, rhc, (long)L * CX_DU);
+	if (moe) {   /* the routes of the chunk: every head's expert per step must be the reference's (a difference is a near-tie or a fault) */
+		float *rt = load(dir, "cl-route", -1, (size_t)N * CX_T_L);   /* the card's layout: route[k * CX_LMAX + t], CX_LMAX = CX_T_L */
+		long diff = 0, home = 0;
+		if (rt) {
+			const uint32_t *cr = (const uint32_t *)rt;
+			for (int c = 0; c < N; c++) for (int t = 0; t < L; t++) {
+				const uint32_t card = cr[(long)c * CX_T_L + t], ref = C.route[(long)c * L + t];
+				if (ref == (uint32_t)c) home++;
+				if (card != ref) { if (diff < 5) printf("  route col %d step %d: card %u ref %u\n", c, t, card, ref); diff++; }
+			}
+			printf("  route: %ld of %ld (column, step) pairs differ; %ld routed home; %d experts touched by the reference\n", diff, (long)N * L, home, C.moe_ntouched);
+		}
+	}
 	for (int i = 0; i < ndump; i++) {
 		const int k = dl_[i];
 		float *cu = load(dir, "cl-u", k, (size_t)(L > 0 ? L : 0) * CX_DUMP);
@@ -104,9 +124,19 @@ int main(int argc, char **argv)
 			cmp("Wqb", k, gp + CX_O_WQB, rp + CX_O_WQB, CX_DP * CX_DB);
 			cmp("gain", k, gp + CX_O_GAIN, rp + CX_O_GAIN, CX_DX);
 			cmp("W", k, gp + CX_O_W, rp + CX_O_W, CX_DX * CX_NW);
-			cmp("W1", k, gp + CX_O_W1, rp + CX_O_W1, CX_DM * CX_DH);
-			cmp("b1", k, gp + CX_O_B1, rp + CX_O_B1, CX_DH);
-			cmp("Wu", k, gp + CX_O_WU, rp + CX_O_WU, CX_DH * CX_DU);
+			if (moe) {   /* the expert of step 0 after the chunk's updates, from the card's pool */
+				float *ex = load(dir, "cl-ex", k, CX_EX_FLOATS);
+				if (ex) {
+					const double *re = cref_moe_expert(&C, C.route[(long)k * L]);
+					cmp("ex W1", k, ex, re, CX_DM * CX_DH);
+					cmp("ex b1", k, ex + CX_DM * CX_DH, re + CX_DM * CX_DH, CX_DH);
+					cmp("ex Wu", k, ex + CX_DM * CX_DH + CX_DH, re + CX_DM * CX_DH + CX_DH, CX_DH * CX_DU);
+				}
+			} else {
+				cmp("W1", k, gp + CX_O_W1, rp + CX_O_W1, CX_DM * CX_DH);
+				cmp("b1", k, gp + CX_O_B1, rp + CX_O_B1, CX_DH);
+				cmp("Wu", k, gp + CX_O_WU, rp + CX_O_WU, CX_DH * CX_DU);
+			}
 			cmp("wg", k, gp + CX_O_WG, rp + CX_O_WG, CX_DH);
 			cmp("bg", k, gp + CX_O_BG, rp + CX_O_BG, 1);
 		}

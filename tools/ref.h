@@ -69,8 +69,10 @@ static inline void rgemv(const double *W, const double *x, int K, int N, double 
 	for (int k = 0; k < K; k++) for (int n = 0; n < N; n++) y[n] += x[k] * W[(long)k * N + n];
 }
 
-/* the column forward (no consensus norm): T (64x64, T = S^T) updated in place; everything the backward needs saved */
-static inline void ref_col_forward(const double *prm, const double *E, double *T, rstep *s, uint32_t id, const float *Bt, const double *ein)
+/* the column forward in two halves (the MoE reference routes and sets the expert between them, tools/cref.h): the first
+ * through the fast weights to [o ; x] (T, 64x64, T = S^T, updated in place), the second the MLP and the outputs;
+ * everything the backward needs saved */
+static inline void ref_col_pre(const double *prm, const double *E, double *T, rstep *s, uint32_t id, const float *Bt, const double *ein)
 {
 	s->id = id;
 	s->Bt = Bt;
@@ -104,6 +106,10 @@ static inline void ref_col_forward(const double *prm, const double *E, double *T
 	for (int i = 0; i < CX_DS; i++) { s->d[i] = s->b * (s->y[128 + i] - s->a * s->Sk[i]); s->kq += s->k[i] * s->y[i]; }
 	for (int i = 0; i < CX_DS; i++) s->o[i] = s->a * s->Sq[i] + s->kq * s->d[i];
 	for (int j = 0; j < CX_DS; j++) for (int i = 0; i < CX_DS; i++) T[j * CX_DS + i] = s->a * T[j * CX_DS + i] + s->k[j] * s->d[i];
+}
+
+static inline void ref_col_mlp(const double *prm, rstep *s)
+{
 	double min[CX_DM];
 	for (int i = 0; i < CX_DS; i++) min[i] = s->o[i];
 	for (int i = 0; i < CX_DX; i++) min[CX_DS + i] = s->x[i];
@@ -114,6 +120,13 @@ static inline void ref_col_forward(const double *prm, const double *E, double *T
 	for (int i = 0; i < CX_DH; i++) s->gl += s->z[i] * prm[CX_O_WG + i];
 	s->g = rsig(s->gl);
 	rgemv(prm + CX_O_WB, s->z, CX_DH, CX_DB, s->bc);
+}
+
+/* the dense column's forward: both halves */
+static inline void ref_col_forward(const double *prm, const double *E, double *T, rstep *s, uint32_t id, const float *Bt, const double *ein)
+{
+	ref_col_pre(prm, E, T, s, id, Bt, ein);
+	ref_col_mlp(prm, s);
 }
 
 /* single column: forward plus the consensus norm of its own vote */

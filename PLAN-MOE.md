@@ -412,3 +412,97 @@ of 29,992,115 tokens has floors 8.528 / 4.821 / 3.888 on its held-out tokens, 2.
 Opus run stopped at chunk 455,246 (02:00:45); the base run started at 02:00:48 (data/live-base/, results/base-loss.log,
 ends about 08:50). The frame's identity line is the persona form. SODA (3.539 at 4.184 B/token, 1.19M dialogues) is
 the option for a larger run.
+
+## 06:32 (10-27, user): "Rather than training on the current 6M model, start work on the MoE portion"
+
+The stage-2 build (the sizing of 06:32 the day before, measured in "Readiness for stages 2 and 3"). Decisions, each
+from the measurements or the papers:
+
+- **An expert is the column's MLP block as it lies in the parameter layout**: W1 (144 x 64), b1 (64), Wu (64 x 128)
+  are contiguous from CX_O_W1 (lib/cx-col.h), 17,472 F32 = CX_EX_FLOATS (a static assertion in lib/cx-moe.h). A
+  head keeps the whole 44,512-float block; its MLP region is the slot the routed expert is fetched into
+  (CX_EX_SLOT), so card/col.h and card/train.h compute on it unchanged: the step is split into cx_col_pre (through
+  the fast weights to [o ; x]) and cx_col_mlp (the MLP and the outputs), the router and the fetch between them.
+  The L2 picture per core is the dense one (two blocks of 178 KB) plus the 80 KiB of shared keys.
+- **One pool, 61,440 experts, filled by sparse upcycling** (Komatsuzaki et al. 2022, arXiv 2212.05055): expert e
+  starts as the MLP of column e mod 120 of the dense checkpoint, so every expert is a trained function. Head k's
+  home expert is k; the home pair (k / 248, k % 248) of the product keys gets a bonus (the run knob CX_MOE_BIAS,
+  8 at conversion = CX_EX_HOME_BIAS), so the converted model computes the dense model exactly (gate A: the same
+  bytes through the same kernel). With the bonus at 0 the keys alone decide.
+- **Fixed product keys first** (Lample et al. 2019, arXiv 1907.05242, the key structure; Roller et al. 2021, arXiv
+  2106.04426: fixed hash routing is competitive with learned routing): KA, KB = 248 keys x 40 dims each from a
+  seeded init (cx_ex_keys_init, scale 0.15), scored against the two halves of the head's x (the normed 80-wide
+  input of the fast-weight pass); e = (argmax A x 248 + argmax B) mod 61,440; ties to the lowest lane. Learned keys
+  (the Switch-style gradient through the factorised softmax) are the next step.
+- **Experts train by plain SGD, one rank-1 update per head per step**, applied in the chunk backward: at step t
+  (reverse order) every head re-fetches its step-t expert for the backward's products, computes its vectors, then
+  (after a barrier) the lowest head routed to each expert at that step applies all the heads' updates to it in head
+  order and writes it back; the next step's re-fetch waits for the write-backs (a second barrier). Deterministic
+  whatever the collisions. W1 -= lr min dh^T, b1 -= lr dh, Wu -= lr z du^T from the step's saved vectors; lr = the
+  run knob CX_MOE_LR (default CX_EX_LR 0.05, to be searched). No Adam moments (8 GiB for 1.07 G parameters).
+- **The head's own gradients and Adam** are the dense ones without the MLP region (zeroed in cx_train_param_grads).
+- **Checkpoints**: the dense format, column k's MLP region holding the home expert k from the pool (so ref-loss and
+  the dense tools read the converted model at home routing); the pool itself stays on the card for the run (its
+  save through the stage in pieces is stage 2c).
+- **The reference**: tools/cref.h in MoE mode (cref_moe_init): the route in double on the same keys, the touched
+  experts in double from the home MLPs, the per-step expert gradients applied after every column's products in
+  column order (the card's owner order); tools/ctrain-check.c compares the routes (cl-route.f32, u32 per head per
+  step), the losses, hc, the head gradients, cg, E and the experts of step 0 after the chunk (cl-ex<k>.f32).
+- **Expected cost** (from the bench): the fetch on the forward's path (94 to 96 us), the re-fetch and the write-back
+  per step of the backward (2 x 94 us), two barriers per backward step: about 290 us over the dense 793 us per step
+  (computed, measured in gate C). The L2 prefetch of the next expert (mode B) is the first optimisation.
+
+Files: lib/cx-moe.h (CX_EX_SLOT, home pair, keys init, CX_EX_LR), card/moe.h (router, fetch, update, store),
+card/col.h (the split step), card/train.h (the forward hook, the head's gradients), card/cluster.h (the backward's
+re-fetch, owner rule, write-back, usage counts), tools/cluster-gate.c (CX_MOE build: the pool in 4 GiB of huge
+pages, the keys, the fill, the dumps, the home experts in the checkpoint, the usage report), tools/ref.h (the split
+reference step), tools/cref.h (the MoE mode), tools/ctrain-check.c (the MoE comparisons), build.sh
+(cluster-gate-moe), tools/moe-gate.sh (gates A to D). Results are appended below as they are measured.
+
+### Results (07:1x, results/moe-gate.log, results/moe-gate/)
+
+| gate | measured |
+|---|---|
+| A conversion | the MoE build with the home bonus on the seeded weights is byte-identical to the dense build (md5 of the chunk's losses, hc and the dumped columns' u/bc/g equal; 3,840 of 3,840 routes home) |
+| B reference, home bonus 8 | loss within 9.0e-7, hc 3.9e-7 relative; the experts of step 0 after the chunk's SGD updates within 2.8e-7 to 5.2e-7 (W1, b1, Wu of heads 0, 59, 119); the head gradients within 1.0e-6; cg 3.6e-7; E 2.8e-7 |
+| B reference, home bonus 0 | free routing: 8,101 experts touched in one chunk, every one of the 3,840 (head, step) routes the reference's (no near-ties), the experts within 3e-8 to 3e-7 with the collisions resolved by the owner rule |
+| C cost | forward 634 us per step against the dense 381 in the gate harness (PMU on; L2 misses 5,853 against 2,552 per step per thread: the expert's 1,092 lines plus the 80 KiB of keys no longer resident); in the runs 540 against 326; backward 672 (home routing) to 770 (free) against 454 |
+| D runs, 2,000 chunks from data/live-base/ckpt-661017.bin at lr 3e-3 (a restart: the base run ended at 3.75e-4), bus off, validation 3,200 tokens | dense: 1,280 tok/s, train 6.67 to 6.10 bits/token, valid 6.2476. MoE bonus 100 (exact home) expert lr 0.05: 821 to 825 tok/s, 6.41 to 6.09, valid 6.2707; lr 0.01: 6.15, valid 6.6394; lr 0 (experts frozen): 6.18, valid 6.3799. Bonus 8 (11.7 % of steps off home): 6.62, valid 7.4078. Bonus 0 (free from the start): 756 to 764 tok/s, 13.8 to 8.73, valid 8.7562, 20,017 experts touched |
+
+Reading: the machinery is exact and the SGD on the experts (0.05) stands in for Adam on the MLP at 0.02 bits on this
+slice (validation on 3,200 tokens carries about 0.3 of noise, docs/CHAT.md's state instability). The cost is the
+expert traffic and the keys' L2 misses: 55 % more time per step; the next optimisations are F16 keys (40 KiB, the
+`vloadunpack` up-conversion the 7120A has), the L2 prefetch of the next expert during the fast-weight pass (mode B
+of the bench), and the backward's re-fetch overlapped with the previous step. Free routing from the first step
+destroys the trained function (every head gets another head's MLP): the bonus is lowered gradually across runs, or
+the keys learn. CX_EX_HOME_BIAS is now 100 (8 left home on 11.7 % of the steps of a real checkpoint).
+
+### The daemon (07:08 to 07:11, results/live-moe-gate.log)
+
+card/cortexd.c is the MoE build: the pool (4 GiB of huge pages) is allocated at start, a LOAD with arg bit 1 fills
+it from the checkpoint's MLP blocks and the heads route from then on (training and inference), the bonus and the
+experts' step come from two host words (CX_M_BIAS, CX_M_LR: the coach's `--moe-bias`, `--bias-decay`, `--expert-lr`,
+the `bias X` and `exlr X` lines, or `cortex --load ... --moe --moe-bias X`), a save puts each head's home expert into
+its slot before the push (the file keeps the dense format), the report carries the experts updated so far
+(CX_T_MOE_DISTINCT). Gate: `coach --ckpt data/live-base/ckpt-661017.bin --moe --moe-bias 100 --expert-lr 0.05` over
+2,000 chunks of the chat base equals `cluster-gate-moe run` with the same knobs: 20 of 20 per-report losses
+identical, the final checkpoint's md5 identical (27f3328c8a8710b3eaf39d937a9fa137), 824 against 822 tok/s. The
+pool lives for the daemon's life (a LOAD without the bit returns to the dense model); its save through the stage in
+pieces is the next piece of stage 2, with the F16 keys and the expert prefetch.
+
+### The chunk layer's gate and the first MoE run (07:15 to 07:19)
+
+The memory in the live loop (docs/LIVE.md "The memory in the live loop") passed its gate: `coach --ngram
+/dev/shm/cortex-gate-tables.f32 --row-lr 0.1 --gates ones` over 2,000 chunks of the chat base equals `cluster-gate`
+(CX_NG=1) with ngserve: the 20 per-report losses, the final checkpoint (md5 8661a86075745520e67345179b274264), the
+gates and the full 2 GiB of tables identical (results/live-ng-gate.log); the batch reference ran at 1,252 to 1,270
+tok/s with the ring, so the ring costs nothing visible beside the dense step.
+
+The first MoE training run started at 07:18:52: the unseen rest of the chat-base epoch (chunks 661,017 to 937,252,
+276,236 chunks) from data/live-base/ckpt-661017.bin at lr 5e-4 (a gentle restart of Adam: at 3e-3 the gate runs lost
+0.5 bits/token at the start), the home bonus falling from 100 to 0 over the first 100,000 chunks, the experts at
+lr 0.05, a checkpoint every 5,000 chunks into data/live-moe/, 824 to 825 tok/s, about 3.0 hours. What is not yet
+measurable: the held-out loss of the routed model on the host (ref-loss reads the dense-format checkpoint, which
+holds the heads and the home experts, and the pool is not saved yet), so the run is read by its training loss, the
+expert count in the report line and the harness until the pool save and a MoE-aware evaluator exist (next, with the
+F16 keys, the expert prefetch of mode B, learned keys, and the memory and the pool together in one run).

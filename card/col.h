@@ -101,9 +101,10 @@ typedef struct {
 	float *act;   /* CX_NACT floats */
 } cx_col;
 
-/* one token step. e: this token's embedding row (128). Bt: this step's bus input, [16][128]. Leaves u at act + CX_A_U,
- * g (all lanes) at CX_A_G, bc at CX_A_BC, and the values the backward needs at CX_A_R .. CX_A_SG. */
-static inline void cx_col_step(cx_col *c, const float *e, const float *Bt)
+/* one token step in two halves (the MoE head routes and fetches its expert between them, card/moe.h). e: this token's
+ * embedding row (128). Bt: this step's bus input, [16][128]. The first half leaves [o ; x] at CX_A_MIN and the values
+ * the backward needs at CX_A_R .. CX_A_D; the second leaves u at act + CX_A_U, g (all lanes) at CX_A_G, bc at CX_A_BC. */
+static inline void cx_col_pre(cx_col *c, const float *e, const float *Bt)
 {
 	float *const A = c->act;
 	const float *const P = c->prm;
@@ -199,6 +200,13 @@ static inline void cx_col_step(cx_col *c, const float *e, const float *Bt)
 		const __m512 kj = CX_BC(A + CX_A_K + j);
 		for (int v = 0; v < 4; v++) _mm512_store_ps(row + 16 * v, _mm512_fmadd_ps(a, _mm512_load_ps(row + 16 * v), _mm512_mul_ps(kj, d[v])));
 	}
+}
+
+/* the second half: the MLP (from the slot, in a MoE head) and the outputs */
+static inline void cx_col_mlp(cx_col *c)
+{
+	float *const A = c->act;
+	const float *const P = c->prm;
 
 	/* h = [o ; x]^T W1 + b1; z = SiLU(h) */
 	float *const h = A + CX_A_H, *const z = A + CX_A_Z;
@@ -217,6 +225,13 @@ static inline void cx_col_step(cx_col *c, const float *e, const float *Bt)
 	for (int v = 0; v < CX_NVH; v++) gl = _mm512_fmadd_ps(_mm512_load_ps(z + 16 * v), _mm512_load_ps(P + CX_O_WG + 16 * v), gl);
 	_mm512_store_ps(A + CX_A_G, cx_sigmoid(cx_hsum(gl)));
 	cx_gemv1(P + CX_O_WB, z, CX_DH, A + CX_A_BC);
+}
+
+/* the dense column's step: both halves, the MLP from the parameter block */
+static inline void cx_col_step(cx_col *c, const float *e, const float *Bt)
+{
+	cx_col_pre(c, e, Bt);
+	cx_col_mlp(c);
 }
 
 #endif

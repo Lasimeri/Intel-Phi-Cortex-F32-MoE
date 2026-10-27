@@ -1,0 +1,42 @@
+=== live memory gate 2026-10-27 07:15:58: data/live-base/ckpt-661017.bin, slice data/chat-base/slice-64k.u16 (2,000 chunks), rows lr 0.1, gates from ones
+--- reference: cluster-gate run with CX_NG=1 and ngserve (zero tables, lr 0.1), the card without the daemon
+ngserve: 2 orders x 2097152 rows (zero), 2000 train + 100 valid chunks of 32, lr 0.1, ring at part + 48 MiB
+ngserve: tables saved to results/live-ng-gate/ref-tables.f32
+ngserve: 2100 chunks served
+n-gram memory: on, 2097152 rows per order on the host, ring at part + 48 MiB, DMA channel 3
+chunk    100  tokens      3200  loss 4.7520 nats = 6.8557 bits/token  lr 3.00e-03  1252 tok/s  (us/step: fwd+vote+head 342, bwd+grads+adam 455)
+chunk    200  tokens      6400  loss 4.6269 nats = 6.6752 bits/token  lr 3.00e-03  1261 tok/s  (us/step: fwd+vote+head 339, bwd+grads+adam 453)
+chunk    300  tokens      9600  loss 4.5752 nats = 6.6006 bits/token  lr 3.00e-03  1261 tok/s  (us/step: fwd+vote+head 340, bwd+grads+adam 452)
+chunk    400  tokens     12800  loss 4.5844 nats = 6.6138 bits/token  lr 3.00e-03  1267 tok/s  (us/step: fwd+vote+head 338, bwd+grads+adam 450)
+chunk    500  tokens     16000  loss 4.5165 nats = 6.5159 bits/token  lr 3.00e-03  1261 tok/s  (us/step: fwd+vote+head 339, bwd+grads+adam 453)
+chunk    600  tokens     19200  loss 4.6313 nats = 6.6815 bits/token  lr 3.00e-03  1269 tok/s  (us/step: fwd+vote+head 337, bwd+grads+adam 450)
+chunk    700  tokens     22400  loss 4.4589 nats = 6.4328 bits/token  lr 3.00e-03  1261 tok/s  (us/step: fwd+vote+head 339, bwd+grads+adam 453)
+chunk    800  tokens     25600  loss 4.5130 nats = 6.5108 bits/token  lr 3.00e-03  1262 tok/s  (us/step: fwd+vote+head 338, bwd+grads+adam 453)
+chunk    900  tokens     28800  loss 4.0746 nats = 5.8784 bits/token  lr 3.00e-03  1267 tok/s  (us/step: fwd+vote+head 338, bwd+grads+adam 450)
+chunk   1000  tokens     32000  loss 4.6385 nats = 6.6919 bits/token  lr 3.00e-03  1260 tok/s  (us/step: fwd+vote+head 340, bwd+grads+adam 452)
+chunk   1100  tokens     35200  loss 4.4110 nats = 6.3638 bits/token  lr 3.00e-03  1264 tok/s  (us/step: fwd+vote+head 338, bwd+grads+adam 452)
+chunk   1200  tokens     38400  loss 4.5299 nats = 6.5352 bits/token  lr 3.00e-03  1266 tok/s  (us/step: fwd+vote+head 338, bwd+grads+adam 451)
+chunk   1300  tokens     41600  loss 4.3470 nats = 6.2714 bits/token  lr 3.00e-03  1264 tok/s  (us/step: fwd+vote+head 338, bwd+grads+adam 452)
+chunk   1400  tokens     44800  loss 4.1694 nats = 6.0152 bits/token  lr 3.00e-03  1262 tok/s  (us/step: fwd+vote+head 339, bwd+grads+adam 452)
+chunk   1500  tokens     48000  loss 4.3582 nats = 6.2875 bits/token  lr 3.00e-03  1268 tok/s  (us/step: fwd+vote+head 337, bwd+grads+adam 450)
+chunk   1600  tokens     51200  loss 4.8003 nats = 6.9253 bits/token  lr 3.00e-03  1261 tok/s  (us/step: fwd+vote+head 339, bwd+grads+adam 452)
+chunk   1700  tokens     54400  loss 4.4125 nats = 6.3658 bits/token  lr 3.00e-03  1270 tok/s  (us/step: fwd+vote+head 336, bwd+grads+adam 450)
+chunk   1800  tokens     57600  loss 4.6475 nats = 6.7049 bits/token  lr 3.00e-03  1263 tok/s  (us/step: fwd+vote+head 338, bwd+grads+adam 453)
+chunk   1900  tokens     60800  loss 4.1672 nats = 6.0120 bits/token  lr 3.00e-03  1262 tok/s  (us/step: fwd+vote+head 339, bwd+grads+adam 453)
+chunk   2000  tokens     64000  loss 4.2245 nats = 6.0946 bits/token  lr 3.00e-03  1263 tok/s  (us/step: fwd+vote+head 339, bwd+grads+adam 452)
+valid: 3200 tokens, loss 4.3921 nats = 6.3365 bits/token = 1.5997 bits/byte (3.961 B/token); train 50.7 s, valid 1.1 s
+reference: 20 reports, final checkpoint md5 8661a86075745520e67345179b274264, gates 1024 B, tables 2147483648 B
+--- the daemon back (build/card/cortexd, channel 3), then the live half: coach --ngram /dev/shm/cortex-gate-tables.f32 --row-lr 0.1 --gates ones
+07:17:14 coach: data/chat-base/slice-64k.u16 chunks 0..1999 (2000 chunks = 64000 tokens), lr 3.000e-03, report every 100, window 10, min gain 0.010, halvings 3, sample every 0 x 128 tokens, save every
+07:17:15 coach: data/live-base/ckpt-661017.bin loaded into the daemon
+07:17:15 coach: live (magic set, 960 chunks in the ring, the memory's rows of chunks 0 and 1 published)
+07:17:15 coach: the daemon trains the memory with the ring
+07:18:07 coach: the stream is exhausted at chunk 2000
+07:18:07 checkpoint (final): results/live-ng-gate/live/ckpt-2000.bin, 23463424 bytes, chunk 2000, push 1, copied in 33 ms
+07:18:23 tables: results/live-ng-gate/live/tables-2000.f32, 2147483648 bytes, written in 15.2 s
+07:18:23 coach: run ended at chunk 2000 (64000 tokens), 0 halvings, final scale 1.0000
+losses: PASSED, 20 per-report losses identical to the batch trainer with ngserve
+checkpoint: PASSED, md5 8661a86075745520e67345179b274264 = the batch trainer's
+gates: PASSED, identical
+tables: PASSED, the 2 GiB identical
+=== gate done 2026-10-27 07:18:24

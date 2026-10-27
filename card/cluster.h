@@ -59,6 +59,14 @@ typedef struct {
 	volatile uint8_t *part;
 	cdma *dma;
 	long chunk;
+	/* MoE stage 2 (builds with CX_MOE; moe_on 0 = the dense columns): the pool in GDDR, the shared keys, each head's
+	 * router context, every head's route per step (route[k * CX_LMAX + t]), the experts' SGD step */
+	int moe_on;
+	float *pool, *keys, moe_lr;
+	uint32_t *route, *moe_used;   /* moe_used: per expert, the (step, expert) updates applied, counted by the owner */
+#ifdef CX_MOE
+	cx_moe moe[CL_N];
+#endif
 } cluster;
 
 static inline void cl_blocks(cluster *C, int k)
@@ -212,6 +220,29 @@ static inline void cl_fwd_step(cluster *C, int k, int t, uint32_t id, uint32_t i
 	}
 }
 
+#ifdef CX_MOE
+/* MoE: the experts of step t updated after every head's step-t backward (a barrier first): head k's rank-1 update
+ * is applied by the lowest head routed to the same expert at this step (the owner) into the owner's slot, which
+ * holds that expert (re-fetched for the step's backward), in head order, then written back to the pool. Deterministic
+ * whatever the collisions; the next step's re-fetch waits for the write-backs (the barrier at the step's start). */
+static inline void cl_moe_update_step(cluster *C, int k, int t)
+{
+	cl_wait(C, k);   /* M: every head's step-t vectors are complete */
+	const uint32_t e = C->route[(long)k * CX_LMAX + t];
+	for (int j = 0; j < k; j++) if (C->route[(long)j * CX_LMAX + t] == e) return;   /* a lower head owns this expert at step t */
+	cx_train *tr = &C->tr[k];
+	float *slot = tr->col.prm + CX_EX_SLOT;
+	for (int j = k; j < CL_N; j++) {
+		if (C->route[(long)j * CX_LMAX + t] != e) continue;
+		const cx_train *tj = &C->tr[j];
+		const float *A = tj->acts + (long)t * CX_NACT, *G = tj->gsave + (long)t * CX_NG;
+		cx_moe_update(slot, C->moe_lr, A + CX_A_MIN, G + CX_G_DH, A + CX_A_Z, G + CX_G_DU);
+	}
+	cx_moe_store(&C->moe[k], e, slot);
+	if (C->moe_used) C->moe_used[e]++;
+}
+#endif
+
 /* the chunk backward for thread k; ids[0..L] (ids[t] the input of step t) */
 static inline void cl_bwd_chunk(cluster *C, int k, const uint32_t *ids, float b1, float b2, float lr_t, float eps_t)
 {
@@ -251,6 +282,12 @@ static inline void cl_bwd_chunk(cluster *C, int k, const uint32_t *ids, float b1
 	cx_train_chunk_begin(tr);
 	cx_zero(tr->gcg, CX_DU);
 	for (int t = L - 1; t >= 0; t--) {
+#ifdef CX_MOE
+		if (C->moe_on) {   /* N: the previous step's write-backs are done; the step's expert back into the slot for the backward's products */
+			cl_wait(C, k);
+			cx_moe_fetch(&C->moe[k], C->route[(long)k * CX_LMAX + t], tr->col.prm + CX_EX_SLOT);
+		}
+#endif
 		const float *A = tr->acts + (long)t * CX_NACT;
 		cx_pf_lines(A, CX_NACT);
 		cx_pf_lines(C->bus + (long)t * CL_BUS, CL_BUS);
@@ -265,6 +302,9 @@ static inline void cl_bwd_chunk(cluster *C, int k, const uint32_t *ids, float b1
 		}
 		const __m512 dgl = _mm512_mul_ps(cx_hsum(dg), _mm512_mul_ps(g, _mm512_sub_ps(one, g)));
 		cx_col_bwd_step(tr, t, C->bus + (long)t * CL_BUS, du, dgl);
+#ifdef CX_MOE
+		if (C->moe_on) cl_moe_update_step(C, k, t);
+#endif
 	}
 	cx_train_param_grads(tr);
 	/* own blocks: GET[g][c] += sum_t hc_t[c] dl_t[g] (hc and dl private) */

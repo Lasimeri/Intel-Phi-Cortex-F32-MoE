@@ -49,6 +49,8 @@ pub struct Request {
     pub orchestra: Option<(String, String)>,
     /// The BPE vocabulary file, relative to the tree, when not the client's default.
     pub vocab: Option<String>,
+    /// The n-gram memory's tables the client reads its rows from, or none (the plain model).
+    pub ngram: Option<String>,
     pub prompt: String,
     /// The reply ends before any of these strings (the frame's end marker and role markers); each goes to the
     /// client as its own `--stop`.
@@ -85,6 +87,9 @@ pub fn args_of(r: &Request) -> Vec<String> {
     }
     if let Some(vocab) = &r.vocab {
         a.extend(["--vocab".into(), vocab.clone()]);
+    }
+    if let Some(ngram) = &r.ngram {
+        a.extend(["--ngram".into(), ngram.clone()]);
     }
     a
 }
@@ -156,7 +161,7 @@ mod tests {
 
     #[test]
     fn builds_the_client_arguments() {
-        let r = Request { tree: ".".into(), cortex: "c".into(), orchestra: Some(("n.ngc".into(), "w.txt".into())), vocab: Some("v.txt".into()), prompt: "Once".into(), stop: vec!["\nHuman:".into()], ngen: 64, seed: 5, sampling: Sampling::default() };
-        assert_eq!(args_of(&r).join(" "), "--live Once 64 --no-echo --stop-eot --seed 5 --temp 0.5 --topk 75 --topp 0.95 --minp 0.05 --rp 1.2 --orchestra n.ngc --words w.txt --stop \nHuman: --vocab v.txt");
+        let r = Request { tree: ".".into(), cortex: "c".into(), orchestra: Some(("n.ngc".into(), "w.txt".into())), vocab: Some("v.txt".into()), ngram: Some("/dev/shm/t.f32".into()), prompt: "Once".into(), stop: vec!["\nHuman:".into()], ngen: 64, seed: 5, sampling: Sampling::default() };
+        assert_eq!(args_of(&r).join(" "), "--live Once 64 --no-echo --stop-eot --seed 5 --temp 0.5 --topk 75 --topp 0.95 --minp 0.05 --rp 1.2 --orchestra n.ngc --words w.txt --stop \nHuman: --vocab v.txt --ngram /dev/shm/t.f32");
     }
 }
