@@ -372,3 +372,33 @@ special tokens in the BPE, the converter for reasoning fields and the no-think s
 writer, the chat vocabulary, the frame and the talk with the think block, `--vocab`. Running: the one-epoch run on
 Gryphe's 24k set (31.55M tokens, lr 3e-3, 100-report windows) with its held-out curve in results/scratch-loss.log.
 docs/CHAT.md has the numbers.
+
+## 01:2x (10-27): "The model is completely incoherent"
+
+It is, and the measurement is the finding: against n-gram tables on the same held-out tokens (tools/ngram-base.c)
+the from-scratch model is below unigram now (10.04 against 9.98 bits/token at chunk 325,001; 9.35 at its best) and
+3.2 bits behind a trigram (6.18); the stories model was between unigram and bigram all along (6.11 against 8.43 and
+5.11). The architecture has never beaten a bigram table on any text, so the capacity work (stages 2 and 3) is what
+coherent chat needs, not more data or epochs. Secondary: Gryphe's set is grouped by source (the held-out tail is one
+source), and the plateau policy put the rate at the floor by chunk 90,000. docs/CHAT.md "Incoherent, and why".
+
+## 01:31 (10-27, user): "produce an LLM capable of identity and communication in english"
+
+The goal restated, with a paper to keep in mind: Nielsen, Y. A. & Christiansen, M. H., "Evidence for the
+representation of non-hierarchical structures in language", Nature Human Behaviour 10, 579-588 (2026),
+doi 10.1038/s41562-025-02387-z. Linear chunks of structure akin to parts-of-speech sequences (VERB PREPOSITION
+DETERMINER, shared by "added to a" and "defined by the") are primed in four preregistered phrasal decision
+experiments (N = 497) without constituents, and the effect holds in eye-tracked reading (N = 68) and conversation
+(N = 358) corpora: multiword linear chunks are a basic representational unit, not reducible to hierarchical
+constituents.
+
+What this fixes in the plan: the layer the paper calls basic is the layer the measurements say the Cortex lacks. The
+n-gram baselines (docs/CHAT.md "Incoherent, and why") put a trigram table 3.2 bits/token below the from-scratch chat
+model and 2.0 below the stories model, and the tree already has the chunk layer: the hashed n-gram memory of stage 1
+(orders 2 and 3, 2^21 rows x 128 F32 per order in host RAM, rows over the DMA ring, gate 1a passed, run B above:
+training loss -0.205 and validation -0.041 bits/token at 320,000 tokens from zero-initialised tables with SGD lr 0.1
+on the rows, the row learning rate named as the first knob). The live trainer serves the memory for inference only
+(docs/LIVE.md), so no live run has trained it. The next capacity step is therefore the chunk layer in the live loop,
+with the trigram baseline on the same held-out tokens as the bar it has to clear, and the data aimed at identity and
+plain English communication rather than reasoning traces. Identity data cannot be written by me (never train on
+Claude-written text); it is human-written or the user's.

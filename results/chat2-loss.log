@@ -1,0 +1,5 @@
+# chat pass 2 (data/mix/chat2-train.u16, 73.5 % stories, lr 5e-4, 20:38:59 to 22:03:57, final data/live/ckpt-193743.bin), measured 22:1x on the host (tools/ref-loss)
+ref-loss: data/live/ckpt-193743.bin on data/bpe/valid.u16[0..20000): 4.4849 nats = 6.4703 bits/token over 19999 predictions, top-1 0.3038, 80.5 s
+ref-loss: data/live/ckpt-193743.bin on data/chat/chat2-valid.u16[0..82334): 6.5918 nats = 9.5100 bits/token over 82333 predictions, top-1 0.0884, 329.5 s
+ref-loss: data/live/ckpt-18069.bin on data/chat/chat2-valid.u16[0..82334): 6.3863 nats = 9.2135 bits/token over 82333 predictions, top-1 0.0859, 328.6 s
+ref-loss: data/live/ckpt-10021.bin on data/chat/chat2-valid.u16[0..82334): 8.2446 nats = 11.8944 bits/token over 82333 predictions, top-1 0.0508, 337.7 s

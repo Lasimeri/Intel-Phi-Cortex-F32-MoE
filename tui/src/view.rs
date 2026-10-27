@@ -278,14 +278,12 @@ fn turn_note(t: &Turn) -> String {
         parts.push(format!("prompt {} tokens", group(s.prompt_tokens)));
     }
     parts.push(format!("seed {}", t.seed));
-    parts.push(
-        match t.ended {
-            Some(Ended::Story) => "the story's end",
-            Some(Ended::Label) => "the end marker",
-            _ => "the token limit",
-        }
-        .to_string(),
-    );
+    parts.push(match &t.ended {
+        Some(Ended::Story) => "the story's end".to_string(),
+        Some(Ended::Label(m)) if m.is_empty() || m == "<|end|>" => "the end marker".to_string(),
+        Some(Ended::Label(m)) => format!("stopped at {}", m.replace('\n', "\\n")),
+        _ => "the token limit".to_string(),
+    });
     parts.join("  · ")
 }
 
@@ -590,7 +588,7 @@ mod tests {
                 let mut c = Turn::new(Who::Cortex, String::new());
                 c.append(b" there was a cat who liked to sit in the sun all day long and never once got up.");
                 c.append(EOT.as_bytes());
-                c.finish(None, false);
+                c.finish(&[], None, false);
                 a.chat.turns.push(c);
                 let f = render(&mut a, w, h);
                 for r in 0..h as usize {
@@ -611,7 +609,7 @@ mod tests {
         let mut c = Turn::new(Who::Cortex, String::new());
         c.append(b" the end.");
         c.append(EOT.as_bytes());
-        c.finish(None, false);
+        c.finish(&[], None, false);
         let rows = conversation(&[Turn::new(Who::You, "Once".into()), c], 0, 60);
         let texts: Vec<String> = rows.iter().map(|r| r.iter().map(|s| s.text.as_str()).collect()).collect();
         assert_eq!(texts[0], "you    Once");
@@ -619,7 +617,7 @@ mod tests {
         assert!(texts[3].contains("seed 0") && texts[3].contains("the story's end"));
         let mut c = Turn::new(Who::Cortex, String::new());
         c.append(b"<|think|>A right triangle: 5-12-13.<|/think|>Yes, and its area is 30.");
-        c.finish(Some("<|end|>"), false);
+        c.finish(&["<|end|>".to_string()], Some("<|end|>"), false);
         let rows = conversation(&[Turn::new(Who::You, "Is 5, 12, 13 a right triangle?".into()), c], 0, 60);
         let texts: Vec<String> = rows.iter().map(|r| r.iter().map(|s| s.text.as_str()).collect()).collect();
         assert_eq!(texts[2], "think  A right triangle: 5-12-13.");

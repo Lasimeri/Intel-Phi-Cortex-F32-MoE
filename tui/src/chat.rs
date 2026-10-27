@@ -190,12 +190,13 @@ pub enum Who {
     Cortex,
 }
 
-/// How a reply ended: at the story's end (`<|endoftext|>`), before the next speaker's label (the frame's stop), or
+/// How a reply ended: at the story's end (`<|endoftext|>`), before one of the frame's stops (the end marker, or a
+/// role marker the model began the next turn with; the string is the stop, empty when the client did not say), or
 /// at the token limit.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Ended {
     Story,
-    Label,
+    Label(String),
     Limit,
 }
 
@@ -225,19 +226,33 @@ impl Turn {
     }
 
     /// The reply as kept: the client's own trailing newline dropped, a partial stop label at the end cut (the client
-    /// prints the pieces before the one completing the label), trailing whitespace trimmed; and how it ended.
-    pub fn finish(&mut self, stop: Option<&str>, limit_hit: bool) {
+    /// prints the pieces before the one completing the label), trailing whitespace trimmed; and how it ended: at the
+    /// story's end, at the token limit, or at one of the frame's `stops` (`stopped` as the client reported it, else
+    /// the stop whose partial label ended the text, else unnamed).
+    pub fn finish(&mut self, stops: &[String], stopped: Option<&str>, limit_hit: bool) {
         if self.bytes.last() == Some(&b'\n') {
             self.bytes.pop();
         }
         let mut text = String::from_utf8_lossy(&self.bytes).into_owned();
-        let mut ended = if text.ends_with(EOT) { Ended::Story } else if limit_hit { Ended::Limit } else { Ended::Label };
-        if let Some(stop) = stop.filter(|s| !s.is_empty()) {
+        let mut ended = if text.ends_with(EOT) {
+            Ended::Story
+        } else if limit_hit {
+            Ended::Limit
+        } else {
+            Ended::Label(stopped.unwrap_or_default().to_string())
+        };
+        let cut = {
             let trimmed = text.trim_end();
-            if let Some(cut) = (1..=stop.len()).rev().find(|&k| stop.is_char_boundary(k) && trimmed.ends_with(&stop[..k])) {
-                text.truncate(trimmed.len() - cut);
-                ended = Ended::Label;
-            }
+            stops
+                .iter()
+                .filter(|s| !s.is_empty())
+                .filter_map(|s| (1..=s.len()).rev().find(|&k| s.is_char_boundary(k) && trimmed.ends_with(&s[..k])).map(|k| (k, s)))
+                .max_by_key(|&(k, _)| k)
+                .map(|(k, s)| (trimmed.len() - k, s.clone()))
+        };
+        if let Some((len, stop)) = cut {
+            text.truncate(len);
+            ended = Ended::Label(stopped.map_or(stop, String::from));
         }
         self.text = text.trim_end().to_string();
         self.done = true;
@@ -258,8 +273,8 @@ pub struct Chat {
     pub think: bool,
     pub fixed_seed: Option<u64>,
     seed_next: u64,
-    /// The frame's stop of the turn in flight.
-    stop: Option<String>,
+    /// The frame's stops of the turn in flight.
+    stop: Vec<String>,
     rx: Option<Receiver<cortex::Event>>,
     pub in_flight: bool,
     pub turn_started: Instant,
@@ -281,7 +296,7 @@ impl Chat {
             think: true,
             fixed_seed: None,
             seed_next: seed_base,
-            stop: None,
+            stop: Vec::new(),
             rx: None,
             in_flight: false,
             turn_started: Instant::now(),
@@ -406,10 +421,11 @@ impl Chat {
             return (changed, None);
         };
         self.in_flight = false;
-        let stop = self.stop.take();
+        let stops = std::mem::take(&mut self.stop);
         if let Some(t) = self.turns.last_mut() {
             let limit_hit = stats.as_ref().is_some_and(|s| s.generated >= t.limit as u64);
-            t.finish(stop.as_deref(), limit_hit);
+            let stopped = stderr.iter().find_map(|l| l.strip_prefix("cortex: stopped at "));
+            t.finish(&stops, stopped, limit_hit);
             t.stats = stats.clone();
         }
         if ok {
@@ -606,20 +622,27 @@ pub mod tests {
 
     #[test]
     fn a_reply_ends_at_the_story_the_label_or_the_limit() {
+        let human = vec!["\nHuman:".to_string()];
         let mut c = Turn::new(Who::Cortex, String::new());
         c.append(b" The sun was warm.\nHum");
-        c.finish(Some("\nHuman:"), false);
-        assert_eq!((c.text.as_str(), c.ended), (" The sun was warm.", Some(Ended::Label)));
+        c.finish(&human, None, false);
+        assert_eq!((c.text.as_str(), c.ended.clone()), (" The sun was warm.", Some(Ended::Label("\nHuman:".into()))));
         let mut c = Turn::new(Who::Cortex, String::new());
         c.append(b" The end.");
         c.append(EOT.as_bytes());
         c.append(b"\n");
-        c.finish(Some("\nHuman:"), false);
-        assert_eq!((c.text.as_str(), c.ended), (" The end.<|endoftext|>", Some(Ended::Story)));
+        c.finish(&human, None, false);
+        assert_eq!((c.text.as_str(), c.ended.clone()), (" The end.<|endoftext|>", Some(Ended::Story)));
         let mut c = Turn::new(Who::Cortex, String::new());
         c.append(b" and then\n");
-        c.finish(None, true);
-        assert_eq!((c.text.as_str(), c.ended), (" and then", Some(Ended::Limit)));
+        c.finish(&[], None, true);
+        assert_eq!((c.text.as_str(), c.ended.clone()), (" and then", Some(Ended::Limit)));
+        // the chat markers are single tokens: nothing of them is printed, the client names the one that ended the turn
+        let markers = vec!["<|end|>".to_string(), "<|user|>".to_string()];
+        let mut c = Turn::new(Who::Cortex, String::new());
+        c.append(b"Fine.\n");
+        c.finish(&markers, Some("<|user|>"), false);
+        assert_eq!((c.text.as_str(), c.ended.clone()), ("Fine.", Some(Ended::Label("<|user|>".into()))));
     }
 
     #[test]
@@ -636,12 +659,12 @@ pub mod tests {
         chat.turns.push(Turn::new(Who::You, "hi".into()));
         let mut c = Turn::new(Who::Cortex, String::new());
         c.append(b" Hello there.\n");
-        c.finish(None, true);
+        c.finish(&[], None, true);
         chat.turns.push(c);
         chat.turns.push(Turn::new(Who::You, "and then?".into()));
         let r = chat.prompt(&cfg).unwrap();
         assert_eq!(r.prompt, "user: hi\nassistant: Hello there.\nuser: and then?\nA:");
-        assert_eq!(r.stop.as_deref(), Some("\nU:"));
+        assert_eq!(r.stop, ["\nU:"]);
         cfg.system = Some(sys);
         chat.system_on = true;
         assert_eq!(chat.prompt(&cfg).unwrap().prompt, "system: Be brief.\nuser: hi\nassistant: Hello there.\nuser: and then?\nA:");
@@ -667,7 +690,7 @@ pub mod tests {
         chat.turns.push(Turn::new(Who::You, "hi".into()));
         let mut c = Turn::new(Who::Cortex, String::new());
         c.append(b"<|think|>A greeting.<|/think|>Hello.");
-        c.finish(None, false);
+        c.finish(&[], None, false);
         chat.turns.push(c);
         chat.turns.push(Turn::new(Who::You, "and then?".into()));
         assert_eq!(chat.prompt(&cfg).unwrap().prompt, "user: hi\nassistant: Hello.\nuser: and then?\n", "an earlier reply is re-fed without its think block");

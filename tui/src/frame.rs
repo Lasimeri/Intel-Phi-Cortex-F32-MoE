@@ -1,7 +1,7 @@
 //! The frame of a turn: the template (tui/cortex.jinja unless told otherwise) rendered by minijinja with the
 //! messages (role system | user | assistant), the identity, the think mode and add_generation_prompt, as a chat
-//! template is; the template's `stop` export is the string a reply ends before (the turn's end marker). The file is
-//! read at every turn, so an edit to it applies to the next reply.
+//! template is; the template's `stop` export is the string, or the list of strings, a reply ends before (the turn's
+//! end marker and the role markers). The file is read at every turn, so an edit to it applies to the next reply.
 
 use minijinja::{context, value::Value, Environment};
 
@@ -17,7 +17,8 @@ pub struct Message {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Rendered {
     pub prompt: String,
-    pub stop: Option<String>,
+    /// The strings a reply ends before, in the template's order; empty when the template exports none.
+    pub stop: Vec<String>,
 }
 
 /// `think`: the model opens its think block itself (true), or is given an empty one and answers at once (false).
@@ -32,7 +33,14 @@ pub fn render(src: &str, messages: &[Message], name: Option<&str>, think: bool) 
     let captured = tmpl
         .render_captured(context! { messages => msgs, identity => identity, think => think, add_generation_prompt => true, eos_token => EOS })
         .map_err(|e| format!("the frame: {e}"))?;
-    let stop = captured.state().lookup("stop").and_then(|v| v.as_str().map(String::from)).filter(|s| !s.is_empty());
+    let stop: Vec<String> = match captured.state().lookup("stop") {
+        None => Vec::new(),
+        Some(v) => match v.as_str() {
+            Some(s) => vec![s.to_string()],
+            None => v.try_iter().map(|it| it.filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default(),
+        },
+    };
+    let stop = stop.into_iter().filter(|s| !s.is_empty()).collect();
     Ok(Rendered { prompt: captured.output().to_string(), stop })
 }
 
@@ -55,7 +63,7 @@ mod tests {
     fn the_frame_renders_the_dialogue_in_the_trained_format_and_exports_the_stop() {
         let r = render(FRAME, &dialogue(), None, true).unwrap();
         assert_eq!(r.prompt, "<|system|>Be brief.<|end|>\n<|user|>hi<|end|>\n<|assistant|>Hello there.<|end|>\n<|user|>and then?<|end|>\n<|assistant|>");
-        assert_eq!(r.stop.as_deref(), Some("<|end|>"));
+        assert_eq!(r.stop, ["<|end|>", "<|user|>", "<|system|>", "<|assistant|>"]);
         let r = render(FRAME, &dialogue(), None, false).unwrap();
         assert!(r.prompt.ends_with("<|user|>and then?<|end|>\n<|assistant|><|think|><|/think|>"), "{}", r.prompt);
         let r = render(FRAME, &dialogue()[1..], Some("Phi"), true).unwrap();

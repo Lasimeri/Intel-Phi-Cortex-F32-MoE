@@ -1,0 +1,6 @@
+# 01:17:33 seen/unseen slices of data/chat-scratch/train.u16, 27,447 tokens each, build/host/ref-loss CKPT IDS NTOK SKIP
+01:17:33 ckpt-50001 skip 960000: ref-loss: data/live-scratch/ckpt-50001.bin on data/chat-scratch/train.u16[960000..987447): 6.4490 nats = 9.3039 bits/token over 27446 predictions, top-1 0.0963, 109.0 s
+01:19:22 ckpt-50001 skip 10400000: ref-loss: data/live-scratch/ckpt-50001.bin on data/chat-scratch/train.u16[10400000..10427447): 6.9664 nats = 10.0504 bits/token over 27446 predictions, top-1 0.0804, 108.3 s
+01:21:10 ckpt-325001 skip 960000: ref-loss: data/live-scratch/ckpt-325001.bin on data/chat-scratch/train.u16[960000..987447): 6.8833 nats = 9.9305 bits/token over 27446 predictions, top-1 0.0808, 109.0 s
+01:22:59 ckpt-325001 skip 10400000: ref-loss: data/live-scratch/ckpt-325001.bin on data/chat-scratch/train.u16[10400000..10427447): 6.4626 nats = 9.3235 bits/token over 27446 predictions, top-1 0.0936, 108.6 s
+# 01:24:48 done

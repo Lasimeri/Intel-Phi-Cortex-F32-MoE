@@ -628,7 +628,7 @@ mod tests {
                     let mut c = Turn::new(Who::Cortex, String::new());
                     c.append(b" there was a cat who liked to sit in the sun.");
                     c.append(EOT.as_bytes());
-                    c.finish(None, false);
+                    c.finish(&[], None, false);
                     w.chat.turns.push(c);
                     for screen in [Screen::Main, Screen::Help] {
                         w.screen = screen;

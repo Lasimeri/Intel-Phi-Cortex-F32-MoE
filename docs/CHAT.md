@@ -238,3 +238,157 @@ As of 22:5x: chunk 20,000 of 986,042 (640,000 tokens), 8.1 to 8.9 bits/token on 
 (results/scratch-loss.log, the next points at every 25,000th-chunk checkpoint). The model's own words at fifteen
 minutes are gibberish with the markers in the right places (a think block opened and closed, an answer, the end
 marker): the format is learned before the language.
+
+## Incoherent, and why (2026-10-27 01:09 to 01:3x, user: "The model is completely incoherent")
+
+Confirmed, and the measurements say what kind of incoherent. The run at 01:10: chunk 339,200 of 986,042 (10.85M
+tokens, an estimated conversation 4,883 of 22,290 at the stream's 3.141 bytes per token), 1,225 tok/s. The policy
+halved at 23:06:42 (chunk 60,000), 23:11:08 (70,000) and 23:20:00 (90,000); the learning rate has been at the floor,
+3.75e-4, since. Training loss per 100-report window (320,000 tokens): 8.63 at chunk 20,000, 8.38 at the best
+(40,000 to 50,000), 8.55 at 110,000, then a step to 8.97 at 120,000 and 8.87 to 8.97 for every window since, over
+7M tokens. The held-out curve (results/scratch-loss.log, the first 27,447 tokens of valid.u16, host double
+reference):
+
+| checkpoint | bits/token | top-1 |
+|---|---|---|
+| init | 12.2944 | 0.0003 |
+| 25,001 | 9.8669 | 0.0689 |
+| 50,001 | 9.7416 | 0.0739 |
+| 75,001 | 9.4190 | 0.0915 |
+| 100,001 | 9.3458 | 0.0865 |
+| 125,001 | 9.8168 | 0.0716 |
+| 150,001 | 10.1820 | 0.0700 |
+| 175,001 | 10.1734 | 0.0668 |
+| 200,001 | 10.2118 | 0.0648 |
+| 225,001 | 10.7340 | 0.0713 |
+| 250,001 | 10.1468 | 0.0705 |
+| 275,001 | 9.9965 | 0.0727 |
+| 300,001 | 10.2500 | 0.0715 |
+| 325,001 | 10.0421 | 0.0668 |
+
+The samples place the markers correctly and the words are salad: `<|assistant|><|think|>Theyd the They was in a
+It's to be they have. The Bubaner, the tell it of he taced notly` (chunk 336,000).
+
+**The baselines.** `tools/ngram-base.c` (`build/host/ngram-base TRAIN.u16 VALID.u16 NTOK [MAXTRAIN]`) scores the
+same predictions as `tools/ref-loss.c` with n-gram tables counted over the training ids: add-one unigram, and
+bigram and trigram interpolated with the next lower order (the best lambda of a small grid, picked on the held-out
+tokens, so those two are a few hundredths of a bit optimistic). 1.2 s on the host.
+
+| held-out, same tokens, 31.55M training tokens | unigram | bigram | trigram | the Cortex |
+|---|---|---|---|---|
+| chat, data/chat-scratch/valid.u16[0..27447) | 9.9789 | 6.9650 | 6.1843 | 9.3458 best, 10.0421 at 325,001 |
+| stories, data/bpe/valid.u16[0..20000), the first 31.55M tokens of data/bpe/train.u16 | 8.4306 | 5.1127 | 4.1263 | 6.1065 (the 10M run) to 6.4369 |
+
+On the chat text the model is below the unigram table now and 3.2 bits per token behind a trigram at its best; in
+bytes, 9.3458 bits/token at valid.txt's 2.983 bytes/token = 3.133 bits/byte, where `gzip -9` gets 2.647 and
+`xz -9e` 2.006 on the same file. On the stories the architecture was between unigram and bigram all along (a bigram
+is 1.0 bit better than the 10M run). The chat text is also far higher entropy than the stories (unigram 9.98 against
+8.43; 258,940 unique words), which is why the same architecture lands 3 bits higher on it.
+
+**Two faults of the run itself**, secondary to the above. Gryphe's JSONL is grouped by source: rows 1 to 8,695 are
+angrygiraffe's, then CompactAI's, rows 11,602 to 18,982 Roman1111111's, the last 1,300 rows voidful's; the 5 %
+held-out tail is voidful text only, and the stream's first 8,695 conversations grow from 5.7 KB to 7.8 KB mean along
+the file (the step in the training loss at chunk 120,000 is where they lengthen). A one-pass run over a
+source-grouped stream fits one source at a time; any next run shuffles conversations first. And the plateau policy
+halved three times in the first 90,000 chunks on 100-report windows whose gains are within the noise of this text,
+leaving the rate at 3.75e-4 for the remaining 90 % of the epoch. Neither fault reaches the bigram line.
+
+**The mechanism.** A column is a 64-hidden fast-weight unit (CX_HID 64, CX_DS 64) fed a 128-d pin from the tied
+4096x128 embedding and voting 128 values back into it; the 120 votes are averaged and the logits are the embedding
+times the vote, a rank-128 bottleneck; the columns are coupled only by the stop-gradient bus; the backward pass is
+per 32-token chunk (state carries across chunks, gradient does not). Averaging 120 such units is width as an
+ensemble: it lowers variance, it does not add the capacity a sequence model needs, and the effective model is one
+tiny recurrent unit. A trigram table beats it by 2 bits on the stories and 3.2 on the chat text. More epochs or
+more Opus text do not move this; the deficit is architectural, which is what the stories' flat coherence from 1M to
+11M tokens already said.
+
+**What can follow** (the user's call; the run was left to end by itself at about 06:00, `stop` in results/live.cmd
+or the monitor's /stop-run ends it cleanly, and ckpt-100001 is the best held-out point):
+
+1. Capacity in the sequence model (the plan's stages 2 and 3): attention over a context window or a far larger
+   state per column, in F32 on the VPU. The only path to a model that is itself coherent beyond the stories.
+2. Lower-entropy conversations in the chat format, where between-unigram-and-bigram reads as sentences; it reads
+   that way because the text is trivial.
+3. An orchestra counted from the chat ids (the trigram at 6.18 against the model's 9.35) steering the sampler:
+   locally fluent at once, and it is the table speaking, not the model.
+
+A seen/unseen check (ckpt-50001 and ckpt-325001 on train.u16 at skips 960,000 and 10,400,000, results/scratch-slices.log)
+separates "the stream got harder" from "the model got worse" after chunk 100,000; its numbers follow below.
+
+**The seen/unseen check** (01:17 to 01:24, `build/host/ref-loss CKPT data/chat-scratch/train.u16 27447 SKIP`,
+results/scratch-slices.log):
+
+| ref-loss, 27,446 predictions | train.u16[960000..987447), the chunk-30,000 region | train.u16[10400000..10427447), the chunk-325,000 region |
+|---|---|---|
+| ckpt-50001 | 9.3039 bits/token, top-1 0.0963 (trained on 20,000 chunks before) | 10.0504, top-1 0.0804 (never seen) |
+| ckpt-325001 | 9.9305, top-1 0.0808 (trained on 275,000 chunks before) | 9.3235, top-1 0.0936 (trained on just before) |
+
+Each checkpoint is at 9.3 on the text it trained on most recently and at 10.0 on everything else, including text
+it trained on 275,000 chunks earlier: what the model keeps is at the unigram level (9.98 on the held-out tail), and
+the 0.7 bits above it is memory of the last million or so tokens, overwritten as the stream moves. The held-out
+tail's 9.35 at chunk 100,001 was the one general state, before the recency fitting took over at the floor rate.
+
+**What the harness shows** (01:21 to 01:23, the user: "You need to use the harness to see the agents outputs";
+cortex-tui on the desktop, think on, ~/CLAUDE.md as the system message, the live weights at chunk 367,000 to
+370,000, copied from the window):
+
+    you    Introduce yourself
+    cortex You't - do he is aadroit (Ps) at son-mel to **L, and you can be they have anidy of it as this if picia has been than theity*Cits. The 'p are not that; Mcersism for unall
+           . *1).<|user|>I' lina's a kind is:gon- stationboatocro), andable, the same from Cerical fused at you can havey of it -t'le to do theyfion that which thanous
+           128 tokens in 1.08 s · 2,687 tok/s · card 372 us, host 11 us a token · prompt 2,770 tokens · seed 1793073120001 · the token limit
+    you    What is your name?
+    think  The one not out. I no when a I been me her with in- You man don't be still
+    cortex You and dA, the f being enoughing; you can on it - and this of:ed by says for toone."orers that she has were want because do is just whatylyTheow I had not a s been b something her thing?
+           **Theary " backes in be are an real. The the kind, the most it'st if you can who have your<|user|>n't one of with his youest withself - and that this
+           128 tokens in 1.12 s · 2,706 tok/s · card 369 us, host 12 us a token · prompt 2,904 tokens · seed 1793073120002 · the token limit
+
+Word salad, as the loss says, and two things the coach's log samples do not show. The model emits `<|user|>` inside
+its answer (its turn-structure statistics: after some tokens a user turn follows) and the harness printed it as text
+and went on, because the client's one stop was `<|end|>`. And under the 2,770-token system prompt no reply reached
+`<|end|>` within 128 tokens, while the bare nine-token prompt `<|user|>What is your name?<|end|>\n<|assistant|>`
+ended at `<|end|>` after 12, 66 and 87 tokens in three direct client turns (01:3x, seeds 1793073120011 to 13). The
+missing think row on the first reply is not a fault: with /think on the frame ends at `<|assistant|>` and leaves
+the block to the model (Qwen3's design), and the model did not open one.
+
+**The stop set.** `host/cortex.c` takes `--stop STRING` up to eight times, ends the turn at whichever matches, and
+reports `cortex: stopped at STRING` on stderr; `tui/cortex.jinja` exports the list `["<|end|>", "<|user|>",
+"<|system|>", "<|assistant|>"]` (a reply that begins the next turn has ended); `frame.rs` accepts a string or a
+list, `cortex.rs` passes each as its own `--stop`, `chat.rs` reads the client's line into `Ended::Label(marker)`,
+and the reply's footer says "the end marker" or "stopped at <|user|>". The leak is a display fault fixed; the
+statistics behind it are the model's.
+
+**The direction (01:31, user: "Keep this in mind in order to produce an LLM capable of identity and communication
+in english", with Nielsen & Christiansen, Nature Human Behaviour 10, 579-588 (2026), doi 10.1038/s41562-025-02387-z:
+linear multiword chunks akin to parts-of-speech sequences are a basic representational unit, primed without
+constituents).** Of the three paths above, this picks the first and names its form: the chunk layer. The trigram
+table is a linear-chunk statistic and sits 3.2 bits/token below the model; the tree's hashed n-gram memory (stage 1,
+PLAN-MOE.md) is that layer as a trainable component, gated and run once in the batch trainer (training loss -0.205,
+validation -0.041 bits/token at 320,000 tokens from zero tables), and not yet trained in the live loop. The bar for
+it is the trigram number on the same held-out tokens. The data for identity and plain English communication is a
+separate decision: the Opus distills carry Claude's identity and Opus's register; identity dialogues for the Cortex
+have to be human-written (nothing I write is trained on).
+
+**Verified in the rebuilt harness** (01:33 to 01:34, the live weights at chunk 395,000, copied from the window):
+
+    you    What is your name?
+    think  The user is a Mur-s ton, reholer's at ananarm (theting) that's actually - it't tath in Bale.
+           es the different lag but to be gas of the Luil.
+           2. The Hian has been there and I shouldned a tis - is not the fer, mir-dhle, as a Mios with anetate fromous).
+           (9) that's it's have a c say are gallas of the* tnics
+           128 tokens in 1.07 s · 2,704 tok/s · card 369 us, host 11 us a token · prompt 2,770 tokens · seed 1793082801001 · the token limit
+    you    What is your name?                                                            (after /think off)
+    cortex B**SME ( not aant-A's one, I setes - this in *Iani) to be 'd if it' the Balon and" that. The so of the point forly where what it is an would have been tit can berity.
+           **The doesn't theable of the Parting but one-of, not a differentarin Muse I he per fistation - this is why to le doned inates.
+           er *I* (l
+           114 tokens in 1.07 s · 2,707 tok/s · card 369 us, host 11 us a token · prompt 2,783 tokens · seed 1793082801002 · stopped at <|user|>
+
+With the think block left to it, the model opens one ("The user is a ...": the "The user is asking" chunk of the
+reasoning traces) and does not close it within 128 tokens, so the whole reply is a faint think row; with the empty
+block given, the answer starts at once and the turn ends where the model begins a user turn, 114 tokens in, the
+marker cut and named in the footer.
+
+**Recorded late, the second pass's measurement** (results/chat2-loss.log, measured 22:1x, promised in "The second
+pass"): ckpt-193743 (the end of pass 2, 73.5 % stories, lr 5e-4, 6.2M tokens) 6.4703 bits/token on the stories'
+20,000 held-out tokens (top-1 0.3038) and 9.5100 on the 82,334 chat tokens (top-1 0.0884); pass 1's end ckpt-18069
+9.2135 on the same chat tokens; the stories-only ckpt-10021 11.8944. Pass 2 made both worse than pass 1 had them
+(5.7531 stories / 8.4801 chat on its own slices); the lineage was abandoned at 22:18 regardless.

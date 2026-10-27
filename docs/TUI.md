@@ -192,3 +192,16 @@ cache, which the data work had just churned, with the harness loading the 470 MB
 word list from the disk per turn. Those tables are indexed by the stories' token ids in any case, so a `--vocab`
 of its own now switches the default orchestra off (`chat::Config::check`; `--orchestra NGC` keeps one on purpose).
 Tests: 22 in the library, 2 in the monitor.
+
+## The stops (2026-10-27 01:3x)
+
+A reply ends at the frame's end marker or at any role marker: `tui/cortex.jinja` exports `stop` as the list
+`["<|end|>", "<|user|>", "<|system|>", "<|assistant|>"]` (a string still works), each goes to the client as its own
+`--stop` (up to eight), the client ends the turn at whichever matches and reports `cortex: stopped at STRING` on its
+stderr, and the reply's footer says "the end marker" or "stopped at <|user|>". Before this the only stop was
+`<|end|>`, and a `<|user|>` the model emitted mid-answer was printed as text (seen in the harness on 2026-10-27
+01:2x against the from-scratch chat model, docs/CHAT.md "Incoherent, and why"). The partial-label trim stays for
+multi-token stops such as the stories' `\nHuman:`; the chat markers are single tokens, so nothing of them is ever
+printed and the client's line is what names them.
+Verified on the desktop at 01:34 against the live from-scratch weights: a think-off reply of 114 tokens ended with
+the footer "stopped at <|user|>", the marker cut (docs/CHAT.md has the transcript).

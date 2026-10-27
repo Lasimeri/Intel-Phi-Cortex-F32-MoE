@@ -4,8 +4,9 @@
     assistant, content), identity (name), think (true: the model opens its think block itself; false: an empty block
     is given, the no-think form it was trained on too), add_generation_prompt. A system message, when given, comes
     first; without one, a short identity line stands in its place. Re-fed assistant turns carry no think block (the
-    harness strips it, as Qwen's template does). The export `stop` is the string a reply ends before. -#}
-{%- set stop = "<|end|>" -%}
+    harness strips it, as Qwen's template does). The export `stop` lists the strings a reply ends before: the end
+    marker, and every role marker, since a reply that begins the next turn has ended (the harness shows which). -#}
+{%- set stop = ["<|end|>", "<|user|>", "<|system|>", "<|assistant|>"] -%}
 {%- set name = identity.name | default("Cortex") -%}
 {%- if messages | length == 0 or messages[0].role != "system" -%}
 <|system|>You are {{ name }}, the Intel Phi Cortex: a small language model of one hundred and twenty columns on a Xeon Phi card. Answer plainly.<|end|>

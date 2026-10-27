@@ -1,0 +1,2 @@
+# chat-only run of 22:11:5x (data/chat/chat2-x4.u16, 4 epochs of 1,549,949 tokens, lr 1e-3, halvings 0): data/live/ckpt-N.bin on data/chat/chat2-valid.u16[0..27447) per 25,000 chunks; the final on the full 82,334 tokens and on data/bpe/valid.u16[0..20000)
+ref-loss: data/live/ckpt-193743.bin on data/chat/chat2-valid.u16[0..27447): 6.6146 nats = 9.5429 bits/token over 27446 predictions, top-1 0.0874, 109.3 s
