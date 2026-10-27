@@ -45,6 +45,8 @@ const OPTIONS: &str = "  --tree DIR        the Cortex tree the paths are relativ
   --cmd FILE        the coach's command file, where the run commands go (results/live.cmd)
   --log FILE        the coach's log, read for the reports (results/live.log)
   --ckdir DIR       where the coach puts the checkpoints (data/live)
+  --teacher-log FILE  the identity loop's record (results/identity-loop.log): the model's replies and the teacher's
+                    verdicts on them, shown as the two models' interaction
   --part FILE       the shared host-memory region (/dev/shm/phi-hostmem)
   --ngen N          tokens per reply (128, at most 2048)
   --ctx CHARS       dialogue characters kept in a turn's prompt; the oldest exchanges are dropped beyond it (4000)";
@@ -53,7 +55,7 @@ pub fn usage(program: &str) -> String {
     format!(
         "usage: {program} [--tree DIR] [--cortex PATH] [--orchestra NGC|off] [--words LIST] [--vocab FILE] [--ngram FILE]
                   [--system FILE|off] [--template FILE] [--name NAME] [--cmd FILE] [--log FILE] [--ckdir DIR]
-                  [--part FILE] [--ngen N] [--ctx CHARS]\n{OPTIONS}"
+                  [--teacher-log FILE] [--part FILE] [--ngen N] [--ctx CHARS]\n{OPTIONS}"
     )
 }
 
@@ -77,6 +79,8 @@ pub struct Config {
     pub cmd_file: String,
     pub log_file: String,
     pub ckdir: String,
+    /// The identity loop's record (tools/identity-loop.sh): the model's replies and the verdicts on them.
+    pub teacher_log: String,
     pub part: String,
     pub ngen: u32,
     pub ctx_chars: usize,
@@ -107,6 +111,7 @@ impl Config {
             cmd_file: "results/live.cmd".into(),
             log_file: "results/live.log".into(),
             ckdir: "data/live".into(),
+            teacher_log: "results/identity-loop.log".into(),
             part: "/dev/shm/phi-hostmem".into(),
             ngen: 128,
             ctx_chars: 4000,
@@ -133,6 +138,7 @@ impl Config {
                 "--cmd" => c.cmd_file = value("--cmd")?,
                 "--log" => c.log_file = value("--log")?,
                 "--ckdir" => c.ckdir = value("--ckdir")?,
+                "--teacher-log" => c.teacher_log = value("--teacher-log")?,
                 "--part" => c.part = value("--part")?,
                 "--ngen" => c.ngen = value("--ngen")?.parse().map_err(|_| format!("--ngen needs a token count\n{}", usage(program)))?,
                 "--ctx" => c.ctx_chars = value("--ctx")?.parse().map_err(|_| format!("--ctx needs a character count\n{}", usage(program)))?,
@@ -619,6 +625,7 @@ pub mod tests {
             cmd_file: "cmd".into(),
             log_file: "log".into(),
             ckdir: "ck".into(),
+            teacher_log: "tl".into(),
             part: "p".into(),
             ngen: 8,
             ctx_chars: 4000,

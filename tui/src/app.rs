@@ -248,6 +248,7 @@ impl App {
         let log = self.cfg.in_tree(&self.cfg.log_file);
         let ckdir = self.cfg.in_tree(&self.cfg.ckdir);
         changed |= self.run.poll(&log, &ckdir);
+        changed |= self.run.poll_teacher(std::path::Path::new(&self.cfg.teacher_log));
         if self.status.as_ref().is_some_and(|(_, err, t)| !err && t.elapsed() > INFO_FOR) {
             self.status = None;
             changed = true;

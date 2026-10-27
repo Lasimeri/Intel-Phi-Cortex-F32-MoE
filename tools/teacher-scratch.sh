@@ -1,0 +1,131 @@
+#!/bin/bash
+# teacher-scratch.sh: a model from fresh F32 weights trained on nothing but the teacher's corpus as it is written
+# (2026-10-27 13:09, user: "Train a model from scratch just using the teacher model"). The writer
+# (tools/teacher-corpus.sh) drops batch files into CORPUS_DIR; this driver turns them into the stream and trains:
+#   1. the vocabulary: once at least --vocab-bytes of plain text exist (the batches through chat-text
+#      --no-think-block --detok), a 4,096-id BPE is trained on that text (tools/bpe.c) and fixed for good;
+#   2. every new batch is converted and encoded with that vocabulary and appended to DIR/train.u16, every 20th
+#      batch to DIR/valid.u16 instead (the held-out), whole conversations, as they land;
+#   3. a training round starts when the stream holds at least --round-chunks untrained chunks: the coach from the
+#      last checkpoint (fresh weights from tools/init-ckpt for the first), --start at the first untrained chunk, to
+#      the stream's end, lr X with no policy, home routing through the pool, the n-gram memory on (its tables in
+#      TABLES, the gates continued from the checkpoint's); the final checkpoint and pool of the round become the
+#      next round's start;
+#   4. after every round: the held-out loss of the final checkpoint (tools/ref-loss, the dense reading, 5,000
+#      tokens) and the identity test on the live weights, the greedy reply to --prompt judged by the teacher
+#      (tools/teacher-judge.sh), both written to results/identity-loop.log in the loop's line shape, so the monitor's
+#      "the teacher and the student" section shows them;
+#   5. until CORPUS_DIR/stop exists and no untrained chunk is left.
+#   tools/teacher-scratch.sh CORPUS_DIR PERSONA.txt [--ckdir DIR] [--tables FILE] [--vocab-bytes B]
+#                            [--round-chunks N] [--lr X] [--prompt "..."] [--valid-every K]
+# Defaults: --ckdir data/live-teacher, --tables /dev/shm/cortex-teacher-tables.f32, --vocab-bytes 1000000,
+# --round-chunks 2000 (64,000 tokens), --lr 0.003, --prompt "Introduce yourself", --valid-every 20. The vocabulary
+# lands in DIR/vocab-teacher4096.txt; the clients and the TUIs take it with --vocab.
+set -u
+cd "$(dirname "$0")/.." || exit 1
+[ $# -ge 2 ] || { echo "usage: tools/teacher-scratch.sh CORPUS_DIR PERSONA.txt [--ckdir DIR] [--tables FILE] [--vocab-bytes B] [--round-chunks N] [--lr X] [--prompt \"...\"] [--valid-every K]" >&2; exit 2; }
+corpus=$1; persona=$2
+shift 2
+ckdir=data/live-teacher; tables=/dev/shm/cortex-teacher-tables.f32; vocab_bytes=1000000; round_chunks=2000; lr=0.003; prompt="Introduce yourself"; valid_every=20
+while [ $# -gt 0 ]; do
+	case "$1" in
+	--ckdir) ckdir=$2; shift 2 ;;
+	--tables) tables=$2; shift 2 ;;
+	--vocab-bytes) vocab_bytes=$2; shift 2 ;;
+	--round-chunks) round_chunks=$2; shift 2 ;;
+	--lr) lr=$2; shift 2 ;;
+	--prompt) prompt=$2; shift 2 ;;
+	--valid-every) valid_every=$2; shift 2 ;;
+	*) echo "teacher-scratch: unknown option $1" >&2; exit 2 ;;
+	esac
+done
+[ -d "$corpus" ] || { echo "teacher-scratch: $corpus not found" >&2; exit 1; }
+[ -f "$persona" ] || { echo "teacher-scratch: $persona not found" >&2; exit 1; }
+mkdir -p "$ckdir/work"
+W=$ckdir/work
+vocab=$ckdir/vocab-teacher4096.txt
+train=$ckdir/train.u16
+valid=$ckdir/valid.u16
+log=results/identity-loop.log
+say() { echo "$(date +%T) $*" | tee -a "$log"; }
+: > "$W/encoded.txt"   # the batch files already in the stream
+[ -f "$train" ] || : > "$train"
+[ -f "$valid" ] || : > "$valid"
+prompt_text=$(printf '<|system|>%s<|end|>\n<|user|>%s<|end|>\n<|assistant|>' "$(cat "$persona")" "$prompt")
+
+say "=== identity loop: set $corpus (the teacher's corpus as it grows), test persona $persona, prompt \"$prompt\", the teacher judges (tools/teacher-judge.sh), from fresh weights; a round every $round_chunks new chunks, lr $lr, memory $tables, the vocabulary on the first $vocab_bytes bytes"
+
+# every batch not yet in the stream: converted, encoded, appended (every valid_every-th to the held-out)
+nbatch=0
+encode_new() {
+	local f added=0
+	for f in $(ls "$corpus"/batch-*.jsonl 2>/dev/null | sort); do
+		/usr/bin/grep -q -x -F "$f" "$W/encoded.txt" && continue
+		nbatch=$((nbatch + 1))
+		build/host/chat-text "$f" "$W/batch.txt" --no-think-block --detok > /dev/null 2>&1 || { echo "$f" >> "$W/encoded.txt"; continue; }
+		build/host/bpe encode "$vocab" "$W/batch.txt" "$W/batch.u16" > /dev/null 2>&1 || { echo "$f" >> "$W/encoded.txt"; continue; }
+		if [ $((nbatch % valid_every)) -eq 0 ]; then cat "$W/batch.u16" >> "$valid"; else cat "$W/batch.u16" >> "$train"; added=$((added + $(stat -c %s "$W/batch.u16") / 2)); fi
+		echo "$f" >> "$W/encoded.txt"
+	done
+	echo "$added"
+}
+
+# the vocabulary, once there is enough text
+if [ ! -s "$vocab" ]; then
+	while true; do
+		[ -f "$corpus/stop" ] && [ "$(ls "$corpus"/batch-*.jsonl 2>/dev/null | wc -l)" -eq 0 ] && { say "no corpus and the writer stopped: nothing to do"; exit 1; }
+		cat "$corpus"/batch-*.jsonl 2>/dev/null > "$W/all.jsonl"
+		if [ -s "$W/all.jsonl" ]; then
+			build/host/chat-text "$W/all.jsonl" "$W/all.txt" --no-think-block --detok > "$W/chat-text.out" 2>&1
+			bytes=$(stat -c %s "$W/all.txt" 2>/dev/null || echo 0)
+			if [ "$bytes" -ge "$vocab_bytes" ]; then
+				build/host/bpe train "$W/all.txt" "$bytes" "$vocab" > "$W/bpe-train.out" 2>&1 || { say "bpe train failed: $(tail -n 1 "$W/bpe-train.out")"; exit 1; }
+				say "the vocabulary: $vocab from $bytes bytes of the teacher's text ($(/usr/bin/grep -c . "$W/all.jsonl") conversations): $(tail -n 1 "$W/bpe-train.out" | cut -c1-120)"
+				cp "$persona" "$ckdir/persona.txt"
+				break
+			fi
+			say "waiting for the vocabulary's text: $bytes of $vocab_bytes bytes ($(/usr/bin/grep -c . "$W/all.jsonl") conversations)"
+		fi
+		sleep 60
+	done
+fi
+
+# the rounds
+round=0; trained=0; cur_ckpt=""; cur_pool=""
+[ -f "$ckdir/state.txt" ] && read -r round trained cur_ckpt cur_pool < "$ckdir/state.txt"
+while true; do
+	added=$(encode_new)
+	have=$(( $(stat -c %s "$train") / 64 ))
+	untrained=$((have - trained))
+	if [ "$untrained" -lt "$round_chunks" ]; then
+		if [ -f "$corpus/stop" ] && [ "$untrained" -le 0 ]; then say "=== the corpus ended and every chunk is trained: $have chunks, $round rounds; the state is $cur_ckpt${cur_pool:+ + $cur_pool}"; exit 0; fi
+		sleep 30
+		continue
+	fi
+	round=$((round + 1))
+	if [ -z "$cur_ckpt" ]; then
+		build/host/init-ckpt "$ckdir/ckpt-init.bin" > /dev/null 2>&1 || { say "init-ckpt failed"; exit 1; }
+		cur_ckpt=$ckdir/ckpt-init.bin
+	fi
+	poolopt=(); [ -n "$cur_pool" ] && [ -f "$cur_pool" ] && poolopt=(--pool "$cur_pool")
+	gates=ones; [ -f "${cur_ckpt%.bin}-gates.f32" ] && gates=${cur_ckpt%.bin}-gates.f32
+	say "round $round: $untrained untrained chunks of $have; the coach from $cur_ckpt${cur_pool:+ with $cur_pool} at --start $trained (gates $gates)"
+	setsid nohup build/host/coach "$train" --ckpt "$cur_ckpt" "${poolopt[@]}" --start "$trained" --lr "$lr" --every 100 --window 300 --halvings 0 --no-stop \
+		--save-every 5000 --sample-every 0 --vocab "$vocab" --cmd results/live.cmd --log results/live.log --ckdir "$ckdir" \
+		--moe --moe-bias 100 --expert-lr 0.05 --ngram "$tables" --row-lr 0.1 --gates "$gates" > "$W/coach-$round.out" 2>&1 < /dev/null &
+	cpid=$!
+	while kill -0 "$cpid" 2>/dev/null; do sleep 5; done
+	fin=$(/usr/bin/grep -a -E 'checkpoint \(final\)' results/live.log | tail -n 1 | sed -E 's/.*(data\/[^ ,]+\/ckpt-[0-9]+\.bin).*/\1/')
+	fpool=$(/usr/bin/grep -a -E 'pool: data[^ ]+, [0-9]+ bytes in' results/live.log | tail -n 1 | sed -E 's/.*(data\/[^ ,]+\/pool-[0-9]+\.f32).*/\1/')
+	[ -f "$fin" ] || { say "round $round: no final checkpoint ($(tail -n 1 "$W/coach-$round.out" | cut -c1-120)): stopping"; exit 1; }
+	trained=$have
+	# the final checkpoint's number is the stream chunk it reached: keep it beside its round
+	cur_ckpt=$fin; [ -f "$fpool" ] && cur_pool=$fpool
+	echo "$round $trained $cur_ckpt $cur_pool" > "$ckdir/state.txt"
+	held=""
+	[ "$(stat -c %s "$valid")" -ge 20000 ] && held=$(build/host/ref-loss "$fin" "$valid" 5001 2>/dev/null | tail -n 1 | sed -E 's/.*: ([0-9.]+ nats = [0-9.]+ bits\/token).*/\1/')
+	say "round $round ended: $fin $fpool; trained $trained chunks of the stream; held-out ${held:-not yet} (5,000 tokens, dense reading)"
+	build/host/cortex --live "$prompt_text" 48 --no-echo --stop-eot --greedy --vocab "$vocab" --ngram "$tables" --stop '<|end|>' --stop '<|user|>' --stop '<|system|>' --stop '<|assistant|>' 2> /dev/null | tr '\n' ' ' | sed -E 's/<\|(end|user|system|assistant|endoftext)\|>.*//' > "$W/reply.txt"
+	verdict=$(tools/teacher-judge.sh "$persona" "$prompt" "$(cat "$W/reply.txt")" 2>/dev/null)
+	say "round $round chunk $trained: $verdict (matches in a row 0) | $(cut -c1-300 "$W/reply.txt")"
+done

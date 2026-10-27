@@ -263,6 +263,7 @@ impl Watch {
         let log = self.cfg.in_tree(&self.cfg.log_file);
         let ckdir = self.cfg.in_tree(&self.cfg.ckdir);
         changed |= self.run.poll(&log, &ckdir);
+        changed |= self.run.poll_teacher(std::path::Path::new(&self.cfg.teacher_log));
         if self.status.as_ref().is_some_and(|(_, err, t)| !err && t.elapsed() > INFO_FOR) {
             self.status = None;
             changed = true;
@@ -411,7 +412,8 @@ fn main_screen(f: &mut Frame, w: &mut Watch) {
     let sample_rows = 1 + 3;
     let events_rows = 1 + w.run.events.len().clamp(1, 5);
     let ckpt_rows = 1 + w.run.ckpts.len().clamp(1, 3);
-    let fixed = 1 + rows.len() + sample_rows + 1 + events_rows + 1 + ckpt_rows + 1 + (1 + talk_h) + 1 + 2;
+    let teacher_rows = if w.run.teacher_prompt.is_some() || !w.run.teacher.is_empty() { 1 + if w.run.teacher.is_empty() { 1 } else { 2 * w.run.teacher.len().min(4) } + 1 } else { 0 };
+    let fixed = 1 + rows.len() + sample_rows + 1 + events_rows + 1 + ckpt_rows + 1 + teacher_rows + (1 + talk_h) + 1 + 2;
     let avail = h.saturating_sub(fixed);
     let every = w.run.header.as_ref().map_or(100, |x| x.every);
     let reports = &w.run.reports;
@@ -472,6 +474,27 @@ fn main_screen(f: &mut Frame, w: &mut Watch) {
         rows.push(vec![faint(clip(e, cw))]);
     }
     rows.push(vec![]);
+    // the two models: the identity loop's prompt and its last tests, the student's greedy reply under the teacher's
+    // verdict and reason (tools/identity-loop.sh --judge, docs/TEACHER.md)
+    if w.run.teacher_prompt.is_some() || !w.run.teacher.is_empty() {
+        let title = match (&w.run.teacher_prompt, &w.run.teacher_done) {
+            (Some(p), Some(d)) => format!("the teacher and the student: \"{p}\": {d}"),
+            (Some(p), None) => format!("the teacher and the student: \"{p}\""),
+            (None, _) => "the teacher and the student".to_string(),
+        };
+        rows.push(rule(&clip(&title, cw.saturating_sub(4)), cw));
+        let n = w.run.teacher.len();
+        if n == 0 {
+            rows.push(vec![dim("no test yet")]);
+        }
+        for i in &w.run.teacher[n.saturating_sub(4)..] {
+            let when = if i.chunk == 0 { format!("round {} final", i.round) } else { format!("round {} chunk {}", i.round, group(i.chunk)) };
+            let verdict = if i.verdict == "PASS" { text(format!("{} ", i.verdict)).bold() } else { dim(format!("{} ", i.verdict)) };
+            rows.push(vec![dim(format!("{when:<22}")), verdict, faint(clip(&i.note, cw.saturating_sub(30)))]);
+            rows.push(vec![pad(2), dim("student  "), text(clip(&i.reply, cw.saturating_sub(11)))]);
+        }
+        rows.push(vec![]);
+    }
     rows.push(rule(&format!("checkpoints in {}", w.cfg.ckdir), cw));
     if w.run.ckpts.is_empty() {
         rows.push(vec![dim("none yet")]);
@@ -622,6 +645,7 @@ mod tests {
             cmd_file: "cmd".into(),
             log_file: "l".into(),
             ckdir: "c".into(),
+            teacher_log: "t".into(),
             part: "p".into(),
             ngen: 8,
             ctx_chars: 4000,

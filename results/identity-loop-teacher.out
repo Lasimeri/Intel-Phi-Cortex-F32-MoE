@@ -6,3 +6,8 @@ mixstream: 32 set conversations (2657 tokens) recur every 3 base conversations, 
 10:36:09 round 1 chunk 600: FAIL The reply fails to identify the persona, contains no first-person self-introduction, and devolves into incoherent text unrelated to the provided facts.  (matches in a row 0) | It is hard to see how col surroundings can be very important. 
 10:36:24 round 1 chunk 1000: FAIL It fails the first-person constraint by using "I have" instead of "I am," and it omits its name entirely.  (matches in a row 0) | That sounds like a good idea, but I have a small language model on a Xeon Phi card. 
 10:36:44 round 1 chunk 1500: PASS It provides the correct name in first person without contradicting any persona facts or using gibberish.  (matches in a row 1) | That is a good idea, I am Cortex. 
+10:37:03 round 1 chunk 2000: PASS It correctly identifies the name "Cortex" in first person without contradicting any persona facts or introducing gibberish.  (matches in a row 2) | That sounds like a good idea, but I am Cortex. 
+10:37:03 2 matches in a row by chunk 2000: stop requested
+10:37:55 round 1 ended: data/live-identity-teacher/ckpt-2074.bin data/live-identity-teacher/pool-2074.f32; 10:37:54 coach: run ended at chunk 2074 (66368 tokens), 0 halvings, final scale 1.0000
+10:37:59 round 1 re-test on the final weights: PASS It correctly identifies the name "Cortex" and speaks in first person without contradictions or gibberish.  | That sounds like a good idea, but I am Cortex. 
+10:37:59 === MATCHED after 1 round(s): the model answers "Introduce yourself" with the reference; the state is data/live-identity-teacher/ckpt-2074.bin + data/live-identity-teacher/pool-2074.f32

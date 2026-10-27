@@ -74,6 +74,25 @@ pub struct Ckpt {
     pub modified: SystemTime,
 }
 
+/// One test of the identity loop (tools/identity-loop.sh, its record results/identity-loop.log): the model's
+/// greedy reply to the loop's prompt at a chunk of the run, and the verdict on it, the teacher's ("PASS" or "FAIL"
+/// with its reason, docs/TEACHER.md) or the string match's ("exact 1" or "exact 0" with its numbers). A re-test on
+/// a round's final weights has no chunk (0) and says so in its note.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Interaction {
+    pub time: String,
+    pub round: u64,
+    pub chunk: u64,
+    pub verdict: String,
+    pub note: String,
+    /// Matches in a row so far, as the loop counted them.
+    pub hits: u64,
+    pub reply: String,
+}
+
+/// The interactions kept, newest last.
+pub const TEACHER_KEEP: usize = 24;
+
 #[derive(Debug, Default)]
 pub struct Run {
     pub header: Option<Header>,
@@ -87,9 +106,16 @@ pub struct Run {
     /// The "run ended" line's text, once the coach wrote it.
     pub ended: Option<String>,
     pub ckpts: Vec<Ckpt>,
+    /// The identity loop's record: the prompt under test, the tests of the current loop (oldest first), its end.
+    pub teacher_prompt: Option<String>,
+    pub teacher: Vec<Interaction>,
+    pub teacher_done: Option<String>,
     /// Bytes of the log taken so far, and the unterminated tail after them (bytes, so a cut UTF-8 sequence completes).
     log_len: u64,
     fragment: Vec<u8>,
+    /// The same for the loop's record.
+    tlog_len: u64,
+    tfragment: Vec<u8>,
     polled: Option<Instant>,
 }
 
@@ -189,6 +215,33 @@ pub fn sample_of(rest: &str) -> Option<Sample> {
     Some(Sample { chunk: int(chunk)?, seed: int(seed)?, metrics: metrics.to_string(), text: text.to_string() })
 }
 
+/// "round 1 chunk 1500: PASS It gives the name... (matches in a row 1) | That is a good idea, I am Cortex." and
+/// "round 1 re-test on the final weights: PASS ... | REPLY" (tools/identity-loop.sh's say lines).
+pub fn interaction_of(time: &str, rest: &str) -> Option<Interaction> {
+    let rest = rest.strip_prefix("round ")?;
+    let (round, rest) = rest.split_once(' ')?;
+    let round = int(round)?;
+    let (chunk, rest) = if let Some(r) = rest.strip_prefix("chunk ") {
+        let (c, r) = r.split_once(": ")?;
+        (int(c)?, r)
+    } else if let Some(r) = rest.strip_prefix("re-test on the final weights: ") {
+        (0, r)
+    } else {
+        return None;
+    };
+    let (score, reply) = rest.split_once(" | ").unwrap_or((rest, ""));
+    let (score, hits) = match score.rsplit_once(" (matches in a row ") {
+        Some((s, h)) => (s.trim(), int(h.trim_end_matches(')')).unwrap_or(0)),
+        None => (score.trim(), 0),
+    };
+    let (verdict, note) = match score.split_once(' ') {
+        Some((v, n)) if v == "PASS" || v == "FAIL" => (v.to_string(), n.trim().to_string()),
+        _ => (score.split_whitespace().take(2).collect::<Vec<_>>().join(" "), score.to_string()),
+    };
+    let note = if chunk == 0 { format!("re-test on the final weights: {note}") } else { note };
+    Some(Interaction { time: time.to_string(), round, chunk, verdict, note, hits, reply: reply.trim().to_string() })
+}
+
 /// The file's bytes from `from` to its end.
 fn read_from(path: &Path, from: u64) -> Option<Vec<u8>> {
     let mut f = File::open(path).ok()?;
@@ -266,6 +319,63 @@ impl Run {
         for line in text.lines() {
             self.take(line);
         }
+    }
+
+    /// One line of the identity loop's record: an opening line starts a new interaction record (its prompt kept),
+    /// the tests fill it, the closing line ends it.
+    pub fn take_teacher(&mut self, line: &str) {
+        let (time, rest) = stamped(line);
+        if let Some(r) = rest.strip_prefix("=== identity loop: ") {
+            self.teacher.clear();
+            self.teacher_done = None;
+            self.teacher_prompt = r.split_once("prompt \"").and_then(|(_, p)| p.split_once('"')).map(|(p, _)| p.to_string());
+            return;
+        }
+        if rest.starts_with("=== MATCHED") || rest.starts_with("=== no match") {
+            self.teacher_done = Some(rest.trim_start_matches("=== ").to_string());
+            return;
+        }
+        if let Some(i) = interaction_of(time, rest) {
+            self.teacher.push(i);
+            if self.teacher.len() > TEACHER_KEEP {
+                self.teacher.remove(0);
+            }
+        }
+    }
+
+    fn take_teacher_bytes(&mut self, bytes: &[u8]) {
+        self.tfragment.extend_from_slice(bytes);
+        let cut = match self.tfragment.iter().rposition(|&b| b == b'\n') {
+            Some(i) => i + 1,
+            None => return,
+        };
+        let rest = self.tfragment.split_off(cut);
+        let text = String::from_utf8_lossy(&std::mem::replace(&mut self.tfragment, rest)).into_owned();
+        for line in text.lines() {
+            self.take_teacher(line);
+        }
+    }
+
+    /// The identity loop's record when due (with `poll`): whether anything shown changed. A missing file is an
+    /// empty record.
+    pub fn poll_teacher(&mut self, path: &Path) -> bool {
+        let len = fs::metadata(path).map_or(0, |m| m.len());
+        if len < self.tlog_len {
+            self.tlog_len = 0;
+            self.tfragment.clear();
+            self.teacher.clear();
+            self.teacher_prompt = None;
+            self.teacher_done = None;
+            return true;
+        }
+        if len > self.tlog_len {
+            if let Some(bytes) = read_from(path, self.tlog_len) {
+                self.tlog_len += bytes.len() as u64;
+                self.take_teacher_bytes(&bytes);
+                return true;
+            }
+        }
+        false
     }
 
     /// The log's new bytes and the checkpoint directory when due; whether anything shown changed.
@@ -368,6 +478,29 @@ mod tests {
         let mut r = Run::default();
         r.parse(&LOG.lines().map(String::from).collect::<Vec<_>>());
         check_record(&r);
+    }
+
+    #[test]
+    fn the_loops_record_parses_into_interactions() {
+        let mut r = Run::default();
+        r.take_teacher("10:35:40 === identity loop: set data/identity/teacher-identity.jsonl, test persona data/chat-base2/persona.txt, prompt \"Introduce yourself\", the teacher judges (tools/teacher-judge.sh), from x; ratios 3 2 1");
+        assert_eq!(r.teacher_prompt.as_deref(), Some("Introduce yourself"));
+        r.take_teacher("10:36:09 round 1 chunk 600: FAIL The reply fails to identify the persona.  (matches in a row 0) | It is hard to see how");
+        r.take_teacher("10:36:44 round 1 chunk 1500: PASS It provides the correct name in first person.  (matches in a row 1) | That is a good idea, I am Cortex.");
+        r.take_teacher("09:38:15 round 1 chunk 600: exact 0 lcs 0.167 ref 0 words 12 (matches in a row 0) | I am a to a good idea, I am a wonder't it?");
+        r.take_teacher("10:37:59 round 1 re-test on the final weights: PASS It identifies the name.  | That sounds like a good idea, but I am Cortex.");
+        r.take_teacher("10:37:59 === MATCHED after 1 round(s): the model answers \"Introduce yourself\" with the reference; the state is x");
+        assert_eq!(r.teacher.len(), 4);
+        assert_eq!((r.teacher[0].round, r.teacher[0].chunk, r.teacher[0].verdict.as_str(), r.teacher[0].hits), (1, 600, "FAIL", 0));
+        assert_eq!(r.teacher[0].note, "The reply fails to identify the persona.");
+        assert_eq!(r.teacher[0].reply, "It is hard to see how");
+        assert_eq!((r.teacher[1].verdict.as_str(), r.teacher[1].hits), ("PASS", 1));
+        assert_eq!((r.teacher[2].verdict.as_str(), r.teacher[2].note.as_str()), ("exact 0", "exact 0 lcs 0.167 ref 0 words 12"));
+        assert_eq!((r.teacher[3].chunk, r.teacher[3].verdict.as_str()), (0, "PASS"));
+        assert!(r.teacher[3].note.starts_with("re-test on the final weights: "));
+        assert!(r.teacher_done.as_deref().unwrap().starts_with("MATCHED after 1 round"));
+        r.take_teacher("11:00:00 === identity loop: set y, test persona p, prompt \"Who are you?\", reference r, from z");
+        assert!(r.teacher.is_empty() && r.teacher_done.is_none() && r.teacher_prompt.as_deref() == Some("Who are you?"));
     }
 
     #[test]

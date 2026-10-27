@@ -18393,3 +18393,109 @@
 10:36:44 report chunk 1600  tokens 51200  loss 3.7914 nats = 5.4699 bits/token  lr 2.500e-04  scale 1.0000  800 tok/s  ring 960 ahead  moe 120 experts
 10:36:48 report chunk 1700  tokens 54400  loss 3.7103 nats = 5.3528 bits/token  lr 2.500e-04  scale 1.0000  810 tok/s  ring 960 ahead  moe 120 experts
 10:36:52 report chunk 1800  tokens 57600  loss 3.6689 nats = 5.2931 bits/token  lr 2.500e-04  scale 1.0000  810 tok/s  ring 960 ahead  moe 120 experts
+10:36:56 report chunk 1900  tokens 60800  loss 3.7566 nats = 5.4196 bits/token  lr 2.500e-04  scale 1.0000  810 tok/s  ring 960 ahead  moe 120 experts
+10:37:00 report chunk 2000  tokens 64000  loss 3.7579 nats = 5.4215 bits/token  lr 2.500e-04  scale 1.0000  810 tok/s  ring 960 ahead  moe 120 experts
+10:37:03 command: stop requested
+10:37:03 checkpoint (final): data/live-identity-teacher/ckpt-2074.bin, 23463424 bytes, chunk 2074, push 55, copied in 22 ms
+10:37:19 tables: data/live-identity-teacher/tables-2074.f32, 2147483648 bytes, written in 15.7 s
+10:37:54 pool: data/live-identity-teacher/pool-2074.f32, 4293918720 bytes in 187 rounds, 35.6 s
+10:37:54 coach: run ended at chunk 2074 (66368 tokens), 0 halvings, final scale 1.0000
+13:08:00 coach: data/live-identity-teacher/loop/mix.u16 chunks 0..20007 (20008 chunks = 640256 tokens), lr 2.500e-04, report every 100, window 300, min gain 0.010, halvings 0, sample every 0 x 128 tokens, save every 5000, no stop, cmd results/live.cmd, checkpoints data/live-identity-teacher/, n-gram memory /dev/shm/cortex-identity-teacher.f32 (row lr 0.1, gates data/live-identity-teacher/ckpt-2074-gates.f32, tables every 100000), MoE loaded (bias 100, expert lr 0.05, pool data/live-identity-teacher/pool-2074.f32)
+13:08:34 pool: data/live-identity-teacher/pool-2074.f32 pulled into the daemon, 4293918720 bytes in 187 rounds, 33.6 s
+13:08:34 coach: data/live-identity-teacher/ckpt-2074.bin loaded into the daemon
+13:08:34 coach: live (magic set, 960 chunks in the ring, the memory's rows of chunks 0 and 1 published)
+13:08:34 coach: the daemon trains the memory with the ring
+13:08:38 report chunk 100  tokens 3200  loss 3.6309 nats = 5.2382 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:08:42 report chunk 200  tokens 6400  loss 3.6860 nats = 5.3178 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:08:46 report chunk 300  tokens 9600  loss 3.8011 nats = 5.4839 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:08:50 report chunk 400  tokens 12800  loss 3.4012 nats = 4.9069 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:08:54 report chunk 500  tokens 16000  loss 3.8345 nats = 5.5320 bits/token  lr 2.500e-04  scale 1.0000  810 tok/s  ring 960 ahead  moe 120 experts
+13:08:58 report chunk 600  tokens 19200  loss 3.3353 nats = 4.8118 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:09:02 report chunk 700  tokens 22400  loss 3.4908 nats = 5.0361 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:09:06 report chunk 800  tokens 25600  loss 3.4743 nats = 5.0124 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:09:10 report chunk 900  tokens 28800  loss 3.4371 nats = 4.9587 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:09:14 report chunk 1000  tokens 32000  loss 3.3552 nats = 4.8406 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:09:18 report chunk 1100  tokens 35200  loss 3.5468 nats = 5.1169 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:09:22 report chunk 1200  tokens 38400  loss 3.2707 nats = 4.7186 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:09:26 report chunk 1300  tokens 41600  loss 3.2649 nats = 4.7103 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:09:29 report chunk 1400  tokens 44800  loss 3.2563 nats = 4.6979 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:09:33 report chunk 1500  tokens 48000  loss 3.6899 nats = 5.3235 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:09:37 report chunk 1600  tokens 51200  loss 3.2822 nats = 4.7352 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:09:41 report chunk 1700  tokens 54400  loss 3.4434 nats = 4.9677 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:09:45 report chunk 1800  tokens 57600  loss 3.4242 nats = 4.9401 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:09:49 report chunk 1900  tokens 60800  loss 3.4624 nats = 4.9952 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:09:53 report chunk 2000  tokens 64000  loss 3.3028 nats = 4.7650 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:09:57 report chunk 2100  tokens 67200  loss 3.5197 nats = 5.0779 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:10:01 report chunk 2200  tokens 70400  loss 3.4764 nats = 5.0154 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:10:05 report chunk 2300  tokens 73600  loss 3.7761 nats = 5.4478 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:10:09 report chunk 2400  tokens 76800  loss 3.7548 nats = 5.4171 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:10:13 report chunk 2500  tokens 80000  loss 3.5288 nats = 5.0910 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:10:17 report chunk 2600  tokens 83200  loss 3.3390 nats = 4.8171 bits/token  lr 2.500e-04  scale 1.0000  800 tok/s  ring 960 ahead  moe 120 experts
+13:10:21 report chunk 2700  tokens 86400  loss 3.3617 nats = 4.8499 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:10:25 report chunk 2800  tokens 89600  loss 3.4188 nats = 4.9323 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:10:29 report chunk 2900  tokens 92800  loss 3.4065 nats = 4.9145 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:10:33 report chunk 3000  tokens 96000  loss 3.2949 nats = 4.7535 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:10:37 report chunk 3100  tokens 99200  loss 3.2814 nats = 4.7341 bits/token  lr 2.500e-04  scale 1.0000  800 tok/s  ring 960 ahead  moe 120 experts
+13:10:41 report chunk 3200  tokens 102400  loss 3.4585 nats = 4.9896 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:10:45 report chunk 3300  tokens 105600  loss 3.3650 nats = 4.8547 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:10:49 report chunk 3400  tokens 108800  loss 3.2480 nats = 4.6858 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:10:53 report chunk 3500  tokens 112000  loss 3.3554 nats = 4.8409 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:10:57 report chunk 3600  tokens 115200  loss 3.4871 nats = 5.0309 bits/token  lr 2.500e-04  scale 1.0000  799 tok/s  ring 960 ahead  moe 120 experts
+13:11:01 report chunk 3700  tokens 118400  loss 3.6280 nats = 5.2341 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:11:05 report chunk 3800  tokens 121600  loss 3.8548 nats = 5.5613 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:11:09 report chunk 3900  tokens 124800  loss 3.2820 nats = 4.7349 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:11:13 report chunk 4000  tokens 128000  loss 3.8051 nats = 5.4896 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:11:17 report chunk 4100  tokens 131200  loss 3.3942 nats = 4.8968 bits/token  lr 2.500e-04  scale 1.0000  799 tok/s  ring 960 ahead  moe 120 experts
+13:11:21 report chunk 4200  tokens 134400  loss 3.5174 nats = 5.0745 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:11:25 report chunk 4300  tokens 137600  loss 3.5898 nats = 5.1790 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:11:29 report chunk 4400  tokens 140800  loss 3.4511 nats = 4.9789 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:11:33 report chunk 4500  tokens 144000  loss 3.0481 nats = 4.3975 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:11:37 report chunk 4600  tokens 147200  loss 3.5420 nats = 5.1101 bits/token  lr 2.500e-04  scale 1.0000  799 tok/s  ring 960 ahead  moe 120 experts
+13:11:41 report chunk 4700  tokens 150400  loss 3.2739 nats = 4.7233 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:11:45 report chunk 4800  tokens 153600  loss 3.5324 nats = 5.0961 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:11:49 report chunk 4900  tokens 156800  loss 3.5766 nats = 5.1600 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:11:53 report chunk 5000  tokens 160000  loss 3.4793 nats = 5.0195 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:11:53 checkpoint requested at chunk 5000 (every 5000 chunks)
+13:11:53 checkpoint (requested): data/live-identity-teacher/ckpt-5001.bin, 23463424 bytes, chunk 5001, push 56, copied in 54 ms
+13:11:57 report chunk 5100  tokens 163200  loss 3.4609 nats = 4.9930 bits/token  lr 2.500e-04  scale 1.0000  797 tok/s  ring 960 ahead  moe 120 experts
+13:12:01 report chunk 5200  tokens 166400  loss 3.5016 nats = 5.0518 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:12:05 report chunk 5300  tokens 169600  loss 3.7633 nats = 5.4293 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:12:09 report chunk 5400  tokens 172800  loss 3.9323 nats = 5.6732 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:12:13 report chunk 5500  tokens 176000  loss 3.5720 nats = 5.1534 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:12:17 report chunk 5600  tokens 179200  loss 3.1343 nats = 4.5218 bits/token  lr 2.500e-04  scale 1.0000  801 tok/s  ring 960 ahead  moe 120 experts
+13:12:21 report chunk 5700  tokens 182400  loss 3.3335 nats = 4.8093 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:12:25 report chunk 5800  tokens 185600  loss 3.4318 nats = 4.9511 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:12:29 report chunk 5900  tokens 188800  loss 3.5182 nats = 5.0756 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:12:33 report chunk 6000  tokens 192000  loss 3.1568 nats = 4.5543 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:12:37 report chunk 6100  tokens 195200  loss 3.2444 nats = 4.6806 bits/token  lr 2.500e-04  scale 1.0000  799 tok/s  ring 960 ahead  moe 120 experts
+13:12:41 report chunk 6200  tokens 198400  loss 3.3456 nats = 4.8266 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:12:45 report chunk 6300  tokens 201600  loss 3.2194 nats = 4.6446 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:12:49 report chunk 6400  tokens 204800  loss 3.3101 nats = 4.7755 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:12:53 report chunk 6500  tokens 208000  loss 3.1813 nats = 4.5897 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:12:57 report chunk 6600  tokens 211200  loss 3.4342 nats = 4.9545 bits/token  lr 2.500e-04  scale 1.0000  799 tok/s  ring 960 ahead  moe 120 experts
+13:13:01 report chunk 6700  tokens 214400  loss 3.2291 nats = 4.6586 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:13:05 report chunk 6800  tokens 217600  loss 3.6196 nats = 5.2220 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:13:09 report chunk 6900  tokens 220800  loss 3.2763 nats = 4.7267 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:13:13 report chunk 7000  tokens 224000  loss 3.2878 nats = 4.7433 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:13:17 report chunk 7100  tokens 227200  loss 3.2009 nats = 4.6179 bits/token  lr 2.500e-04  scale 1.0000  799 tok/s  ring 960 ahead  moe 120 experts
+13:13:21 report chunk 7200  tokens 230400  loss 3.2530 nats = 4.6931 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:13:25 report chunk 7300  tokens 233600  loss 3.9286 nats = 5.6678 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:13:29 report chunk 7400  tokens 236800  loss 3.1341 nats = 4.5215 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:13:32 report chunk 7500  tokens 240000  loss 3.6770 nats = 5.3048 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:13:37 report chunk 7600  tokens 243200  loss 3.4626 nats = 4.9955 bits/token  lr 2.500e-04  scale 1.0000  798 tok/s  ring 960 ahead  moe 120 experts
+13:13:41 report chunk 7700  tokens 246400  loss 3.2317 nats = 4.6624 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:13:44 report chunk 7800  tokens 249600  loss 3.2365 nats = 4.6693 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:13:48 report chunk 7900  tokens 252800  loss 3.4586 nats = 4.9898 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:13:52 report chunk 8000  tokens 256000  loss 3.5870 nats = 5.1750 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:13:56 report chunk 8100  tokens 259200  loss 3.5534 nats = 5.1264 bits/token  lr 2.500e-04  scale 1.0000  799 tok/s  ring 960 ahead  moe 120 experts
+13:14:00 report chunk 8200  tokens 262400  loss 3.6683 nats = 5.2922 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:14:04 report chunk 8300  tokens 265600  loss 3.6559 nats = 5.2744 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:14:08 report chunk 8400  tokens 268800  loss 3.5538 nats = 5.1270 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:14:12 report chunk 8500  tokens 272000  loss 3.2882 nats = 4.7438 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:14:16 report chunk 8600  tokens 275200  loss 3.4488 nats = 4.9756 bits/token  lr 2.500e-04  scale 1.0000  800 tok/s  ring 960 ahead  moe 120 experts
+13:14:20 report chunk 8700  tokens 278400  loss 3.6521 nats = 5.2689 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:14:24 report chunk 8800  tokens 281600  loss 3.4673 nats = 5.0023 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:14:28 report chunk 8900  tokens 284800  loss 3.4576 nats = 4.9882 bits/token  lr 2.500e-04  scale 1.0000  809 tok/s  ring 960 ahead  moe 120 experts
+13:14:32 report chunk 9000  tokens 288000  loss 3.6195 nats = 5.2219 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts
+13:14:36 report chunk 9100  tokens 291200  loss 3.1949 nats = 4.6092 bits/token  lr 2.500e-04  scale 1.0000  799 tok/s  ring 960 ahead  moe 120 experts
+13:14:40 report chunk 9200  tokens 294400  loss 3.1061 nats = 4.4811 bits/token  lr 2.500e-04  scale 1.0000  808 tok/s  ring 960 ahead  moe 120 experts

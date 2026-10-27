@@ -528,6 +528,25 @@ fn run(f: &mut Frame, a: &mut App) {
         rows.push(vec![text(format!("{:<20}", c.name)), dim(format!("{:>14} B  {}", group(c.bytes), age(c.modified)))]);
     }
     rows.push(vec![]);
+    if a.run.teacher_prompt.is_some() || !a.run.teacher.is_empty() {
+        let title = match (&a.run.teacher_prompt, &a.run.teacher_done) {
+            (Some(p), Some(d)) => format!("the teacher and the student: \"{p}\": {d}"),
+            (Some(p), None) => format!("the teacher and the student: \"{p}\""),
+            (None, _) => "the teacher and the student".to_string(),
+        };
+        rows.push(rule(&clip(&title, cw.saturating_sub(4)), cw));
+        let n = a.run.teacher.len();
+        if n == 0 {
+            rows.push(vec![dim("no test yet")]);
+        }
+        for i in &a.run.teacher[n.saturating_sub(3)..] {
+            let when = if i.chunk == 0 { format!("round {} final", i.round) } else { format!("round {} chunk {}", i.round, group(i.chunk)) };
+            let verdict = if i.verdict == "PASS" { text(format!("{} ", i.verdict)).bold() } else { dim(format!("{} ", i.verdict)) };
+            rows.push(vec![dim(format!("{when:<22}")), verdict, faint(clip(&i.note, cw.saturating_sub(30)))]);
+            rows.push(vec![pad(2), dim("student  "), text(clip(&i.reply, cw.saturating_sub(11)))]);
+        }
+        rows.push(vec![]);
+    }
     rows.push(rule(&format!("the run's events, {}", a.cfg.log_file), cw));
     let room = h.saturating_sub(4).saturating_sub(rows.len());
     let mut log_rows: Vec<Vec<Span>> = Vec::new();

@@ -1,7 +1,9 @@
 #!/bin/bash
 # teacher-judge.sh: the teacher judges one reply of the Cortex: given the persona, the user's prompt and the reply,
-# does the reply introduce the speaker correctly? First person, consistent with every fact of the persona, plain
-# English, nothing invented, no nonsense, no leaked markers. At the user's sampling settings like every teacher
+# does the reply introduce the speaker correctly? First person, the name and at least two more facts of the
+# persona, nothing contradicting or invented, plain English that answers the line, no filler from another
+# conversation, no nonsense, no leaked markers (the first rubric passed "That sounds like a good idea, but I am
+# Cortex." at 10:37 on the name alone; tightened 13:0x). At the user's sampling settings like every teacher
 # call (so a verdict carries sampling noise: the loop asks for consecutive passes). Prints the verdict line "PASS"
 # or "FAIL" and the teacher's one-line reason; exit 0 on PASS, 1 on FAIL, 2 when the teacher did not answer.
 #   tools/teacher-judge.sh PERSONA.txt "PROMPT" "REPLY" [--url URL]
@@ -15,7 +17,7 @@ urlopt=()
 [ $# -ge 2 ] && [ "$1" = "--url" ] && urlopt=(--url "$2")
 W=$(mktemp -d)
 cat > "$W/system.txt" <<'EOF'
-You judge replies of a small chat model. You are given the model's persona (first-person facts), what a user said to it, and what it replied. Decide whether the reply is a correct self-introduction for that persona: it must speak in the first person as the persona, agree with every fact of the persona it mentions, invent no facts that contradict the persona, be plain readable English, and contain no gibberish, no repeated fragments and no chat markers. A short reply that gives the name and at least one true fact passes. Answer with exactly one word on the first line, PASS or FAIL, and one short sentence of reason on the second line.
+You judge replies of a small chat model. You are given the model's persona (first-person facts), what a user said to it, and what it replied. Decide whether the reply is a correct self-introduction for that persona. To pass, the reply must: speak in the first person as the persona; give the persona's name; state at least two more facts from the persona (what it is, where it runs, how many columns, what it likes); contain nothing that contradicts the persona and nothing invented beyond it; be plain readable English that answers the user's line, with no filler that belongs to another conversation (such as "that sounds like a good idea"), no gibberish, no repeated fragments and no chat markers. Anything less fails, including a reply that only states the name. Answer with exactly one word on the first line, PASS or FAIL, and one short sentence of reason on the second line.
 EOF
 ask=$(printf 'Persona:\n%s\n\nUser said: %s\n\nThe model replied: %s\n\nVerdict?' "$(cat "$persona")" "$prompt" "$reply")
 out=$(tools/teacher.sh "$W/system.txt" "$ask" --max 80 "${urlopt[@]}") || { rm -rf "$W"; echo "no verdict"; exit 2; }

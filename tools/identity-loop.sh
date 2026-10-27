@@ -100,10 +100,12 @@ while [ "$round" -lt "$max_rounds" ] && [ "$matched" -eq 0 ]; do
 	build/host/mixstream "$W/ident.u16" "$base" "$bstart" "$r_now" "$chunks" "$W/mix.u16" | tee -a "$log" || exit 1
 	poolopt=()
 	[ -n "$cur_pool" ] && poolopt=(--pool "$cur_pool")
-	say "round $round (ratio $r_now): the coach from $cur_ckpt${cur_pool:+ with $cur_pool} on $W/mix.u16 (base from token $bstart)"
+	gates=ones   # the memory's gates continue from the checkpoint's own when it has them
+	[ -f "${cur_ckpt%.bin}-gates.f32" ] && gates=${cur_ckpt%.bin}-gates.f32
+	say "round $round (ratio $r_now): the coach from $cur_ckpt${cur_pool:+ with $cur_pool} on $W/mix.u16 (base from token $bstart, gates $gates)"
 	setsid nohup build/host/coach "$W/mix.u16" --ckpt "$cur_ckpt" "${poolopt[@]}" --start 0 --lr "$lr" --every 100 --window 300 --halvings 0 --no-stop \
 		--save-every 5000 --sample-every 0 --vocab "$vocab" --cmd results/live.cmd --log results/live.log --ckdir "$ckdir" \
-		--moe --moe-bias 100 --expert-lr 0.05 --ngram "$tables" --row-lr 0.1 --gates ones > "$W/coach-$round.out" 2>&1 < /dev/null &
+		--moe --moe-bias 100 --expert-lr 0.05 --ngram "$tables" --row-lr 0.1 --gates "$gates" > "$W/coach-$round.out" 2>&1 < /dev/null &
 	cpid=$!
 	sleep 25
 	kill -0 "$cpid" 2>/dev/null || { say "the coach ended at once: $(tail -n 3 "$W/coach-$round.out" | tr '\n' ' ' | cut -c1-300)"; exit 1; }
