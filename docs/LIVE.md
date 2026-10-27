@@ -95,3 +95,31 @@ windows with a negative gain end the run. A sample whose rep4 exceeds the mean o
 Faults found and fixed by the gates: the Adam schedule's KNC excess precision (chunks 1 and 2 identical, 3 different, losses apart at chunk 86; now `cl_adam_schedule`) and the round race on the action word (one thread one barrier out of step after a preemption during an idle round; now double-buffered by round parity). The batch trainer itself is deterministic and preemption-safe (two contending runs identical, md5 0470b1e6...).
 
 First live run (17:33, results/live.log): from data/ts10m/ckpt-312500.bin at chunk 312,500 of data/bpe/train.u16, 1,292 to 1,294 tok/s, reports every 100 chunks, a sample every 2,000 chunks with the orchestrator, commands through results/live.cmd. A chat during it: `cortex --live "Once upon a time" 64 --orchestra data/stories-10m.ngc --words data/wordlist-stories.txt` at 2,015 tok/s overall (card 374 us, host 127 us per token).
+
+## Operating rules learned on 2026-10-26 (19:xx to 21:xx)
+
+- **Starting the daemon after a card boot:** the card boots with no huge pages and every Cortex card program needs
+  them: `phi run sh -c 'echo 2700 > /proc/sys/vm/nr_hugepages; mkdir -p /tmp/cortex'`, then `phi put
+  build/card/cortexd /tmp/cortex/cortexd`, then the detached start on `CX_DMA_CHAN=3`, then `cortex --load CKPT`
+  (its bus defaults off since 19:17, the trained configuration). `phi up` takes 23 s to the agent.
+- **The heartbeat:** thread 0 counts CX_C_HEART every 100 ms (`CX_HEART_S`, build 19:14); the harness and the monitor
+  call the daemon absent when it has not moved for 2 s.
+- **A client is never killed:** a client that dies after its first command leaves the session open and the next
+  client is never taken (poll_session abandons only a session without a first command). The harness lets a reply
+  finish before quitting.
+- **A stopped `phi run` does not stop the card's job:** three validation passes kept running after their clients
+  were stopped and held the live training to 42 tok/s; the control socket's run channel and the ssh forward were
+  both wedged by then, so the card was rebooted. The batch trainer only runs on a card without the daemon (beside the
+  napping daemon a 50,000-token validation took over 300 s).
+- **The policy ends a flat run in minutes:** on fresh stories every window is a plateau: three halvings, two rising
+  windows, stop (3.5 min, 20:24). Runs meant to keep the card busy use `--save-every N --no-stop` (21:4x): a
+  checkpoint every N chunks, the policy's halvings and their checkpoints kept, the run ended only by the stream or a
+  `stop` line. `--window 100000` (the first workaround) switched the policy's checkpoints off with it: an hour of
+  the second chat pass had none until a `save` line.
+- **The coach's options now:** `--ckpt CKPT` (a LOAD; without it the run continues on the live weights), `--start
+  CHUNK`, `--chunks N`, `--lr X`, `--every N`, `--window W`, `--min-gain B`, `--halvings H`, `--sample-every N`,
+  `--sample-tokens N`, `--save-every N`, `--no-stop`, `--prompt TEXT`, `--orchestra NGC`, `--words LIST`, `--cmd
+  FILE`, `--ckdir DIR`, `--paused`, `--log FILE`, `--cortex PATH`, `--vocab FILE`. A run's chunk counter and its
+  checkpoint names start at 0 (stream chunk = name + `--start`).
+- **The runs of the day** (results/live.log): the first live run from ckpt-312500 (10,021 chunks, ended by the
+  policy), the chat passes and the stories runs of docs/CHAT.md.

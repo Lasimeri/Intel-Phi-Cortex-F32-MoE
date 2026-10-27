@@ -1,8 +1,39 @@
-# Phi-Cortex-F32-MoE
+# Intel Phi Cortex, the F32 MoE tree
 
-The F32 Cortex (below) turned into a mixture-of-experts model, one head per VPU thread, with the inactive weights in
-the card's GDDR, an n-gram memory in host RAM reached over DMA, and a host orchestrator over the generated tokens.
-PLAN-MOE.md holds the plan, the sizing and the measurements; docs/ORCHESTRA.md the orchestrator.
+The F32 Cortex (its description is the second half of this file) carried on: a live trainer on the card (the daemon
+trains between the clients' turns and serves inference on the live weights), a host coach that feeds, reports,
+samples and takes commands, a chat harness and a training monitor in Rust, a host orchestrator over the generated
+tokens, an n-gram memory in host RAM reached over DMA, the sizing of the mixture-of-experts stages, and chat data
+from the Hub's Opus 4.6 sets. Everything on the card is C on the 512-bit vector unit; the host side is C, the two
+terminal programs Rust. Public since 2026-10-26 21:5x at https://github.com/Lasimeri/Intel-Phi-Cortex-F32-MoE
+(branch `moe`; the data and checkpoints stay local, each document says how its data was made).
+
+| document | what |
+|---|---|
+| [PLAN-MOE.md](PLAN-MOE.md) | the plan, the sizing, every stage's measurements, the day-by-day directions |
+| [docs/LIVE.md](docs/LIVE.md) | the live trainer: the daemon's round, the coach, the gates, operating rules |
+| [docs/TUI.md](docs/TUI.md) | the harness `cortex-tui` and the monitor `cortex-watch` |
+| [docs/CHAT.md](docs/CHAT.md) | the chat data, the stream, the fine-tune passes and their measurements |
+| [docs/ORCHESTRA.md](docs/ORCHESTRA.md) | the orchestrator between the card's logits and the sampler |
+
+## Running it
+
+    ./build.sh                                                   # host tools (gcc), card programs (KNC clang), ISA audit
+    cd tui && cargo build --release && cd ..                     # the harness and the monitor
+    phi run sh -c 'echo 2700 > /proc/sys/vm/nr_hugepages; mkdir -p /tmp/cortex'   # after a card boot: it has none
+    phi put build/card/cortexd /tmp/cortex/cortexd
+    phi run sh -c 'cd /tmp/cortex && (CX_DMA_CHAN=3 setsid ./cortexd > cortexd.log 2>&1 < /dev/null &)'
+    build/host/cortex --load data/live/ckpt-18069.bin            # a checkpoint into the daemon (bus off)
+    build/host/coach data/mix/chat2-train.u16 --lr 0.0005 --every 100 --save-every 5000 --no-stop \
+        --sample-every 2000 --orchestra data/stories-10m.ngc --words data/wordlist-stories.txt \
+        --cmd results/live.cmd --log results/live.log --ckdir data/live    # a live run on the live weights
+    tools/watch.sh                                               # the monitor, in a konsole window (or --here)
+    tools/chat.sh                                                # the chat harness, in a konsole window (or --here)
+    echo stop >> results/live.cmd                                # ends the run after the current chunk, final checkpoint
+    build/host/cortex --live "Once upon a time" 64 --no-echo --stop-eot --orchestra data/stories-10m.ngc
+
+Measured on 2026-10-26: the live trainer 1,219 to 1,294 tok/s, a client's STEP 367 to 376 us per token between
+chunks, a framed turn of the harness 2,706 tok/s overall; the live trajectory byte-identical to the batch trainer's.
 
 | stage | state | where |
 |---|---|---|
@@ -20,9 +51,54 @@ PLAN-MOE.md holds the plan, the sizing and the measurements; docs/ORCHESTRA.md t
 Card tools added on the way: tools/cdma-test.c (both DMA directions on a channel), tools/partpoll.c (the part as the
 daemon maps it), tools/dma-coh.c (a DMA write into GDDR invalidates every core's L2 copy: 0 stale words on 120
 threads), tools/knc-one.sh (one card program built the way build.sh does it). cortexd abandons a session with no first
-command within 5 s; the DMA channel is chosen with CX_DMA_CHAN (a channel left enabled by a killed owner stays
-unusable until the card reboots); card/cdma.c's wait spins before it naps (the nap cost the card kernel's 50 us timer
-slack on every completion: the row DMA went from 69 to 3 us, the logits DMA from about 70 to 10 us per step).
+command within 5 s and counts CX_C_HEART every 100 ms; the DMA channel is chosen with CX_DMA_CHAN (a channel left
+enabled by a killed owner stays unusable until the card reboots); card/cdma.c's wait spins before it naps (the nap
+cost the card kernel's 50 us timer slack on every completion: the row DMA went from 69 to 3 us, the logits DMA from
+about 70 to 10 us per step).
+
+## The training loop as it runs (2026-10-26 21:xx)
+
+```
+╔═ desktop ════════════════════════════════════════════════════════════════════════════════╗
+║ Hub Opus 4.6 sets ─▶ hf download, datasets-server pages ─▶ tools/hubrows ─▶ JSONL        ║
+║ ─▶ tools/chat-text (Human:/Cortex: lines, think blocks out, ASCII) ─▶ bpe encode ─▶ u16  ║
+║ ─▶ tools/interleave with fresh story slices (73.5 %) ─▶ data/mix/chat2-train.u16, 6.2M   ║
+║ ┌─ cortex-watch (konsole, read-only) ──────────────────────────────────────────────────┐ ║
+║ │ progress + time left, loss and tok/s column charts per report, the policy's window,  │ ║
+║ │ the last sample, events, checkpoints; CX_T_* words every 250 ms, the log every second│ ║
+║ └──────────────────────────────────────────────────────────────────────────────────────┘ ║
+║ ┌─ cortex-tui (konsole) ───────────────────────────────────────────────────────────────┐ ║
+║ │ the chat on the live weights between chunks, each turn framed by tui/cortex.jinja    │ ║
+║ │ over ~/CLAUDE.md: one cortex --live per turn (3,820 prompt tokens, 2,706 tok/s)      │ ║
+║ └──────────────────────────────────────────────────────────────────────────────────────┘ ║
+║ ┌─ host/coach ─────────────────────────────────────────────────────────────────────────┐ ║
+║ │ feeds chunks of 33 ids into the ring (part + 56 MiB), reports every 100 chunks, lr   │ ║
+║ │ 5e-4, --save-every 5000 --no-stop, samples every 2,000 chunks, checkpoints by DMA    │ ║
+║ └──────────────────────────────────────┬───────────────────────────────────────────────┘ ║
+╚════════════════════════════════════════╪═════════════════════════════════════════════════╝
+                                         │ PCIe, DMA channel 3: the ring in; the words,
+                                         │ the logits and the checkpoints out
+╔═ Xeon Phi 7120A: cortexd (build 19:14) ╪═════════════════════════════════════════════════╗
+║ 120 threads; a chunk's 32 forwards + backward + Adam at 1,219 to 1,227 tok/s; a client's ║
+║ STEP 367 to 376 us per token between chunks; CX_C_HEART every 100 ms; 2,700 huge pages   ║
+╚══════════════════════════════════════════════════════════════════════════════════════════╝
+```
+
+## Layout of this tree
+
+    PLAN-MOE.md, docs/      the plan and the documents listed above
+    card/cortexd.c          the train-and-serve daemon (two contexts over the live weights, the mailbox, DMA channel 3)
+    card/cluster.h          the 120-column cluster, the shared Adam schedule (cl_adam_schedule), the n-gram ring
+    host/coach.c            the coach: feeds the ring, reports, samples, policy, commands, checkpoints
+    host/cortex.c           the client: a checkpoint or the live weights, one STEP per token, sampler, orchestrator
+    host/orchestra.h        the orchestrator (AVX2 FMA); host/ngserve.c, host/ctxserve.c the memory and context servers
+    tui/                    the harness cortex-tui and the monitor cortex-watch (Rust, crossterm, minijinja)
+    tui/cortex.jinja        the frame of every turn: the identity, Human:/Cortex: labels, the stop
+    tools/chat.sh, watch.sh the two programs in konsole windows; live-gate.sh the live trainer's gates
+    tools/chat-text.c, hubrows.c, ref-loss.c, interleave.c, textprep.c, ngcount.c, bpe.c   the data tools
+    results/                the gates' logs, the runs' logs (live.log), the measurements
+    data/ (local only)      bpe/ (vocab4096.txt, train.u16 562.7M tokens), live/ (the live runs' checkpoints),
+                            chat/, mix/ (the streams), opus46/ (the downloaded sets), stories-10m.ngc, wordlists
 
 ---
 
@@ -33,8 +109,10 @@ per core, trained and run together as one language model on the card. Every floa
 card's 512-bit vector unit; the host (a Ryzen 7 5800X) does the scalar work: tokenizer, sampling, I/O, checkpoints,
 exchanging tokens and logits with the card through a shared-memory mailbox and the card's DMA engine. Everything is C.
 
-Status 2026-10-26: stages 0 to 5 of [PLAN.md](PLAN.md) are done and measured on the card; stages 6 (online learning)
-and 7 (chat CLI, HTTP) are not started. The measured numbers and the open findings are in `results/`.
+Status 2026-10-26: stages 0 to 5 of [PLAN.md](PLAN.md) are done and measured on the card; stage 6 (online
+learning) became the live trainer of docs/LIVE.md and stage 7 (a chat front end) the harness of docs/TUI.md, both in
+this tree. The measured numbers and the open findings are in `results/`. The sections below describe the F32 model
+itself as it was built; the daemon now uses DMA channel 3 and the live weights, see the first half of this file.
 
 ## What a column is
 

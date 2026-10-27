@@ -346,3 +346,13 @@ paused coach session). The daemon now counts CX_C_HEART at 10 Hz (build 19:14) s
 `tui/cortex.jinja`, rendered by the harness every turn (minijinja) as a chat template with the identity paragraph,
 `Human:` / `Cortex:` labels and an exported `stop` the client takes as `--stop`; docs/TUI.md "The frame". Measured:
 75 tokens at 2,706 tok/s with a 3,820-token prompt; the replies remain third-person stories (no chat fine-tune yet).
+
+## State of the tree at 2026-10-26 21:5x (public since then)
+
+Built and measured today, in order: the live trainer (gated bit-identical to the batch trainer), the chat harness
+`cortex-tui` with `tui/cortex.jinja` as the frame of every turn, the training monitor `cortex-watch`, the Opus 4.6
+chat data pipeline and two fine-tune passes (the first measured: chat 10.6185 to 8.4801 bits/token, stories 5.7531 to
+6.1197; the second, 75 % stories at 5e-4, running), the coach's `--save-every` and `--no-stop`, the daemon's heartbeat.
+Rejected with numbers: 3-bit weights (50 bits/token). Kept as the user decided: F32, the 4,096-id tokenizer at 3.13
+bytes per token on chat text. Next by the measurements: capacity (stages 2 and 3 above) rather than more tokens on
+this model, and a chat fine-tune on more conversational data in the frame's shape.
