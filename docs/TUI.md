@@ -205,3 +205,17 @@ multi-token stops such as the stories' `\nHuman:`; the chat markers are single t
 printed and the client's line is what names them.
 Verified on the desktop at 01:34 against the live from-scratch weights: a think-off reply of 114 tokens ended with
 the footer "stopped at <|user|>", the marker cut (docs/CHAT.md has the transcript).
+
+## The pool and the memory in the harness and the monitor (2026-10-27 07:5x)
+
+Both programs talk to the daemon, which routes every step of a reply through the expert pool once a MoE model is
+loaded (LOAD arg bit 1), so a reply on a MoE run is the routed model's without any option. What they show of it
+comes from the part (live.rs reads through CX_T_POOL_ACK now): the harness's side panel and run screen and the
+monitor's run block add, while the loaded model routes, a `moe` line (the home bonus the daemon routes with and the
+experts' step: CX_M_BIAS, CX_M_LR), an `experts` line (updated at least once since the pool was filled, of 61,440:
+CX_T_MOE_DISTINCT) and, while a pool transfer is under way, a `pool` line (push or pull, the round of 187: CX_T_POOL
+against CX_T_POOL_ACK); a `memory` line says the n-gram memory trains with the run (CX_T_NG_ACK). The log reader
+(run.rs) takes the report line's suffix ("moe 120 experts, bias 90.9") and the opening line's notes ("n-gram memory
+FILE (...)", "MoE loaded (...)"), shows "pool:" lines among the events, and lists the pool-N.f32 and tables-N.f32
+files beside the checkpoints. The monitor's `moe` line falls back to the last report's words when the run is not
+live, and ends with the opening line's note.

@@ -12,8 +12,12 @@ use std::time::{Duration, Instant};
 pub const PART_OFFSET: u64 = 1344 << 20;
 /// CX_T_BASE: the live-training block inside the part.
 const T_BASE: u64 = 55 << 20;
-/// Through CX_T_SAVES (CX_T_BASE + 1536, u64).
-const T_LEN: usize = 1536 + 8;
+/// Through CX_T_POOL_ACK (CX_T_BASE + 1792, u64).
+const T_LEN: usize = 1792 + 8;
+/// CX_EX_N (lib/cx-moe.h): the experts in the MoE pool.
+pub const EXPERTS: u32 = 61_440;
+/// CX_EX_POOL_ROUNDS (lib/cx-moe.h): the rounds a pool transfer takes through the stage.
+pub const POOL_ROUNDS: u32 = 187;
 /// CX_T_MAGIC_VAL "TRNR".
 const T_MAGIC_VAL: u32 = 0x524e_5254;
 /// Through CX_C_HEART (256, u64).
@@ -46,6 +50,35 @@ pub struct Live {
     /// CX_T_STATE: 0 off, 1 training, 2 paused, 3 waiting for chunks, 4 stopped.
     pub train_state: u32,
     pub saves: u64,
+    /// CX_T_NG_ACK: the daemon trains the n-gram memory with the run.
+    pub memory: bool,
+    /// CX_T_MOE: the loaded model routes through the expert pool (MoE stage 2).
+    pub moe: bool,
+    /// CX_T_MOE_DISTINCT: experts updated at least once since the pool was filled.
+    pub moe_distinct: u32,
+    /// CX_M_BIAS: the home pair's routing bonus the daemon routes with.
+    pub moe_bias: f64,
+    /// CX_M_LR: the experts' SGD step.
+    pub expert_lr: f64,
+    /// CX_T_POOL and CX_T_POOL_ACK: the pool transfer requested and the one completed.
+    pub pool_req: u64,
+    pub pool_ack: u64,
+}
+
+impl Live {
+    /// A pool transfer the daemon has not completed: "push" (into the stage, for a file) or "pull" (from it), and
+    /// the round under way, counted from 1 of POOL_ROUNDS (CX_T_POOL_WORD: the direction above the round + 1).
+    pub fn pool_transfer(&self) -> Option<(&'static str, u32)> {
+        if self.pool_req == 0 || self.pool_ack == self.pool_req {
+            return None;
+        }
+        let dir = match self.pool_req >> 32 {
+            1 => "push",
+            2 => "pull",
+            _ => "transfer",
+        };
+        Some((dir, (self.pool_req & 0xFFFF_FFFF) as u32))
+    }
 }
 
 pub struct Reader {
@@ -98,6 +131,13 @@ pub fn decode(mbox: &[u8], t: &[u8]) -> Live {
         ckpt_chunk: u64_at(t, 1408),
         train_state: u32_at(t, 1472),
         saves: u64_at(t, 1536),
+        memory: u32_at(t, 1600) == 1,
+        moe: u32_at(t, 1664) == 1,
+        moe_distinct: u32_at(t, 1728),
+        moe_bias: f64_at(t, 448),
+        expert_lr: f64_at(t, 512),
+        pool_req: u64_at(t, 576),
+        pool_ack: u64_at(t, 1792),
     }
 }
 
@@ -199,10 +239,22 @@ mod tests {
         t[1280..1288].copy_from_slice(&1291.0f64.to_le_bytes());
         t[1344..1352].copy_from_slice(&5u64.to_le_bytes());
         t[1472..1476].copy_from_slice(&1u32.to_le_bytes());
+        t[448..456].copy_from_slice(&81.25f64.to_le_bytes());
+        t[512..520].copy_from_slice(&0.05f64.to_le_bytes());
+        t[576..584].copy_from_slice(&((1u64 << 32) | 12).to_le_bytes());
+        t[1600..1604].copy_from_slice(&1u32.to_le_bytes());
+        t[1664..1668].copy_from_slice(&1u32.to_le_bytes());
+        t[1728..1732].copy_from_slice(&120u32.to_le_bytes());
+        t[1792..1800].copy_from_slice(&((1u64 << 32) | 11).to_le_bytes());
         let l = decode(&mbox, &t);
         assert!(l.session_open && l.run && l.heart == 99 && l.ack == 5);
         assert_eq!((l.chunks_fed, l.chunks, l.train_state), (7200, 7100, 1));
         assert_eq!((l.loss_nats, l.lr_eff, l.tok_s), (4.2315, 7.5e-4, 1291.0));
+        assert!(l.memory && l.moe);
+        assert_eq!((l.moe_distinct, l.moe_bias, l.expert_lr), (120, 81.25, 0.05));
+        assert_eq!(l.pool_transfer(), Some(("push", 12)), "round 12 requested, 11 acknowledged");
+        t[1792..1800].copy_from_slice(&((1u64 << 32) | 12).to_le_bytes());
+        assert_eq!(decode(&mbox, &t).pool_transfer(), None, "the request acknowledged");
     }
 
     #[test]

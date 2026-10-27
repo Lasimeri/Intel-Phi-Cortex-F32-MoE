@@ -7,6 +7,7 @@
 use crate::app::{App, Screen};
 use crate::chat::{split_think, Ended, Turn, Who, EOT};
 use crate::editor::Editor;
+use crate::live::{Live, EXPERTS, POOL_ROUNDS};
 use crate::term::{theme, Frame, Span};
 use crate::wrap::wrap;
 
@@ -341,6 +342,16 @@ pub fn conversation(turns: &[Turn], spin: usize, cw: usize) -> Vec<Vec<Span>> {
     conv
 }
 
+/// The MoE words of the part while the loaded model routes through the pool (lib/cx-proto.h CX_M_BIAS, CX_M_LR,
+/// CX_T_MOE_DISTINCT, CX_T_POOL): label and value pairs for a panel or a row.
+pub fn moe_pairs(l: &Live) -> Vec<(&'static str, String)> {
+    let mut v = vec![("moe", format!("on: bias {:.1}, expert lr {}", l.moe_bias, l.expert_lr)), ("experts", format!("{} of {} updated", group(l.moe_distinct as u64), group(EXPERTS as u64)))];
+    if let Some((dir, round)) = l.pool_transfer() {
+        v.push(("pool", format!("{dir} under way, round {round} of {POOL_ROUNDS}")));
+    }
+    v
+}
+
 /// The side panel: the card, the live run, the loss by report, this chat's settings.
 fn side_panel(a: &App, w: usize) -> Vec<Vec<Span>> {
     let mut p: Vec<Vec<Span>> = vec![rule("the card", w)];
@@ -358,7 +369,18 @@ fn side_panel(a: &App, w: usize) -> Vec<Vec<Span>> {
                 p.push(kv("speed", format!("{} tok/s", group(l.tok_s.round().max(0.0) as u64)), w));
                 p.push(kv("ring", format!("{} chunks ahead", group(l.chunks_fed.saturating_sub(l.chunks))), w));
                 p.push(kv("checkpoint", format!("chunk {} ({} pushed)", group(l.ckpt_chunk), l.saves), w));
+                if l.memory {
+                    p.push(kv("memory", "trained with the run", w));
+                }
+                if l.moe {
+                    for (k, v) in moe_pairs(l) {
+                        p.push(kv(k, v, w));
+                    }
+                }
             } else {
+                if l.moe {
+                    p.push(kv("moe", "the loaded model routes through the pool", w));
+                }
                 for l in wrap("no run: the weights are as the last run left them (f2: the run screen)", w) {
                     p.push(vec![dim(l)]);
                 }
@@ -486,7 +508,16 @@ fn run(f: &mut Frame, a: &mut App) {
             rows.push(kv("speed", format!("{} tok/s, idle time included", group(l.tok_s.round().max(0.0) as u64)), cw));
             rows.push(kv("flags", format!("asked {:#x}, acknowledged {:#x} (bit 0 save, 1 stop, 2 pause)", l.flags, l.ack), cw));
             rows.push(kv("checkpoint", format!("chunk {}, {} pushed into the stage", group(l.ckpt_chunk), l.saves), cw));
+            if l.memory {
+                rows.push(kv("memory", "the n-gram memory trains with the run (its tables in the coach's file)", cw));
+            }
+            if l.moe {
+                for (k, v) in moe_pairs(l) {
+                    rows.push(kv(k, v, cw));
+                }
+            }
         }
+        Some(l) if l.moe => rows.push(vec![dim(format!("no run is feeding the daemon; the loaded model routes through the pool; a coach started with --cmd {} takes the keys below", a.cfg.cmd_file))]),
         Some(_) => rows.push(vec![dim(format!("no run is feeding the daemon; a coach started with --cmd {} takes the keys below", a.cfg.cmd_file))]),
         None => rows.push(vec![dim(a.live.error.clone().unwrap_or_else(|| "the part is not read yet".into()))]),
     }
@@ -496,7 +527,7 @@ fn run(f: &mut Frame, a: &mut App) {
         rows.push(vec![dim("none yet")]);
     }
     for c in a.run.ckpts.iter().rev().take(6) {
-        rows.push(vec![text(format!("{:<20}", c.name)), dim(format!("{:>12} B  {}", group(c.bytes), age(c.modified)))]);
+        rows.push(vec![text(format!("{:<20}", c.name)), dim(format!("{:>14} B  {}", group(c.bytes), age(c.modified)))]);
     }
     rows.push(vec![]);
     rows.push(rule(&format!("the run's events, {}", a.cfg.log_file), cw));

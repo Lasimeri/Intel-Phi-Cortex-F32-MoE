@@ -14,7 +14,8 @@ use std::time::{Duration, Instant, SystemTime};
 pub const EVENTS_KEEP: usize = 12;
 const FILES_POLL: Duration = Duration::from_secs(1);
 
-/// A "report chunk" line of the coach: the loss over its window, the rate in effect, the speed, the ring.
+/// A "report chunk" line of the coach: the loss over its window, the rate in effect, the speed, the ring, and for
+/// a MoE run the experts updated so far and the home bonus in force.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Report {
     pub chunk: u64,
@@ -25,6 +26,8 @@ pub struct Report {
     pub scale: f64,
     pub tok_s: f64,
     pub ahead: u64,
+    pub experts: Option<u64>,
+    pub bias: Option<f64>,
 }
 
 /// The coach's opening line: the stream, the run's chunks, the schedule and the policy's settings.
@@ -43,6 +46,10 @@ pub struct Header {
     pub halvings: u64,
     pub sample_every: u64,
     pub sample_tokens: u64,
+    /// The n-gram memory's note of the opening line: "FILE: row lr 0.1, gates ones, tables every 50000".
+    pub memory: Option<String>,
+    /// The MoE note: "loaded: bias 100 to 0 over 100000 chunks, expert lr 0.05" (or "knobs: ..." for the knobs alone).
+    pub moe: Option<String>,
 }
 
 /// A policy window: the mean loss of the last W reports and its gain over the previous window.
@@ -106,12 +113,14 @@ fn stamped(line: &str) -> (&str, &str) {
 }
 
 /// "report chunk 7100  tokens 227200  loss 4.2315 nats = 6.1045 bits/token  lr 7.500e-04  scale 0.2500  1291 tok/s
-/// ring 960 ahead" (host/coach.c logline).
+/// ring 960 ahead" (host/coach.c logline), with "  moe 120 experts, bias 90.9" (the bias while it decays) for a
+/// MoE run.
 pub fn report_of(rest: &str) -> Option<Report> {
     let w: Vec<&str> = rest.split_whitespace().collect();
     if w.len() < 20 || w[0] != "report" || w[1] != "chunk" {
         return None;
     }
+    let moe = w.len() >= 23 && w[20] == "moe";
     Some(Report {
         chunk: int(w[2])?,
         tokens: int(w[4])?,
@@ -121,11 +130,22 @@ pub fn report_of(rest: &str) -> Option<Report> {
         scale: num(w[14])?,
         tok_s: num(w[15])?,
         ahead: int(w[18])?,
+        experts: if moe { int(w[21]) } else { None },
+        bias: if moe && w.len() >= 25 && w[23] == "bias" { num(w[24]) } else { None },
     })
 }
 
+/// "NAME (inside)" after `key` in the opening line, as "NAME: inside".
+fn note_after<'a>(rest: &'a str, key: &str) -> Option<String> {
+    let (_, after) = rest.split_once(key)?;
+    let (name, after) = after.split_once(" (")?;
+    let (inside, _) = after.split_once(')')?;
+    Some(format!("{name}: {inside}"))
+}
+
 /// "coach: FILE chunks 648..18716 (18069 chunks = 578208 tokens), lr 1.000e-03, report every 100, window 10, min
-/// gain 0.010, halvings 3, sample every 1000 x 128 tokens, ..."
+/// gain 0.010, halvings 3, sample every 1000 x 128 tokens, ..., checkpoints DIR/[, n-gram memory FILE (...)][, MoE
+/// loaded (...)]"
 pub fn header_of(time: &str, rest: &str) -> Option<Header> {
     let w: Vec<&str> = rest.split_whitespace().collect();
     if w.len() < 27 || w[0] != "coach:" || w[2] != "chunks" {
@@ -146,6 +166,8 @@ pub fn header_of(time: &str, rest: &str) -> Option<Header> {
         halvings: int(w[20])?,
         sample_every: int(w[23])?,
         sample_tokens: int(w[25])?,
+        memory: note_after(rest, ", n-gram memory "),
+        moe: note_after(rest, ", MoE "),
     })
 }
 
@@ -219,7 +241,7 @@ impl Run {
         } else if rest.starts_with("coach: run ended") {
             self.ended = Some(rest.to_string());
             self.push_event(time, rest);
-        } else if rest.starts_with("coach: ") || rest.starts_with("policy: ") || rest.starts_with("command: ") || rest.starts_with("checkpoint ") || rest.starts_with("sample:") || rest.starts_with("tables:") || rest.starts_with("memory:") {
+        } else if rest.starts_with("coach: ") || rest.starts_with("policy: ") || rest.starts_with("command: ") || rest.starts_with("checkpoint ") || rest.starts_with("sample:") || rest.starts_with("tables:") || rest.starts_with("memory:") || rest.starts_with("pool:") {
             self.push_event(time, rest);
         }
     }
@@ -273,7 +295,8 @@ impl Run {
                 d.filter_map(Result::ok)
                     .filter_map(|e| {
                         let name = e.file_name().to_string_lossy().into_owned();
-                        if !name.ends_with(".bin") {
+                        // ckpt-N.bin, and the files a run writes beside them: pool-N.f32, tables-N.f32, ckpt-N-gates.f32
+                        if !(name.ends_with(".bin") || name.ends_with(".f32")) {
                             return None;
                         }
                         let m = e.metadata().ok()?;
@@ -328,7 +351,8 @@ mod tests {
         assert_eq!((h.started.as_str(), h.file.as_str(), h.first, h.last, h.chunks, h.tokens), ("20:06:29", "data/mix/chat-train.u16", 648, 18716, 18069, 578208));
         assert_eq!((h.lr, h.every, h.window, h.min_gain, h.halvings, h.sample_every, h.sample_tokens), (1e-3, 100, 10, 0.010, 3, 1000, 128));
         assert_eq!(r.reports.len(), 2);
-        assert_eq!(r.reports[1], Report { chunk: 700, tokens: 22400, nats: 4.9579, bits: 7.1527, lr: 1e-3, scale: 1.0, tok_s: 1224.0, ahead: 960 });
+        assert_eq!(r.reports[1], Report { chunk: 700, tokens: 22400, nats: 4.9579, bits: 7.1527, lr: 1e-3, scale: 1.0, tok_s: 1224.0, ahead: 960, experts: None, bias: None });
+        assert_eq!((h.memory.as_deref(), h.moe.as_deref()), (None, None));
         assert_eq!(r.windows, vec![Window { mean: 7.1886, gain: 0.0141 }]);
         let s = r.sample.as_ref().unwrap();
         assert_eq!((s.chunk, s.seed, s.metrics.as_str()), (10000, 10, "hit 1.000 hit5 1.000 big 1.000 rep4 0.009 sent 12.4 words 112"));
@@ -350,9 +374,18 @@ mod tests {
     fn a_new_opening_line_starts_a_new_record() {
         let mut r = Run::default();
         r.parse(&LOG.lines().map(String::from).collect::<Vec<_>>());
-        r.take("21:00:00 coach: data/x.u16 chunks 0..9 (10 chunks = 320 tokens), lr 3.000e-03, report every 100, window 300, min gain 0.010, halvings 3, sample every 2000 x 128 tokens, save every 5000, no stop, cmd results/live.cmd, checkpoints data/live-x/");
-        assert_eq!(r.header.as_ref().unwrap().file, "data/x.u16");
+        r.take("21:00:00 coach: data/x.u16 chunks 0..9 (10 chunks = 320 tokens), lr 3.000e-03, report every 100, window 300, min gain 0.010, halvings 3, sample every 2000 x 128 tokens, save every 5000, no stop, cmd results/live.cmd, checkpoints data/live-x/, n-gram memory /dev/shm/t.f32 (row lr 0.1, gates ones, tables every 50000), MoE loaded (bias 100 to 0 over 100000 chunks, expert lr 0.05)");
+        let h = r.header.as_ref().unwrap();
+        assert_eq!(h.file, "data/x.u16");
+        assert_eq!(h.memory.as_deref(), Some("/dev/shm/t.f32: row lr 0.1, gates ones, tables every 50000"));
+        assert_eq!(h.moe.as_deref(), Some("loaded: bias 100 to 0 over 100000 chunks, expert lr 0.05"));
         assert!(r.reports.is_empty() && r.windows.is_empty() && r.events.is_empty() && r.sample.is_none());
+        r.take("21:00:01 report chunk 9100  tokens 291200  loss 3.7231 nats = 5.3713 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 120 experts, bias 90.9");
+        r.take("21:00:01 report chunk 9200  tokens 294400  loss 3.7231 nats = 5.3713 bits/token  lr 5.000e-04  scale 1.0000  813 tok/s  ring 960 ahead  moe 8804 experts");
+        assert_eq!((r.reports[0].experts, r.reports[0].bias), (Some(120), Some(90.9)));
+        assert_eq!((r.reports[1].experts, r.reports[1].bias), (Some(8804), None));
+        r.take("21:00:01 pool: data/live-x/pool-10.f32, 4293918720 bytes in 187 rounds, 34.0 s");
+        assert_eq!(r.events.len(), 1);
         r.take("21:00:02 coach: run ended at chunk 10 (320 tokens), 0 halvings, final scale 1.0000");
         assert!(r.ended.is_some());
         assert_eq!(r.elapsed_s(), Some(2));

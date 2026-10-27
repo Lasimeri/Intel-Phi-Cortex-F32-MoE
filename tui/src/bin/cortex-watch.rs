@@ -26,7 +26,7 @@ use cortex_tui::editor::Editor;
 use cortex_tui::live::LiveState;
 use cortex_tui::run::Run;
 use cortex_tui::term::{self, theme, Frame, Span, Term};
-use cortex_tui::view::{bar, chars, clip, column_chart, conversation, dim, faint, file_name, footer_with, group, header_with, help_rows, input_row, pad, rule, state_word, text, CHART_LABEL, LN_2, MIN, SPIN};
+use cortex_tui::view::{bar, chars, clip, column_chart, conversation, dim, faint, file_name, footer_with, group, header_with, help_rows, input_row, moe_pairs, pad, rule, state_word, text, CHART_LABEL, LN_2, MIN, SPIN};
 use cortex_tui::wrap::wrap;
 
 const INFO_FOR: Duration = Duration::from_secs(8);
@@ -295,7 +295,8 @@ fn card_word(w: &Watch) -> Vec<Span> {
     }
 }
 
-/// The run's four lines: the progress, the position and time, the loss and the window, the rate and the policy.
+/// The run's lines: the progress, the position and time, the loss and the window, the rate and the policy, and for
+/// a run with the memory or the pool a line of their words.
 fn run_rows(w: &Watch, cw: usize) -> Vec<Vec<Span>> {
     let mut rows = Vec::new();
     let Some(h) = &w.run.header else {
@@ -330,6 +331,25 @@ fn run_rows(w: &Watch, cw: usize) -> Vec<Vec<Span>> {
     let halvings = if scale > 0.0 && scale < 1.0 { (-scale.log2()).round() as u64 } else { 0 };
     let (saves, ckpt_chunk) = live.map_or((0, 0), |l| (l.saves, l.ckpt_chunk));
     rows.push(vec![dim("rate "), text(format!("{lr_eff:.3e}")), dim(format!(" in effect = base {:.3e} x scale {:.4}   halvings {} of {}   checkpoints {} pushed, last at chunk {}   sample every {} chunks", h.lr, scale, halvings, h.halvings, saves, group(ckpt_chunk), group(h.sample_every)))]);
+    // the pool: the part's words while the run is live, else the last report's; the opening line's note after them
+    let moe_report = last.and_then(|r| r.experts.map(|e| (e, r.bias)));
+    if live.is_some_and(|l| l.moe) || moe_report.is_some() || h.moe.is_some() {
+        let mut row = vec![dim("moe  ")];
+        match live.filter(|l| l.moe) {
+            Some(l) => row.push(text(moe_pairs(l).iter().enumerate().map(|(i, (k, v))| if i == 0 { v.clone() } else { format!("{k} {v}") }).collect::<Vec<_>>().join("   "))),
+            None => match moe_report {
+                Some((e, b)) => row.push(text(format!("{} experts updated{}", group(e), b.map_or(String::new(), |b| format!(", bias {b}"))))),
+                None => row.push(text("routing through the pool")),
+            },
+        }
+        if let Some(m) = &h.moe {
+            row.push(dim(format!("   {m}")));
+        }
+        rows.push(row);
+    }
+    if live.is_some_and(|l| l.memory) || h.memory.is_some() {
+        rows.push(vec![dim("memory "), text(if live.is_some_and(|l| l.memory) { "trained with the run" } else { "in the opening line" }), dim(h.memory.as_ref().map_or(String::new(), |m| format!("   {m}")))]);
+    }
     rows
 }
 
@@ -459,7 +479,7 @@ fn main_screen(f: &mut Frame, w: &mut Watch) {
     }
     for c in w.run.ckpts.iter().rev().take(3) {
         let age = c.modified.elapsed().map_or(0, |d| d.as_secs());
-        rows.push(vec![text(format!("{:<20}", c.name)), dim(format!("{:>12} B  {} ago", group(c.bytes), minutes(age as f64)))]);
+        rows.push(vec![text(format!("{:<20}", c.name)), dim(format!("{:>14} B  {} ago", group(c.bytes), minutes(age as f64)))]);
     }
     rows.push(vec![]);
     // the talk keeps its rows: the sections above are cut when the terminal is short
