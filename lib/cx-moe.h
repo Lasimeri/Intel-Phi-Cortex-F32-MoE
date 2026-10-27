@@ -53,20 +53,33 @@ static inline void cx_ex_keys_init(float *K)                    /* [half][dim][l
 	cx_fill(K, CX_EX_KEYFLOATS, &s, CX_S_KEYS);
 }
 
-/* ---- stage 3: the context memory in host RAM, over the part ---- */
+/* ---- stage 3: the context memory in host RAM, over the part (2026-10-27 15:5x: 16,384 steps, the user's "16K
+ * KV cache"; the query travels with the key and the value) ---- */
 #define CX_CTX_HEADS CX_NCOL
-#define CX_CTX_KV (2 * CX_DS)                                   /* k 64 + v 64 F32 per head per step */
-#define CX_CTX_KV_BYTES (CX_CTX_HEADS * CX_CTX_KV * 4)          /* 61,440: every head's k, v of one step */
+#define CX_CTX_KV (3 * CX_DS)                                   /* q 64, k 64 (unit-norm), v 64 F32 per head per step */
+#define CX_CTX_KV_BYTES (CX_CTX_HEADS * CX_CTX_KV * 4)          /* 92,160: every head's q, k, v of one step */
 #define CX_CTX_TOP 4
 #define CX_CTX_ANS_HEAD (CX_CTX_TOP * CX_DS * 4 + 64)           /* per head: 4 values of 64 F32, then one line of 4 scores (F32) and 4 step indices (u32) */
 #define CX_CTX_ANS_BYTES (CX_CTX_HEADS * CX_CTX_ANS_HEAD)       /* 130,560 */
-#define CX_CTX_WINDOW 1024                                      /* steps of context the host scans exactly: 120 x 1,024 x 256 B = 31.5 MB of keys */
-#define CX_CTX_BASE (52u << 20)                                 /* in the part, above the n-gram rings (which end under 49 MiB) */
-#define CX_CTX_OUT(s) (CX_CTX_BASE + (uint32_t)(s) * 65536u)    /* 2 slots: the heads' k, v of step n at slot n & 1, written by the card's DMA */
-#define CX_CTX_IN(s) (CX_CTX_BASE + 131072u + (uint32_t)(s) * 131072u)   /* 2 slots: the answers of step n at slot n & 1, written by the host, pulled by the card's DMA */
-#define CX_CTX_C_SEQ (CX_CTX_BASE + 393216u)                    /* u64, the k, v DMA's status word: steps whose k, v have landed */
+#define CX_CTX_WINDOW 16384                                     /* steps of context the host keeps per head: 120 x 16,384 x 512 B = 1,006,632,960 B of keys and values */
+#define CX_CTX_RECENT 256                                       /* the last steps scanned exactly; beyond them the index (host/ctxd.c) */
+#define CX_CTX_BASE (52u << 20)                                 /* in the part, above the n-gram rings (which end under 49 MiB), under CX_T_BASE (55 MiB) */
+#define CX_CTX_OUT(s) (CX_CTX_BASE + (uint32_t)(s) * 131072u)   /* 2 slots of 128 KiB: the heads' q, k, v of step n at slot n & 1, written by the card's DMA */
+#define CX_CTX_IN(s) (CX_CTX_BASE + 262144u + (uint32_t)(s) * 131072u)   /* 2 slots: the answers of step n at slot n & 1, written by the host, pulled by the card's DMA */
+#define CX_CTX_C_SEQ (CX_CTX_BASE + 524288u)                    /* u64, the q, k, v DMA's status word: steps whose q, k, v have landed */
 #define CX_CTX_H_SEQ (CX_CTX_C_SEQ + 64u)                       /* u64, written by the host: steps whose answers are ready */
+#define CX_CTX_ALIVE (CX_CTX_C_SEQ + 128u)                      /* u64, the host service's heartbeat (CLOCK_MONOTONIC ns); the card reads the memory only while it is fresh */
+#define CX_CTX_RESET (CX_CTX_C_SEQ + 192u)                      /* u64, a client's reset request (a session id, nonzero): the service empties the ring ... */
+#define CX_CTX_RESET_ACK (CX_CTX_C_SEQ + 256u)                  /* u64 ... and echoes the id here */
 #define CX_CTX_NONE 0xFFFFFFFFu                                 /* a step index of an empty answer slot */
+/* the on-card memory's index (card/ctx.h, tools/ref.h): online IVF, the centroids a head, a list's capacity, the lists
+ * probed by a query, the centroid's step toward an arriving key (tools/ctx-recall.c: recall@4 0.890 at 8 probes) */
+#define CX_CTX_NC 256
+#define CX_CTX_CAP 1024
+#ifndef CX_CTX_PROBE
+#define CX_CTX_PROBE 8
+#endif
+#define CX_CTX_ETA 0.05f
 
 /* keys and values of the benches: a function of (step, head, dim) both sides recompute; "which" 0 = key, 1 = value */
 static inline uint64_t cx_ctx_mix(uint64_t x) { x ^= x >> 31; x *= 0xBF58476D1CE4E5B9ull; x ^= x >> 29; x *= 0x94D049BB133111EBull; x ^= x >> 32; return x; }

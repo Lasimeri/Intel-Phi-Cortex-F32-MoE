@@ -80,7 +80,13 @@
 #define CX_A_HC (CX_A_XSU + 16)     /* 128 */
 #define CX_A_SG (CX_A_HC + 128)     /* CX_DH */
 #define CX_A_E (CX_A_SG + CX_DH)    /* 128: the input embedding row (training) */
-#define CX_NACT (CX_A_E + CX_DE)
+/* stage 3 (card/ctx.h, 2026-10-27): the context read-out's saves: the retrieved steps (4 u32 in lanes 0..3, CX_CTX_NONE
+ * past the found ones), their softmax weights (lanes 0..3), the gate sigmoid(b) (all lanes), the read-out a (64) */
+#define CX_A_CTX_IDX (CX_A_E + CX_DE)     /* 16 */
+#define CX_A_CTX_AL (CX_A_CTX_IDX + 16)   /* 16 */
+#define CX_A_CTX_G (CX_A_CTX_AL + 16)     /* 16 */
+#define CX_A_CTX_A (CX_A_CTX_G + 16)      /* 64 */
+#define CX_NACT (CX_A_CTX_A + CX_DS)
 
 /* per-step gradient vectors saved by the backward for the chunk-end parameter gradients (floats) */
 #define CX_G_DU 0          /* 128 */

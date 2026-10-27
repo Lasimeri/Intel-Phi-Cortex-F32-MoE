@@ -362,7 +362,7 @@ static int collect_ckpt(const char *why)
 	if (ng_path) {   /* the gates came with the push; the tables when due */
 		snprintf(path, sizeof path, "%s/ckpt-%lu-gates.f32", ckdir, (unsigned long)chunk);
 		f = fopen(path, "wb");
-		if (!f || fwrite(part + CX_STAGE_GATES, 1, CX_NG_ORDERS * CX_DE * 4, f) != CX_NG_ORDERS * CX_DE * 4 || fclose(f)) logline("checkpoint (%s): cannot write %s: %s", why, path, strerror(errno));
+		if (!f || fwrite(part + CX_STAGE_GATES, 1, CX_GATES_FLOATS * 4, f) != CX_GATES_FLOATS * 4 || fclose(f)) logline("checkpoint (%s): cannot write %s: %s", why, path, strerror(errno));
 		if (tables_wanted || !strcmp(why, "final")) { tables_wanted = 0; copy_tables((long)chunk); }
 	}
 	if (moe && (pool_wanted || !strcmp(why, "final"))) {   /* the pool of the same chunk, beside the checkpoint */

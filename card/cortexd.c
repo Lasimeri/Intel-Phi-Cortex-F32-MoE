@@ -85,6 +85,7 @@ static int ng_train_acked = -1;   /* CX_T_NG_ACK as last written */
  * inference) with the bonus at CX_M_BIAS and train the experts by SGD at CX_M_LR; the pool lives for the daemon's life
  * (a LOAD without the bit returns to the dense model; a LOAD with it refills the pool) */
 static float *pool;
+static char *ctxmem;              /* stage 3: the heads' context memories, CL_N x CX_CTX_HEAD_BYTES of huge pages (CX_CTX=0 in the environment: off) */
 static uint64_t pool_phys[CX_EX_POOL_PAGES];   /* each huge page's physical address, for the transfer rounds */
 static int moe_loaded;            /* the loaded model routes through the pool */
 static uint64_t part_mib = CX_PART_MIB;
@@ -164,6 +165,9 @@ static void setup(void *arg, int k)
 	T_train[k] = tr->col.T;
 	tr->ng = NULL;
 	tr->moe = NULL;
+	tr->ctx = C.ctx_on ? &C.ctx[k] : NULL;   /* stage 3: this head's context memory (its ring in the huge pages taken by main), its gate, the gate's gradient */
+	tr->ctx_start = 0;
+	if (C.ctx_on) cx_ctx_init(&C.ctx[k], ctxmem + (size_t)k * CX_CTX_HEAD_BYTES, nggates + CX_GATES_CTX + k, C.gng + CX_GATES_CTX + k);
 	C.moe[k] = (cx_moe){ .pool = pool, .keys = C.keys, .bias = 0.0f, .home_a = CX_EX_HOME_A(k), .home_b = CX_EX_HOME_B(k), .route = C.route + (long)k * CX_LMAX };
 	if (o > (4u << 20)) { fprintf(stderr, "cortexd: arena overflow %zu\n", o); exit(1); }
 	arena[k] = a;
@@ -205,7 +209,7 @@ static int load_ckpt(uint32_t arg)
 	}
 	src += 2u << 20;
 	if (arg & 1) {
-		seq = cdma_submit(&dma, src, nggates_phys, CX_NG_ORDERS * CX_DE * 4, 0, 0);
+		seq = cdma_submit(&dma, src, nggates_phys, CX_GATES_FLOATS * 4, 0, 0);
 		if (!seq) return -1;
 	}
 	if (cdma_wait(&dma, seq, 10.0)) { fprintf(stderr, "cortexd: checkpoint DMA timed out\n"); return -1; }
@@ -282,7 +286,7 @@ static int push_ckpt(void)
 		if (!seq) return -1;
 	}
 	/* the gates last (the memory's, or whatever the page holds when it is off); this line's status write counts the save */
-	seq = cdma_submit(&dma, nggates_phys, host_part + CX_STAGE_GATES, CX_NG_ORDERS * CX_DE * 4, host_part + CX_T_SAVES, saves_done + 1);
+	seq = cdma_submit(&dma, nggates_phys, host_part + CX_STAGE_GATES, CX_GATES_FLOATS * 4, host_part + CX_T_SAVES, saves_done + 1);
 	if (!seq) return -1;
 	if (cdma_wait(&dma, seq, 10.0)) { fprintf(stderr, "cortexd: checkpoint DMA out timed out\n"); return -1; }
 	saves_done++;
@@ -445,6 +449,7 @@ static void train_chunk(int k)
 	const uint32_t *id = chunk_ids;
 	tr->ng = C.ng;
 	cl_ng_begin(&C, k, tchunks);   /* the memory's rows of this chunk (ring slot tchunks & 1) into GDDR; nothing without the memory */
+	C.tr[k].ctx_start = C.tr[k].ctx ? C.tr[k].ctx->train_start : 0;   /* stage 3: the training retrieves the stream and the chats alike */
 	for (int t = 0; t < CX_LMAX; t++) cl_fwd_step(&C, k, t, id[t], id[t + 1], id[t + 1]);
 	float lr_k, lr_t, eps_t;
 	cl_adam_schedule(tchunks + 1, lr_base * lr_scale, &lr_k, &lr_t, &eps_t);
@@ -528,6 +533,7 @@ static void live(void *arg, int k)
 			C.tr[k].moe = moe_loaded ? &C.moe[k] : NULL;
 			if (!k) { C.moe_on = moe_loaded; memset(C.moe_used, 0, (size_t)CX_EX_N * 4); wr32(CX_T_MOE, (uint32_t)moe_loaded); wr32(CX_T_MOE_DISTINCT, 0); }
 			C.tr[k].ng = NULL;
+			if (C.tr[k].ctx) cx_ctx_clear(C.tr[k].ctx);   /* stage 3: the memory holds the previous weights' keys: both views start afresh */
 			memset(arena[k] + (2u << 20), 0, arena_used[k] - (2u << 20));   /* per-step saves, gradients, Adam moments, both contexts' T */
 			memset(C.tr[k].col.T, 0, CX_NT * 4);
 			memset(C.tr[k].col.act, 0, CX_NACT * 4);
@@ -543,10 +549,15 @@ static void live(void *arg, int k)
 			if (!k) inf_bus_on = (int)a;
 			cl_wait(&C, k);
 			break;
+		case CX_OP_CTX_RESET:   /* stage 3: a new chat; the session retrieves only what comes after this */
+			if (C.tr[k].ctx) C.tr[k].ctx->sess_start = C.tr[k].ctx->n;
+			cl_wait(&C, k);
+			break;
 		case CX_OP_STEP: {
 			const int t = (int)(inf_step % CX_LMAX);
 			C.tr[k].col.T = T_inf[k];
 			C.tr[k].ng = C.ng;
+			C.tr[k].ctx_start = C.tr[k].ctx ? C.tr[k].ctx->sess_start : 0;
 			cl_fwd_step(&C, k, t, a, a, 0);
 			C.tr[k].ng = NULL;
 			C.tr[k].col.T = T_train[k];
@@ -618,9 +629,9 @@ int main(int argc, char **argv)
 	C.loss = STAKE(CX_LMAX * 4);
 	C.argmax = (volatile uint32_t *)STAKE(2 * 16 * 4);
 	logits_buf = STAKE(CX_VOCAB * 4);
-	C.m_ng = STAKE(CX_NG_ORDERS * CX_DE * 4);   /* the memory's gate moments, gate gradient and owner-summed input gradient: zeroed with the block on LOAD */
-	C.v_ng = STAKE(CX_NG_ORDERS * CX_DE * 4);
-	C.gng = STAKE(CX_NG_ORDERS * CX_DE * 4);
+	C.m_ng = STAKE(CX_GATES_FLOATS * 4);   /* the gates' moments and gradient (the n-gram gates, then the context gates) and the owner-summed input gradient: zeroed with the block on LOAD */
+	C.v_ng = STAKE(CX_GATES_FLOATS * 4);
+	C.gng = STAKE(CX_GATES_FLOATS * 4);
 	C.desum = STAKE((size_t)CX_LMAX * CX_DU * 4);
 	C.keys = STAKE(CX_EX_KEYFLOATS * 4);         /* MoE: the product keys, every head's route per step, the usage counts */
 	C.route = (uint32_t *)STAKE((size_t)CL_N * CX_LMAX * 4);
@@ -634,6 +645,14 @@ int main(int argc, char **argv)
 	for (size_t p = 0; p < CX_EX_POOL_PAGES; p++) {
 		pool_phys[p] = phys_of(pool + p * (CX_POOL_PAGE / 4));
 		if (!pool_phys[p]) { fprintf(stderr, "cortexd: no physical address for pool page %zu\n", p); return 1; }
+	}
+	/* stage 3: every head's context memory (the ring, the centroids, the lists) in huge pages: 1.14 GB for 120 heads */
+	C.ctx_on = !getenv("CX_CTX") || atoi(getenv("CX_CTX"));
+	if (C.ctx_on) {
+		const size_t bytes = ((size_t)CL_N * CX_CTX_HEAD_BYTES + (2u << 20) - 1) & ~((size_t)(2u << 20) - 1);
+		ctxmem = huge(bytes);
+		printf("cortexd: context memory: %d steps a head, %d centroids x %d probed, %zu B of huge pages; a session's view starts at its reset, the training's at a load\n",
+		       CX_CTX_WINDOW, CX_CTX_NC, CX_CTX_PROBE, bytes);
 	}
 	sh_base = sh;
 	sh_zero = (char *)bus_train;
@@ -659,6 +678,8 @@ int main(int argc, char **argv)
 	C.nggrad = nggrad;
 	C.nggrad_phys = nggrad_phys;
 	C.ng = NULL;
+	C.ctxg = nggates + CX_GATES_CTX;   /* the context gates after the n-gram gates; fresh until a load brings a saved block */
+	for (int k = 0; k < CL_N; k++) C.ctxg[k] = CX_CTX_GATE0;
 
 	const int chan = dma_channel();
 	if (cdma_open(&dma, chan)) return 1;

@@ -44,6 +44,7 @@
 #define CX_OP_STEP 3               /* arg: the token id; the card answers with the 4096 logits at CX_LOGITS, then the ACK */
 #define CX_OP_BUS 4                /* arg: 1 bus on, 0 off (must match the checkpoint's training) */
 #define CX_OP_EXIT 5               /* the daemon ends this session and exits (frees the control socket) */
+#define CX_OP_CTX_RESET 7          /* stage 3 (card/ctx.h): the session's view of the context memory starts at the next step (a new chat) */
 #define CX_OP_NGRAM 6              /* arg 1: the session writes each step's two memory rows at CX_NGS_ROWS before the STEP (the memory is on for its
                                       steps when the daemon holds gates); 0: no rows, the plain model. A session starts at 1 */
 #define CX_H_CMD_OP 72             /* u32 the op code of the current command (written before CX_H_CMD) */
@@ -51,8 +52,12 @@
 #define CX_STAGE (1u << 20)        /* the staged checkpoint, 23,463,424 B, host-written before CX_OP_LOAD */
 #define CX_STAGE_CKPT ((120u * 44512u + 128u + 4096u * 128u) * 4u)   /* its length: 120 columns, cg, the embedding in blocks */
 #define CX_STAGE_FLOATS (CX_STAGE_CKPT / 4u)
-#define CX_STAGE_GATES (CX_STAGE + CX_STAGE_CKPT)                    /* the n-gram gates, 1,024 B: staged before LOAD (arg bit 0 = loaded), and pushed
-                                                                        after the checkpoint by a live save (the push's last line) */
+#define CX_STAGE_GATES (CX_STAGE + CX_STAGE_CKPT)                    /* the gates block, CX_GATES_FLOATS F32 (1,536 B): the n-gram gates (2 x 128), then
+                                                                        the context gates (stage 3, one a column, 2026-10-27); staged before LOAD (arg bit 0 =
+                                                                        loaded), and pushed after the checkpoint by a live save (the push's last line) */
+#define CX_GATES_CTX (CX_NG_ORDERS * CX_DE)                           /* the context gates' offset in the block */
+#define CX_GATES_FLOATS (CX_GATES_CTX + 128)                          /* 384: 120 context gates and 8 of padding */
+#define CX_CTX_GATE0 (-4.0f)                                          /* a fresh context gate (card/ctx.h): sigmoid(-4) = 0.018, a trained model continues as it was */
 
 /* ---- MoE stage 1: the n-gram row ring (PLAN-MOE.md). Per chunk of 32 steps the host gathers 64 rows (2 orders x 32
  * steps x 128 F32 = 32 KiB) into row slot chunk % 2 and publishes CX_NGR_H_SEQ = chunks published; the card DMAs the

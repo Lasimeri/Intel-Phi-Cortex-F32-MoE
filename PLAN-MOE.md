@@ -669,3 +669,39 @@ relevance and persona and rewritten by the teacher, and the rewrites recur in th
 corpus conversations, the last three rounds kept); the writer follows the TinyStories recipe (a 300-word list, three
 seed words and a mood per call). On-policy logit distillation is ruled out by the user's rule against training on
 model outputs; cross-tokenizer logit distillation (ULD) is the stage after, needing a soft-target gradient on the card.
+
+## 15:52 (10-27, user): "Model length for the Xeon Phi (student) model should be 16K for KV-cache so the student can remember its previous responses"
+
+The student has no attention and no KV cache: its context is the carried fast-weight state (64 x 64 per column)
+and the n-gram tables. Stage 3 (the context memory over DMA) was sized and its round trip measured but never put
+into the model. The directive makes it the next build, at 16,384 steps:
+
+| piece | design | numbers |
+|---|---|---|
+| the memory | per head a ring of the last 16,384 steps' k (64, unit-norm, the fast-weight key) and v (64), F32, in host RAM, served by a host process over the part (CX_CTX_OUT / CX_CTX_IN, the words of lib/cx-moe.h) | 120 x 16,384 x 512 B = 1,006,632,960 B; the k, v out 61,440 B a step, the top-4 answers in 130,560 B a step (the measured round trip: 56 us a step on the card with one step of lag at a 256 window) |
+| the read-out | o' = o + sigmoid(b_g) * sum_i softmax_i(q . k_i) v_i over the retrieved entries, b_g a new per-column scalar (init -4: the gate near closed, the trained model continues unchanged); the answer of step n consumed at step n + 1 (the plan's lag); the far k, v non-differentiable; dq through the 4-way softmax; d b_g | Memorizing Transformers (Wu et al. 2022, arxiv 2203.08913): kNN lookup into a non-differentiable memory, a learned per-head gate, gains to 262K tokens; local attention here is the fast-weight state itself |
+| retrieval | exact over the last 256 steps (36 to 39 us a step measured) plus an index over the far part: SimHash sign-bit buckets or IVF centroids, probing a few; the candidates scored exactly | an exact 16,384 scan is 503 MB of keys a step, about 12 ms from DRAM: ruled out; recall of the index measured on the model's own keys before the build (tools/ctx-recall.c) |
+| the gates | the card's step against the double reference with a seeded memory (bit-identical logits at step 0, every gradient), then the daemon training with the memory against the batch trainer | as for every stage |
+| the harness | the ring reset at a new chat; the prompt and the model's own replies fill it, so a later turn retrieves the earlier ones | the client's context grows from 4,000 chars to the ring's reach |
+
+Order: 3a the host side (the ring, the index, its recall on real keys, the round trip on the real path), 3b the
+card and the reference (the read-out, the backward, the gate scalar in the checkpoint, the DMA in cortexd), 3c the
+coach and the client, 3d the run from the from-scratch state.
+
+## 16:2x to 16:4x (10-27): stage 3 built on the card, gated
+
+The host could not serve 16,384 steps at the step rate (host/ctxd.c at a full ring: 2,034 us a step with 16 probes,
+1,191 with 8, DRAM-bound; a training step is 800 us), so the memory moved onto the card: card/ctx.h keeps every
+head's ring of 16,384 keys and values (F32), 256 online-IVF centroids and their lists in 1,140,449,280 B of huge pages
+(the card's reservation raised from 2,700 to 3,300 pages of 2 MiB), scores the last 256 steps exactly and the 8
+nearest lists' entries, and adds o' = o + sigmoid(b) a before the MLP, b a per-column gate appended to the gates block
+(CX_GATES_FLOATS = 384, fresh at -4) and trained by Adam beside the n-gram gates; the retrieved keys and values are
+not differentiated (Memorizing Transformers). The reference (tools/ref.h) does the same in double; the gate
+(`CX_CTX=1 cluster-gate bwd ctx-slice.u16 gC 32 1024 0 59 119` on the card, `CX_CTX=1 ctrain-check bwd` on the host,
+the dense model from the seeded weights, 1,024 warm steps filling the memory, then one chunk's forward and backward):
+every gradient within the usual 1e-6 to 1e-5 relative (W 1.6e-6, u 6.8e-6, E 1.1e-5), the consensus 3.7e-5, the
+context gates' gradients 1.4e-7 absolute on values of 3e-4; no retrieval disagreed. The gate's forward read 41 ms a
+step on plain 4 KiB pages beside the running daemon: the daemon's own rate with the memory in huge pages is the
+number that counts, measured at the deployment. A session's view of the memory starts at CX_OP_CTX_RESET (the client
+sends it at every start, so a chat retrieves only its own turns, re-read each turn by the harness), the training's
+view at a load; the daemon runs the memory unless CX_CTX=0 is in its environment.

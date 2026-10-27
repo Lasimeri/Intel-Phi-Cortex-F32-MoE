@@ -55,6 +55,12 @@ typedef struct {
 	 * ngbuf = 2 slots x 32 KiB of rows DMAd in from the host; nggrad = 2 slots x 32 KiB of row gradients DMAd out;
 	 * desum = the owner-summed input gradient of each step (L x 128, shared); part = the uncached part mapping. */
 	float *ng, *m_ng, *v_ng, *gng, *ngbuf, *nggrad, *desum;
+	/* stage 3 (card/ctx.h): every head's context memory (ctx_on); the gates in the gates block after the n-gram gates
+	 * (ctxg = the block + CX_GATES_CTX), their gradients at gng + CX_GATES_CTX, one float a head written by its thread;
+	 * m_ng, v_ng and gng are CX_GATES_FLOATS long */
+	int ctx_on;
+	float *ctxg;
+	cx_ctx ctx[CL_N];
 	uint64_t ngbuf_phys, nggrad_phys, ng_host_rows, ng_host_grad, ng_host_cseq, ng_dma_seq[2];
 	volatile uint8_t *part;
 	cdma *dma;
@@ -381,6 +387,10 @@ static inline void cl_bwd_chunk(cluster *C, int k, const uint32_t *ids, float b1
 	}
 	if (!k) cx_adam(C->cg, tr->gcg, C->m_cg, C->v_cg, CX_DU, b1, b2, lr_t, eps_t);
 	if (!k && C->ng) { cx_adam(C->ng, C->gng, C->m_ng, C->v_ng, CX_NG_ORDERS * CX_DE, b1, b2, lr_t, eps_t); cx_zero(C->gng, CX_NG_ORDERS * CX_DE); }
+	if (!k && C->ctx_on) {   /* the context gates: every head's gradient is in by the "gradients written" barrier */
+		cx_adam(C->ctxg, C->gng + CX_GATES_CTX, C->m_ng + CX_GATES_CTX, C->v_ng + CX_GATES_CTX, CX_GATES_FLOATS - CX_GATES_CTX, b1, b2, lr_t, eps_t);
+		cx_zero(C->gng + CX_GATES_CTX, CX_GATES_FLOATS - CX_GATES_CTX);
+	}
 	/* refresh the shadow rows of the own blocks (the blocks are L2-hot after Adam) */
 	for (int b = 0; b < C->nblk[k]; b++) {
 		const int g = C->blk[k][b];

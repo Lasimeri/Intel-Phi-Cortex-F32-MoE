@@ -119,7 +119,7 @@ static int open_session(double timeout_s)
 /* ---- the n-gram memory (host side of the generation ring) ---- */
 
 static ngtables NG;   /* the tables, mapped read-only (the live run's file as it trains, or a saved copy) */
-static float nggates[CX_NG_ORDERS * CX_DE];
+static float nggates[CX_GATES_FLOATS];   /* the gates block: the n-gram gates, then the context gates (stage 3) */
 
 static int ng_open_tables(const char *tables)
 {
@@ -132,9 +132,12 @@ static int ng_open_tables(const char *tables)
 /* the gates to stage: a file of 2 x 128 F32, or "ones" (the batch trainer's start) */
 static int gates_load(const char *spec)
 {
+	for (int i = CX_GATES_CTX; i < CX_GATES_FLOATS; i++) nggates[i] = CX_CTX_GATE0;   /* the context gates: fresh unless the file holds them */
 	if (!strcmp(spec, "ones")) { for (int i = 0; i < CX_NG_ORDERS * CX_DE; i++) nggates[i] = 1.0f; return 0; }
 	FILE *f = fopen(spec, "rb");
 	if (!f || fread(nggates, sizeof *nggates, CX_NG_ORDERS * CX_DE, f) != CX_NG_ORDERS * CX_DE) { perror(spec); return -1; }
+	if (fread(nggates + CX_GATES_CTX, sizeof *nggates, CX_GATES_FLOATS - CX_GATES_CTX, f) != CX_GATES_FLOATS - CX_GATES_CTX)   /* a file from before stage 3 */
+		for (int i = CX_GATES_CTX; i < CX_GATES_FLOATS; i++) nggates[i] = CX_CTX_GATE0;
 	fclose(f);
 	double gsum[CX_NG_ORDERS] = { 0 };
 	for (int o = 0; o < CX_NG_ORDERS; o++) for (int i = 0; i < CX_DE; i++) gsum[o] += nggates[o * CX_DE + i];
@@ -432,7 +435,7 @@ int main(int argc, char **argv)
 	} else {
 		fprintf(stderr, "cortex: the daemon's live weights; prompt %d tokens; %s; bus %s; memory rows %s\n", nprompt, H.greedy ? "greedy" : "sampling", bus ? "on" : "off", ng_tables ? "from the tables" : "none");
 	}
-	if (command(CX_OP_BUS, (uint32_t)bus, 5) || command(CX_OP_RESET, 0, 5) || command(CX_OP_NGRAM, ng_tables ? 1 : 0, 5)) return 1;
+	if (command(CX_OP_BUS, (uint32_t)bus, 5) || command(CX_OP_RESET, 0, 5) || command(CX_OP_CTX_RESET, 0, 5) || command(CX_OP_NGRAM, ng_tables ? 1 : 0, 5)) return 1;
 	if (load_only) {
 		ST64(CX_H_CMD, CX_CMD(CX_CMD_QUIT, 0));
 		fprintf(stderr, "cortex: %s is now the daemon's live model (bus %s, MoE %s)\n", ckpt, bus ? "on" : "off", moe & 1 ? "on" : "off");

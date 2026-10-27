@@ -24,6 +24,7 @@
 #include <sys/mman.h>
 
 static cluster C __attribute__((aligned(64)));
+static char *ctxmem;   /* stage 3: the heads' context memories, CL_N x CX_CTX_HEAD_BYTES (env CX_CTX=1) */
 #include <linux/perf_event.h>
 #include <sys/syscall.h>
 #include <unistd.h>
@@ -139,6 +140,9 @@ static void setup(void *arg, int k)
 	tr->ng = C.ng;
 	tr->ngr = TAKE((size_t)CX_LMAX * CX_NG_ORDERS * CX_DE * 4);
 	tr->moe = NULL;
+	tr->ctx = C.ctx_on ? &C.ctx[k] : NULL;   /* stage 3: this head's context memory, its gate and the gate's gradient */
+	tr->ctx_start = 0;
+	if (C.ctx_on) cx_ctx_init(&C.ctx[k], ctxmem + (size_t)k * CX_CTX_HEAD_BYTES, C.ctxg + k, C.gng + CX_GATES_CTX + k);
 #ifdef CX_MOE
 	if (C.moe_on) {
 		C.moe[k] = (cx_moe){ .pool = C.pool, .keys = C.keys, .bias = moe_bias, .home_a = CX_EX_HOME_A(k), .home_b = CX_EX_HOME_B(k), .route = C.route + (long)k * CX_LMAX };
@@ -208,7 +212,7 @@ static void run_check(void *arg, int k)
 	cl_bwd_chunk(&C, k, id, 0.9f, 0.95f, -1.0f, 1e-8f);   /* lr < 0: gradients only, no Adam, GET kept */
 	if (!k) wall[3] = cx_now();
 	if (is_dumped(k)) dump("cl-gprm", k, C.tr[k].gprm, CX_NPARAM * 4);
-	if (!k) { dump("cl-gcg", -1, C.tr[0].gcg, CX_DU * 4); if (C.ng) dump("cl-gng", -1, C.gng, CX_NG_ORDERS * CX_DE * 4); }
+	if (!k) { dump("cl-gcg", -1, C.tr[0].gcg, CX_DU * 4); if (C.ng) dump("cl-gng", -1, C.gng, CX_NG_ORDERS * CX_DE * 4); if (C.ctx_on) dump("cl-gctx", -1, C.gng + CX_GATES_CTX, CL_N * 4); }
 #ifdef CX_MOE
 	if (C.moe_on && is_dumped(k)) dump("cl-ex", k, C.pool + (size_t)C.route[(long)k * CX_LMAX] * CX_EX_FLOATS, CX_EX_BYTES);   /* the expert of step 0 after the chunk's updates */
 #endif
@@ -457,11 +461,14 @@ int main(int argc, char **argv)
 	C.dep = STAKE((size_t)CL_N * CX_LMAX * CX_DU * 4);
 	C.loss = STAKE(CX_LMAX * 4);
 	C.argmax = (volatile uint32_t *)STAKE(2 * 16 * 4);
+	float *gblock = STAKE(CX_GATES_FLOATS * 4);   /* the gates block: the n-gram gates, then the context gates (stage 3) */
+	C.m_ng = STAKE(CX_GATES_FLOATS * 4);
+	C.v_ng = STAKE(CX_GATES_FLOATS * 4);
+	C.gng = STAKE(CX_GATES_FLOATS * 4);
+	C.ctxg = gblock + CX_GATES_CTX;
+	C.ctx_on = getenv("CX_CTX") && atoi(getenv("CX_CTX"));
 	if (getenv("CX_NG") && atoi(getenv("CX_NG"))) {
-		C.ng = STAKE(CX_NG_ORDERS * CX_DE * 4);
-		C.m_ng = STAKE(CX_NG_ORDERS * CX_DE * 4);
-		C.v_ng = STAKE(CX_NG_ORDERS * CX_DE * 4);
-		C.gng = STAKE(CX_NG_ORDERS * CX_DE * 4);
+		C.ng = gblock;
 		C.desum = STAKE((size_t)CX_LMAX * CX_DU * 4);
 		uint64_t ph[2];
 		C.ngbuf = huge_alloc(2 * CX_NGR_BYTES, ph, 1); C.ngbuf_phys = ph[0];
@@ -496,6 +503,12 @@ int main(int argc, char **argv)
 	memset(sh, 0, o);
 	for (int i = 0; i < CX_DU; i++) C.cg[i] = 1.0f;
 	if (C.ng) for (int i = 0; i < CX_NG_ORDERS * CX_DE; i++) C.ng[i] = 1.0f;   /* the gates: after the arena is zeroed, like cg */
+	for (int k = 0; k < CL_N; k++) C.ctxg[k] = CX_CTX_GATE0;
+	if (C.ctx_on) {   /* stage 3: every head's ring, centroids and lists (plain pages: the gate's few steps do not need huge ones) */
+		ctxmem = aligned_alloc(64, (size_t)CL_N * CX_CTX_HEAD_BYTES);
+		if (!ctxmem) { fprintf(stderr, "cluster-gate: no memory for the context rings (%zu B)\n", (size_t)CL_N * CX_CTX_HEAD_BYTES); return 1; }
+		printf("context memory: on, %d steps a head, %d centroids x %d probed, %zu B\n", CX_CTX_WINDOW, CX_CTX_NC, CX_CTX_PROBE, (size_t)CL_N * CX_CTX_HEAD_BYTES);
+	}
 #ifdef CX_MOE
 	if (C.moe_on) cx_ex_keys_init(C.keys);
 #endif

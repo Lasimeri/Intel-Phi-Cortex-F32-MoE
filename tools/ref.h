@@ -13,6 +13,7 @@
 #define CX_REF_H
 
 #include "../lib/cx-col.h"
+#include "../lib/cx-moe.h"   /* stage 3: the context memory's shapes (CX_CTX_*) */
 
 #include <math.h>
 #include <stdlib.h>
@@ -25,6 +26,10 @@ typedef struct {
 	double Sk[CX_DS], Sq[CX_DS], d[CX_DS], kq, o[CX_DS], h[CX_DH], sg[CX_DH], z[CX_DH], u[CX_DU], g, gl, bc[CX_DB], xsu, hc[CX_DU];
 	double T0[CX_NT];   /* T before this step's update */
 	double e[CX_DE];    /* the input actually used (E row, plus the n-gram rows when the memory is on) */
+	/* stage 3 (the context memory): the retrieved steps (CX_CTX_NONE past the found), their softmax weights, the read-out
+	 * a, the gate sigmoid(b); o holds o + gate a once ref_ctx_step ran */
+	uint32_t cidx[CX_CTX_TOP];
+	double cal[CX_CTX_TOP], ca[CX_DS], cgate;
 } rstep;
 
 typedef struct { double *prm, *E, *cg; } rparams;   /* CX_NPARAM, 4096 x 128, 128 */
@@ -196,9 +201,142 @@ static inline void ref_norm_backward(const double *dx, const double *xin, double
 	free(dn);
 }
 
+/* ---- stage 3: the context memory, the card's algorithm (card/ctx.h) in double ---- */
+typedef struct {
+	double *keys, *vals;                   /* [CX_CTX_WINDOW][64], the slot of step s is s & (CX_CTX_WINDOW - 1) */
+	double cent[CX_CTX_NC][CX_DS];         /* unit centroids */
+	uint32_t *lists;                       /* [CX_CTX_NC][CX_CTX_CAP] steps */
+	uint16_t cursor[CX_CTX_NC], fill[CX_CTX_NC];
+	int seeded;
+	long n;
+} rctx;
+
+static inline void rctx_init(rctx *X)
+{
+	X->keys = calloc((size_t)CX_CTX_WINDOW * CX_DS, sizeof *X->keys);
+	X->vals = calloc((size_t)CX_CTX_WINDOW * CX_DS, sizeof *X->vals);
+	X->lists = calloc((size_t)CX_CTX_NC * CX_CTX_CAP, sizeof *X->lists);
+	memset(X->cursor, 0, sizeof X->cursor);
+	memset(X->fill, 0, sizeof X->fill);
+	memset(X->cent, 0, sizeof X->cent);
+	X->seeded = 0;
+	X->n = 0;
+}
+
+static inline double rdot64(const double *a, const double *b) { double s = 0; for (int i = 0; i < CX_DS; i++) s += a[i] * b[i]; return s; }
+
+typedef struct { double s[CX_CTX_TOP]; long step[CX_CTX_TOP]; } rtop;
+
+static inline void rtop_insert(rtop *t, double s, long step)
+{
+	int i = CX_CTX_TOP - 1;
+	if (s <= t->s[i]) return;
+	for (; i > 0 && s > t->s[i - 1]; i--) { t->s[i] = t->s[i - 1]; t->step[i] = t->step[i - 1]; }
+	t->s[i] = s;
+	t->step[i] = step;
+}
+
+static inline void rctx_file(rctx *X, int c, long n)
+{
+	X->lists[(size_t)c * CX_CTX_CAP + X->cursor[c]] = (uint32_t)n;
+	X->cursor[c] = (uint16_t)((X->cursor[c] + 1) % CX_CTX_CAP);
+	if (X->fill[c] < CX_CTX_CAP) X->fill[c]++;
+}
+
+/* the read-out for the step record s (q = y[0..63], k, v = y[128..191]): the top-4 of the memory from `start` on, the
+ * softmax, a, o += sigmoid(gate) a, the saves; then this step's k, v stored and indexed */
+static inline void ref_ctx_step(rctx *X, rstep *s, long start, double gate)
+{
+	const long WM = CX_CTX_WINDOW - 1;
+	const double *q = s->y, *k = s->k, *v = s->y + 128;
+	rtop top;
+	for (int i = 0; i < CX_CTX_TOP; i++) { top.s[i] = -3.0e38; top.step[i] = -1; }
+	const long n = X->n;
+	const long oldest = n - CX_CTX_WINDOW > start ? n - CX_CTX_WINDOW : start;
+	long lo = n - CX_CTX_RECENT;
+	if (lo < oldest) lo = oldest;
+	for (long i = lo; i < n; i++) rtop_insert(&top, rdot64(q, X->keys + (size_t)(i & WM) * CX_DS), i);
+	const long far_hi = n - CX_CTX_RECENT;
+	if (X->seeded == CX_CTX_NC && far_hi > oldest) {
+		double cs[CX_CTX_NC];
+		for (int c = 0; c < CX_CTX_NC; c++) cs[c] = rdot64(q, X->cent[c]);
+		for (int p = 0; p < CX_CTX_PROBE; p++) {
+			int best = -1;
+			double bs = -3.0e38;
+			for (int c = 0; c < CX_CTX_NC; c++) if (cs[c] > bs) { bs = cs[c]; best = c; }
+			if (best < 0) break;
+			cs[best] = -3.0e38;
+			const uint32_t *L = X->lists + (size_t)best * CX_CTX_CAP;
+			for (int i = 0; i < X->fill[best]; i++) {
+				const long st = L[i];
+				if (st >= far_hi || st < oldest) continue;
+				rtop_insert(&top, rdot64(q, X->keys + (size_t)(st & WM) * CX_DS), st);
+			}
+		}
+	}
+	int m = 0;
+	double mx = -3.0e38;
+	for (int i = 0; i < CX_CTX_TOP; i++) if (top.step[i] >= 0) { m++; if (top.s[i] > mx) mx = top.s[i]; }
+	for (int i = 0; i < CX_CTX_TOP; i++) { s->cidx[i] = CX_CTX_NONE; s->cal[i] = 0; }
+	for (int i = 0; i < CX_DS; i++) s->ca[i] = 0;
+	if (m) {
+		double e[CX_CTX_TOP], sum = 0;
+		for (int i = 0; i < m; i++) { e[i] = exp(top.s[i] - mx); sum += e[i]; }
+		for (int i = 0; i < m; i++) {
+			s->cal[i] = e[i] / sum;
+			s->cidx[i] = (uint32_t)top.step[i];
+			const double *vi = X->vals + (size_t)(top.step[i] & WM) * CX_DS;
+			for (int j = 0; j < CX_DS; j++) s->ca[j] += s->cal[i] * vi[j];
+		}
+	}
+	s->cgate = rsig(gate);
+	for (int j = 0; j < CX_DS; j++) s->o[j] += s->cgate * s->ca[j];
+	/* this step into the ring and the index */
+	double *ks = X->keys + (size_t)(n & WM) * CX_DS, *vs = X->vals + (size_t)(n & WM) * CX_DS;
+	for (int j = 0; j < CX_DS; j++) { ks[j] = k[j]; vs[j] = v[j]; }
+	if (X->seeded < CX_CTX_NC) {
+		for (int j = 0; j < CX_DS; j++) X->cent[X->seeded][j] = k[j];
+		rctx_file(X, X->seeded, n);
+		X->seeded++;
+	} else {
+		int best = 0;
+		double bs = -3.0e38;
+		for (int c = 0; c < CX_CTX_NC; c++) { const double sc = rdot64(k, X->cent[c]); if (sc > bs) { bs = sc; best = c; } }
+		double nn = 0;
+		for (int j = 0; j < CX_DS; j++) { X->cent[best][j] += (double)CX_CTX_ETA * (k[j] - X->cent[best][j]); nn += X->cent[best][j] * X->cent[best][j]; }
+		const double inv = nn > 0 ? 1.0 / sqrt(nn) : 0;
+		for (int j = 0; j < CX_DS; j++) X->cent[best][j] *= inv;
+		rctx_file(X, best, n);
+	}
+	X->n = n + 1;
+}
+
+/* the memory's backward: dO on o'; the softmax path added to dq; returns the gate's gradient d(loss)/d b */
+static inline double ref_ctx_bwd(const rctx *X, const rstep *s, const double *dO, double *dq)
+{
+	const long WM = CX_CTX_WINDOW - 1;
+	const double g = s->cgate;
+	double dg = 0, dal[CX_CTX_TOP], dot = 0;
+	for (int j = 0; j < CX_DS; j++) dg += dO[j] * s->ca[j];
+	int m = 0;
+	for (int i = 0; i < CX_CTX_TOP; i++) {
+		if (s->cidx[i] == CX_CTX_NONE) break;
+		m++;
+		dal[i] = g * rdot64(dO, X->vals + (size_t)(s->cidx[i] & WM) * CX_DS);
+		dot += s->cal[i] * dal[i];
+	}
+	for (int i = 0; i < m; i++) {
+		const double ds = s->cal[i] * (dal[i] - dot);
+		const double *ki = X->keys + (size_t)(s->cidx[i] & WM) * CX_DS;
+		for (int j = 0; j < CX_DS; j++) dq[j] += ds * ki[j];
+	}
+	return dg * g * (1.0 - g);
+}
+
 /* backward of one step given the gradient on the vote u (du) and on the confidence pre-activation gl (dgl). dT: in =
- * gradient on T after this step's update (from the future), out = gradient on T before it. gE: the input row's gradient. */
-static inline void ref_col_backward(const double *prm, double *gp, const double *E, double *gE, const rstep *s, const double *du, double dgl, double *dT, double *de_out)
+ * gradient on T after this step's update (from the future), out = gradient on T before it. gE: the input row's gradient.
+ * X, gctx: the context memory and its gate's gradient (stage 3), or NULL. */
+static inline void ref_col_backward(const double *prm, double *gp, const double *E, double *gE, const rstep *s, const double *du, double dgl, double *dT, double *de_out, const rctx *X, double *gctx)
 {
 	/* u = Wu^T z; g = sigmoid(z . wg + bg) */
 	double dz[CX_DH], dh[CX_DH];
@@ -234,6 +372,7 @@ static inline void ref_col_backward(const double *prm, double *gp, const double 
 		dq[j] = dkq * s->k[j];
 		for (int i = 0; i < CX_DS; i++) { dk[j] += s->T0[j * CX_DS + i] * dSk[i]; dq[j] += s->T0[j * CX_DS + i] * dSq[i]; }
 	}
+	if (X) *gctx += ref_ctx_bwd(X, s, dO, dq);   /* stage 3: the softmax path into dq, the gate's gradient */
 	for (int j = 0; j < CX_DS; j++)
 		for (int i = 0; i < CX_DS; i++) dT[j * CX_DS + i] = s->a * dT[j * CX_DS + i] + q[j] * dSq[i] + s->k[j] * dSk[i];
 	/* k = kr ks */
@@ -277,7 +416,7 @@ static inline void ref_backward(const rparams *P, rgrads *G, const rstep *s, con
 	double dhc[CX_DU] = { 0 }, du[CX_DU];
 	ref_head_backward(P->E, G->E, s->hc, dl, dhc);
 	ref_norm_backward(dhc, s->u, s->xsu, P->cg, G->cg, du, CX_DU);
-	ref_col_backward(P->prm, G->prm, P->E, G->E, s, du, 0.0, dT, NULL);
+	ref_col_backward(P->prm, G->prm, P->E, G->E, s, du, 0.0, dT, NULL, NULL, NULL);
 }
 
 /* loss (mean over L steps) and, if G is not NULL, the gradients, from T0 (copied, not modified) over tokens ids[0..L]

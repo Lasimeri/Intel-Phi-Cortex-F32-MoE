@@ -89,7 +89,10 @@ cc "${flags[@]}" -O2 -DCX_NG_ROWS=4096 -o "$out/host/ctrain-check-ng4k" "$here/t
 # MoE stages 2 and 3, readiness: the expert pool bench (card), the context round trip (card + host)
 knc expert-bench tools/expert-bench.c
 knc ctx-bench tools/ctx-bench.c card/cdma.c
-cc "${flags[@]}" -O2 -mavx2 -mfma -pthread -o "$out/host/ctxserve" "$here/host/ctxserve.c"
+# stage 3 at 16,384 steps (2026-10-27): the host service (the ring, the exact 256, the SimHash index) and the recall
+# measurement on the model's own keys
+cc "${flags[@]}" -O2 -mavx2 -mfma -pthread -o "$out/host/ctxd" "$here/host/ctxd.c" -lm
+cc "${flags[@]}" -O2 -mavx2 -mfma -Wno-unused-function -o "$out/host/ctx-recall" "$here/tools/ctx-recall.c" -lm
 
 # diagnostics: the card's view of the part, the DMA channels, DMA writes against L2 copies, a text's non-list words
 knc partpoll tools/partpoll.c

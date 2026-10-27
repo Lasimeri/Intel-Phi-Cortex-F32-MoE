@@ -17,6 +17,7 @@
 #define CX_TRAIN_H
 
 #include "col.h"
+#include "ctx.h"
 
 #define CX_LMAX 32
 #define CX_LN2 0.6931471805599453f
@@ -56,6 +57,9 @@ typedef struct {
 	float *ngr;
 	/* MoE stage 2 (card/moe.h, builds with CX_MOE): the head's router and pool context, or NULL (the dense column) */
 	struct cx_moe_ctx *moe;
+	/* stage 3 (card/ctx.h): the head's context memory, or NULL; ctx_start: the first step a query may return */
+	struct cx_ctx *ctx;
+	int64_t ctx_start;
 	int L;
 } cx_train;
 
@@ -114,6 +118,7 @@ static inline void cx_train_fwd_step(cx_train *tr, int t, uint32_t id, uint32_t 
 	}
 	if (t + 1 < CX_LMAX) { cx_pfe_lines(tr->Ts + (long)(t + 1) * CX_NT, CX_NT); cx_pfe_lines(tr->acts + (long)(t + 1) * CX_NACT, CX_NACT); }
 	cx_col_pre(&tr->col, tr->ebuf, Bt);
+	if (tr->ctx) cx_ctx_step(tr->ctx, A, tr->ctx_start);   /* stage 3: o += sigmoid(b) a, the step into the memory */
 #ifdef CX_MOE
 	if (tr->moe) {   /* the route from x, the expert into the slot (the MLP region of the parameter block) */
 		cx_moe *M = tr->moe;
@@ -363,6 +368,7 @@ static inline void cx_col_bwd_step(cx_train *tr, int t, const float *Bt, const f
 		_mm512_mask_store_ps(dq + (j & ~15), (__mmask16)(1u << (j & 15)), _mm512_fmadd_ps(dkq, kj, cx_hsum(aq)));
 	}
 	(void)dsq_m; (void)dsk_m;
+	if (tr->ctx) cx_ctx_bwd(tr->ctx, A, dO, dq);   /* stage 3: the softmax path into dq, the gate's gradient */
 	/* k = kr ks: dkr = ks (dk - k (k . dk)); a, b through the sigmoids; dy assembled */
 	__m512 kdk = zero;
 	for (int v = 0; v < 4; v++) kdk = _mm512_fmadd_ps(_mm512_load_ps(dk + 16 * v), _mm512_load_ps(k + 16 * v), kdk);
@@ -463,6 +469,7 @@ static inline void cx_train_chunk_begin(cx_train *tr)
 	cx_zero(tr->ggain, CX_DX);
 	cx_zero(tr->gwg, CX_DH);
 	cx_zero(tr->gbg, 16);
+	if (tr->ctx) *tr->ctx->ggate = 0;
 }
 
 /* ---- optimizer and the single-column bus ---- */

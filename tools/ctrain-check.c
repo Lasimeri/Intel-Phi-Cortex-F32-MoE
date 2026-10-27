@@ -49,6 +49,8 @@ int main(int argc, char **argv)
 	cref_init(&C);
 	const int ng = getenv("CX_NG") && atoi(getenv("CX_NG"));
 	if (ng) cref_ng_init(&C);
+	const int ctx = getenv("CX_CTX") && atoi(getenv("CX_CTX"));   /* stage 3: the context memory from empty, as the card's (CX_CTX=1 to cluster-gate) */
+	if (ctx) cref_ctx_init(&C);
 	/* MoE stage 2 (CX_MOE=1): the keys from the seeded init, the knobs as the card had them */
 	const int moe = getenv("CX_MOE") && atoi(getenv("CX_MOE"));
 	static float keys[CX_EX_KEYFLOATS];
@@ -156,6 +158,10 @@ int main(int argc, char **argv)
 			if (crow) cmp("ngrow", -1, crow, C.ngr, (long)L * CX_NG_ORDERS * CX_DE);
 			if (cgr) cmp("ngrad", -1, cgr, G.ngrad, (long)L * CX_NG_ORDERS * CX_DE);
 			if (cgg) cmp("gng", -1, cgg, &G.ngg[0][0], (long)CX_NG_ORDERS * CX_DE);
+		}
+		if (ctx) {   /* the context gates' gradients, one a column */
+			float *cgx = load(dir, "cl-gctx", -1, (size_t)N);
+			if (cgx) cmp("gctx", -1, cgx, G.gctx, N);
 		}
 	}
 	return 0;

@@ -53,6 +53,12 @@ typedef struct {
 	const float *moe_keys, *moe_pool32;   /* moe_pool32: a saved pool read as it is (evaluation; no updates) instead of the home copies */
 	double moe_bias, moe_lr, *moe_home, *moe_w, *moe_grad;
 	uint32_t *route, *moe_idx;
+	/* stage 3 (ctx_on, tools/ref.h rctx, card/ctx.h): every column's context memory, its gate b (the gates block's second
+	 * part on the card), and the first step a query may return */
+	int ctx_on;
+	rctx *ctx;
+	double *ctxg;
+	long ctx_start;
 } cref;
 
 static inline void cref_alloc(cref *C, int N, int L)
@@ -78,6 +84,20 @@ static inline void cref_alloc(cref *C, int N, int L)
 	C->moe_home = C->moe_w = C->moe_grad = NULL;
 	C->route = C->moe_idx = NULL;
 	C->moe_ntouched = C->moe_cap = 0;
+	C->ctx_on = 0;
+	C->ctx = NULL;
+	C->ctxg = NULL;
+	C->ctx_start = 0;
+}
+
+/* stage 3: the context memory of every column from empty, the gates fresh (CX_CTX_GATE0), both views from step 0 */
+static inline void cref_ctx_init(cref *C)
+{
+	C->ctx = calloc((size_t)C->N, sizeof *C->ctx);
+	C->ctxg = calloc((size_t)C->N, sizeof *C->ctxg);
+	for (int c = 0; c < C->N; c++) { rctx_init(&C->ctx[c]); C->ctxg[c] = CX_CTX_GATE0; }
+	C->ctx_start = 0;
+	C->ctx_on = 1;
 }
 
 /* the MoE model read with a saved pool (the daemon's pool-N.f32, CX_EX_N x CX_EX_FLOATS F32) for evaluation: the
@@ -178,7 +198,7 @@ static inline void cref_init(cref *C)
 	for (int c = 0; c < C->N; c++) rparams_init_col(C->prm + (long)c * CX_NPARAM, c);
 }
 
-typedef struct { double *prm, *E, *cg, *ngrad; double ngg[CX_NG_ORDERS][CX_DE]; } cgrads;   /* prm: N x CX_NPARAM; ngrad: L x orders x 128 (the row gradients, step order) */
+typedef struct { double *prm, *E, *cg, *ngrad; double ngg[CX_NG_ORDERS][CX_DE]; double gctx[CX_NCOL]; } cgrads;   /* gctx: the context gates' gradients (stage 3) */   /* prm: N x CX_NPARAM; ngrad: L x orders x 128 (the row gradients, step order) */
 
 static inline void cgrads_alloc(cgrads *G, int N)
 {
@@ -195,6 +215,7 @@ static inline void cgrads_zero(cgrads *G, int N)
 	memset(G->cg, 0, CX_DU * sizeof *G->cg);
 	memset(G->ngrad, 0, (size_t)32 * CX_NG_ORDERS * CX_DE * sizeof *G->ngrad);
 	memset(G->ngg, 0, sizeof G->ngg);
+	memset(G->gctx, 0, sizeof G->gctx);
 }
 
 /* one cluster step t (forward of every column, vote, consensus, next bus) */
@@ -220,6 +241,7 @@ static inline void cref_step(cref *C, int t, uint32_t id, uint32_t p1, uint32_t 
 		rstep *r = &C->steps[(long)c * C->L + t];
 		double *prm = C->prm + (long)c * CX_NPARAM;
 		ref_col_pre(prm, C->E, C->T + (long)c * CX_NT, r, id, Bt, ein);
+		if (C->ctx_on) ref_ctx_step(&C->ctx[c], r, C->ctx_start, C->ctxg[c]);   /* stage 3: o += gate a, the step into the memory */
 		if (C->moe_on) {   /* the route from x, the expert into the column's MLP region */
 			const uint32_t e = cref_moe_route(C, c, r->x);
 			C->route[(long)c * C->L + t] = e;
@@ -253,7 +275,7 @@ static inline void cref_backward(cref *C, cgrads *G, int t, const double *dl, do
 			memcpy(prm + CX_EX_SLOT, cref_moe_expert(C, C->route[(long)c * C->L + t]), CX_EX_FLOATS * sizeof *prm);
 			memset(gp + CX_EX_SLOT, 0, CX_EX_FLOATS * sizeof *gp);
 		}
-		ref_col_backward(prm, gp, C->E, G->E, r, du, dg * r->g * (1.0 - r->g), dT + (long)c * CX_NT, de);
+		ref_col_backward(prm, gp, C->E, G->E, r, du, dg * r->g * (1.0 - r->g), dT + (long)c * CX_NT, de, C->ctx_on ? &C->ctx[c] : NULL, C->ctx_on ? &G->gctx[c] : NULL);
 		if (C->moe_on) {
 			memcpy(C->moe_grad + (size_t)c * CX_EX_FLOATS, gp + CX_EX_SLOT, CX_EX_FLOATS * sizeof *gp);
 			memset(gp + CX_EX_SLOT, 0, CX_EX_FLOATS * sizeof *gp);
