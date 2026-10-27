@@ -37,8 +37,9 @@
  *                           batch trainer's start) staged after the checkpoint (LOAD arg bit 0); the live weights
  *                           keep the daemon's own gates
  *   --moe                   MoE stage 2: the LOAD fills the daemon's pool from the checkpoint's MLP blocks and the
- *                           heads route through it (LOAD arg bit 1); --moe-bias X writes the home bonus the daemon
- *                           routes with (default: the daemon's current word); a live session needs neither
+ *                           heads route through it (LOAD arg bit 1); --moe-keep (with --moe) keeps the pool the
+ *                           coach pulled in before (arg bit 2); --moe-bias X writes the home bonus the daemon
+ *                           routes with (default: the daemon's current word); a live session needs none of them
  *   --orchestra NGC [--words LIST] [--word-min N] [--lambda X] [--no-filter] [--repeat-ok]
  *                           host/orchestra.h, between the card's logits and the sampler; the filter counts a listed
  *                           word from corpus count N on (default ORCH_WORD_MIN)
@@ -310,7 +311,7 @@ static void usage(void)
 {
 	fprintf(stderr, "usage: cortex CKPT \"prompt\" NGEN [options] | cortex --replay LOGITS.f32 NSTEPS [options] | cortex --stop\n"
 	                "options: [--greedy] [--bus 0|1] [--temp T] [--topk K] [--topp P] [--minp M] [--rp R] [--seed S] [--vocab FILE] [--chat] [--no-echo] [--stop-eot] [--stop STRING]...\n"
-	                "         [--ids FILE.u16] [--dump-logits FILE] [--ngram TABLES] [--gates FILE|ones] [--moe] [--moe-bias X]\n"
+	                "         [--ids FILE.u16] [--dump-logits FILE] [--ngram TABLES] [--gates FILE|ones] [--moe [--moe-keep]] [--moe-bias X]\n"
 	                "         [--orchestra NGC [--words LIST] [--word-min N] [--lambda X] [--no-filter] [--repeat-ok]]\n");
 }
 
@@ -352,6 +353,7 @@ int main(int argc, char **argv)
 		else if (!strcmp(argv[i], "--ngram") && i + 1 < argc) ng_tables = argv[++i];
 		else if (!strcmp(argv[i], "--gates") && i + 1 < argc) ng_gates = argv[++i];
 		else if (!strcmp(argv[i], "--moe")) moe = 1;
+		else if (!strcmp(argv[i], "--moe-keep")) moe |= 2;   /* the pool was pulled in rounds before: the LOAD keeps it (arg bit 2) */
 		else if (!strcmp(argv[i], "--moe-bias") && i + 1 < argc) { moe_bias = atof(argv[++i]); moe_bias_given = 1; }
 		else if (!strcmp(argv[i], "--orchestra") && i + 1 < argc) orch_ngc = argv[++i];
 		else if (!strcmp(argv[i], "--words") && i + 1 < argc) orch_words = argv[++i];
@@ -425,15 +427,15 @@ int main(int argc, char **argv)
 		if (moe_bias_given) { uint64_t u; memcpy(&u, &moe_bias, 8); ST64(CX_M_BIAS, u); }
 		__atomic_thread_fence(__ATOMIC_SEQ_CST);
 		const uint64_t t0 = ns();
-		if (command(CX_OP_LOAD, (ng_gates ? 1 : 0) | (moe ? 2 : 0), 30)) return 1;
-		fprintf(stderr, "cortex: checkpoint loaded by DMA in %.1f ms; prompt %d tokens; %s; n-gram gates %s; rows %s; MoE %s\n", (ns() - t0) / 1e6, nprompt, H.greedy ? "greedy" : "sampling", ng_gates ? ng_gates : "none", ng_tables ? "from the tables" : "none", moe ? "on (the pool filled from the checkpoint)" : "off");
+		if (command(CX_OP_LOAD, (ng_gates ? 1 : 0) | (moe & 1 ? 2 : 0) | (moe & 2 ? 4 : 0), 30)) return 1;
+		fprintf(stderr, "cortex: checkpoint loaded by DMA in %.1f ms; prompt %d tokens; %s; n-gram gates %s; rows %s; MoE %s\n", (ns() - t0) / 1e6, nprompt, H.greedy ? "greedy" : "sampling", ng_gates ? ng_gates : "none", ng_tables ? "from the tables" : "none", !(moe & 1) ? "off" : moe & 2 ? "on (the pulled pool kept)" : "on (the pool filled from the checkpoint)");
 	} else {
 		fprintf(stderr, "cortex: the daemon's live weights; prompt %d tokens; %s; bus %s; memory rows %s\n", nprompt, H.greedy ? "greedy" : "sampling", bus ? "on" : "off", ng_tables ? "from the tables" : "none");
 	}
 	if (command(CX_OP_BUS, (uint32_t)bus, 5) || command(CX_OP_RESET, 0, 5) || command(CX_OP_NGRAM, ng_tables ? 1 : 0, 5)) return 1;
 	if (load_only) {
 		ST64(CX_H_CMD, CX_CMD(CX_CMD_QUIT, 0));
-		fprintf(stderr, "cortex: %s is now the daemon's live model (bus %s, MoE %s)\n", ckpt, bus ? "on" : "off", moe ? "on" : "off");
+		fprintf(stderr, "cortex: %s is now the daemon's live model (bus %s, MoE %s)\n", ckpt, bus ? "on" : "off", moe & 1 ? "on" : "off");
 		return 0;
 	}
 

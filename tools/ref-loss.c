@@ -2,13 +2,18 @@
  * ref-loss: the mean next-token loss of a checkpoint over a token stream, on the host in double (tools/cref.h: the
  * 120 columns, the bus off as the lineage was trained). The measurement of what a change to the weights costs, such
  * as the 3-bit quantisation of tools/quant3.c, and of a run's held-out loss while the card is busy training.
- *   ref-loss CKPT IDS.u16 NTOK [SKIP] [--ngram TABLES GATES]
+ *   ref-loss CKPT IDS.u16 NTOK [SKIP] [--ngram TABLES GATES] [--moe POOL.f32 [--moe-bias X]]
  * Steps the stream from token SKIP (default 0) for NTOK tokens with the fast weights carried across the whole pass
  * (the state starts from zero, as a session does) and prints the loss in nats and bits per token and the top-1
  * accuracy, with a running line every 5,000 tokens. The last token has no target: NTOK - 1 predictions. With
  * --ngram the model is read with its n-gram memory: TABLES = the run's tables (host/ngtables.h, mapped read-only;
  * the live file in /dev/shm, or a tables-N.f32 copy) and GATES = its gates (ckpt-N-gates.f32, 2 x 128 F32); the
  * rows of each step's suffix (the two ids before it in the stream, CX_NG_PAD before SKIP) enter as the card does it.
+ * With --moe the model is read as the MoE model (lib/cx-moe.h): POOL.f32 = a pool the daemon pushed (pool-N.f32,
+ * 4,293,918,720 B, mapped read-only), the fixed seeded keys, the home bonus X (default 0: the keys alone decide, as
+ * a run that has lowered its bonus to 0 routes; the bonus of the run's last report for a checkpoint taken before).
+ * The checkpoint's own MLP regions (the home experts) are not used then; with the bonus high enough to route every
+ * head home the result equals the dense reading of the same checkpoint.
  */
 #include "cref.h"
 #include "../host/ngtables.h"
@@ -54,18 +59,34 @@ static double now(void)
 
 int main(int argc, char **argv)
 {
-	if (argc < 4) { fprintf(stderr, "usage: ref-loss CKPT IDS.u16 NTOK [SKIP] [--ngram TABLES GATES]\n"); return 2; }
+	if (argc < 4) { fprintf(stderr, "usage: ref-loss CKPT IDS.u16 NTOK [SKIP] [--ngram TABLES GATES] [--moe POOL.f32 [--moe-bias X]]\n"); return 2; }
 	const long ntok = atol(argv[3]);
 	long skip = 0;
-	const char *tables = NULL, *gates_path = NULL;
+	const char *tables = NULL, *gates_path = NULL, *pool_path = NULL;
+	double pool_bias = 0;
 	for (int i = 4; i < argc; i++) {
 		if (!strcmp(argv[i], "--ngram") && i + 2 < argc) { tables = argv[++i]; gates_path = argv[++i]; }
+		else if (!strcmp(argv[i], "--moe") && i + 1 < argc) pool_path = argv[++i];
+		else if (!strcmp(argv[i], "--moe-bias") && i + 1 < argc) pool_bias = atof(argv[++i]);
 		else if (argv[i][0] != '-') skip = atol(argv[i]);
 		else { fprintf(stderr, "ref-loss: unknown option %s\n", argv[i]); return 2; }
 	}
 	cref C;
 	cref_alloc(&C, CX_NCOL, WINDOW);
 	if (load_ckpt(&C, argv[1])) return 1;
+	static float keys[CX_EX_KEYFLOATS];
+	if (pool_path) {
+		const int pfd = open(pool_path, O_RDONLY);
+		struct stat st;
+		if (pfd < 0 || fstat(pfd, &st)) { perror(pool_path); return 1; }
+		if ((size_t)st.st_size != CX_EX_POOL_BYTES) { fprintf(stderr, "ref-loss: %s is %lld bytes, not %zu (a pool of %u experts)\n", pool_path, (long long)st.st_size, CX_EX_POOL_BYTES, CX_EX_N); return 1; }
+		const float *pool = mmap(NULL, CX_EX_POOL_BYTES, PROT_READ, MAP_SHARED, pfd, 0);
+		if (pool == MAP_FAILED) { perror(pool_path); return 1; }
+		close(pfd);
+		cx_ex_keys_init(keys);
+		cref_moe_pool(&C, pool, keys, pool_bias);
+		printf("ref-loss: MoE on: pool %s, the seeded keys, home bonus %g\n", pool_path, pool_bias);
+	}
 	ngtables NG;
 	static float gates[CX_NG_ORDERS * CX_DE];
 	if (tables) {
@@ -114,6 +135,9 @@ int main(int argc, char **argv)
 		}
 	}
 	const long n = ntok - 1;
-	printf("ref-loss: %s on %s[%ld..%ld)%s: %.4f nats = %.4f bits/token over %ld predictions, top-1 %.4f, %.1f s\n", argv[1], argv[2], skip, skip + ntok, tables ? " with the memory" : "", nll / n, nll / n / log(2.0), n, (double)hits / n, now() - t0);
+	char how[160] = "";
+	if (tables) strcat(how, " with the memory");
+	if (pool_path) snprintf(how + strlen(how), sizeof how - strlen(how), " with the pool (bonus %g)", pool_bias);
+	printf("ref-loss: %s on %s[%ld..%ld)%s: %.4f nats = %.4f bits/token over %ld predictions, top-1 %.4f, %.1f s\n", argv[1], argv[2], skip, skip + ntok, how, nll / n, nll / n / log(2.0), n, (double)hits / n, now() - t0);
 	return 0;
 }

@@ -1,0 +1,29 @@
+=== pool gate 2026-10-27 07:37:14: data/live-base/ckpt-661017.bin, slice data/chat-base/slice-64k.u16
+--- 0: the pool as the LOAD fills it (a paused run stopped at once), then the evaluator's identity
+07:37:20 checkpoint (final): results/pool-gate/run0/ckpt-0.bin, 23463424 bytes, chunk 0, push 1, copied in 27 ms
+07:37:56 pool: results/pool-gate/run0/pool-0.f32, 4293918720 bytes in 187 rounds, 36.2 s
+07:37:56 coach: run ended at chunk 0 (0 tokens), 0 halvings, final scale 1.0000
+dense reading of data/live-base/ckpt-661017.bin on 1,000 tokens: 4.7754 nats = 6.8895 bits/token over 1000 predictions, top-1 0.2990, 4.0 s
+MoE reading with P0 at bonus 100:        4.7754 nats = 6.8895 bits/token over 1000 predictions, top-1 0.2990, 6.4 s
+--- 1: 200 chunks at bonus 0, the pool saved at the end (P1)
+07:38:11 report chunk 100  tokens 3200  loss 11.4745 nats = 16.5542 bits/token  lr 3.000e-03  scale 1.0000  755 tok/s  ring 100 ahead  moe 8804 experts
+07:38:15 checkpoint (final): results/pool-gate/run1/ckpt-200.bin, 23463424 bytes, chunk 200, push 2, copied in 18 ms
+07:38:49 pool: results/pool-gate/run1/pool-200.f32, 4293918720 bytes in 187 rounds, 33.8 s
+07:38:49 coach: run ended at chunk 200 (6400 tokens), 0 halvings, final scale 1.0000
+--- 2: P1 pulled back with ckpt-200, the run paused and stopped at once, the pool pushed again (P2)
+07:38:51 pool: results/pool-gate/run1/pool-200.f32 pulled into the daemon, 4293918720 bytes in 187 rounds, 1.9 s
+07:39:49 checkpoint (final): results/pool-gate/run2/ckpt-0.bin, 23463424 bytes, chunk 0, push 3, copied in 27 ms
+07:40:23 pool: results/pool-gate/run2/pool-0.f32, 4293918720 bytes in 187 rounds, 34.0 s
+07:40:23 coach: run ended at chunk 0 (0 tokens), 0 halvings, final scale 1.0000
+round trip: PASSED, the pool pushed, pulled and pushed again is byte-identical (4,293,918,720 B)
+checkpoint after the pull: PASSED, identical to ckpt-200 (the home experts from the pulled pool)
+--- 3: 100 more chunks from ckpt-200 with P1 at bonus 0 (continuity), and the evaluator on ckpt-200 with P1
+07:40:27 pool: results/pool-gate/run1/pool-200.f32 pulled into the daemon, 4293918720 bytes in 187 rounds, 1.9 s
+07:40:29 report chunk 50  tokens 1600  loss 7.1354 nats = 10.2942 bits/token  lr 3.000e-03  scale 1.0000  755 tok/s  ring 50 ahead  moe 5160 experts
+07:40:31 report chunk 100  tokens 3200  loss 6.8886 nats = 9.9381 bits/token  lr 3.000e-03  scale 1.0000  756 tok/s  ring 0 ahead  moe 6924 experts
+07:40:31 checkpoint (final): results/pool-gate/run3/ckpt-100.bin, 23463424 bytes, chunk 100, push 4, copied in 19 ms
+07:41:06 pool: results/pool-gate/run3/pool-100.f32, 4293918720 bytes in 187 rounds, 34.7 s
+07:41:06 coach: run ended at chunk 100 (3200 tokens), 0 halvings, final scale 1.0000
+dense reading of ckpt-200 on 1,000 tokens (its home experts): 15.1006 nats = 21.7855 bits/token over 1000 predictions, top-1 0.0340, 4.0 s
+MoE reading of ckpt-200 with P1 at bonus 0:                   11.8342 nats = 17.0731 bits/token over 1000 predictions, top-1 0.1620, 6.4 s
+=== gate done 2026-10-27 07:41:17 (P1 kept: results/pool-gate/run1/pool-200.f32)

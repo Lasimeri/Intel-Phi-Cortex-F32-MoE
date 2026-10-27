@@ -157,3 +157,17 @@ carries the experts updated so far (CX_T_MOE_DISTINCT) and the bonus in effect. 
 2,000 chunks from data/live-base/ckpt-661017.bin with bonus 100 and expert lr 0.05: the 20 per-report losses and the
 final checkpoint's md5 identical to `cluster-gate-moe run` with the same knobs, 824 against 822 tok/s. A client
 needs nothing new: `cortex --live` and the harness talk to the MoE model as they did to the dense one.
+
+### The pool out of and into the daemon (07:3x)
+
+The pool leaves and enters the daemon through the stage in rounds of eleven 2 MiB huge pages (23,068,672 B per
+round, 187 rounds for the 2,048 pages): the coach writes the request word CX_T_POOL (the direction and the round),
+the daemon's team takes it as an action between chunks, thread 0 submits the round's DMA lines (at most 1 MiB - 64 B
+each, inside their page) and the acknowledgement arrives in CX_T_POOL_ACK (a push: the last line's status write; a
+pull: after the DMA has landed). A push copies the stage to CKDIR/pool-CHUNK.f32 round by round, with the feeder run
+between rounds so the chunks keep flowing; a pull stages the file round by round before the LOAD, which then keeps
+the pool (arg bit 2, `cortex --load ... --moe --moe-keep`, the coach's `--pool FILE`). The coach pushes the pool at
+the run's end, on a `save-pool` line and every `--pool-every` chunks; each copy is 4,293,918,720 B. The host reads a
+pool with `ref-loss CKPT IDS N --moe POOL [--moe-bias X]`: the experts from the file, the keys from the seeded init,
+the checkpoint's home experts unused; with the bonus high enough to route every head home the reading equals the
+dense one. The gate is tools/pool-gate.sh (results/pool-gate.log).

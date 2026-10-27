@@ -44,7 +44,7 @@ typedef struct {
 	 * initial expert e is home[e mod N]), the touched experts in double (index, weights), each column's route per
 	 * step (route[c * L + t]) and the per-step expert gradients collected before the updates */
 	int moe_on, moe_ntouched, moe_cap;
-	const float *moe_keys;
+	const float *moe_keys, *moe_pool32;   /* moe_pool32: a saved pool read as it is (evaluation; no updates) instead of the home copies */
 	double moe_bias, moe_lr, *moe_home, *moe_w, *moe_grad;
 	uint32_t *route, *moe_idx;
 } cref;
@@ -66,6 +66,24 @@ static inline void cref_alloc(cref *C, int N, int L)
 	C->ngr = calloc((size_t)L * CX_NG_ORDERS * CX_DE, sizeof *C->ngr);
 	for (int o = 0; o < CX_NG_ORDERS; o++) { C->ngT[o] = NULL; C->ngT32[o] = NULL; }
 	C->moe_on = 0;
+	C->moe_pool32 = NULL;
+	C->moe_keys = NULL;
+	C->moe_bias = C->moe_lr = 0;
+	C->moe_home = C->moe_w = C->moe_grad = NULL;
+	C->route = C->moe_idx = NULL;
+	C->moe_ntouched = C->moe_cap = 0;
+}
+
+/* the MoE model read with a saved pool (the daemon's pool-N.f32, CX_EX_N x CX_EX_FLOATS F32) for evaluation: the
+ * experts come from the file, the home MLPs of the checkpoint are not used, nothing is updated */
+static inline void cref_moe_pool(cref *C, const float *pool, const float *keys, double bias)
+{
+	C->moe_on = 1;
+	C->moe_pool32 = pool;
+	C->moe_keys = keys;
+	C->moe_bias = bias;
+	C->moe_lr = 0;
+	C->route = calloc((size_t)C->N * C->L, sizeof *C->route);
 }
 
 /* the MoE conversion (after the columns' weights are set): the keys, the knobs, the home MLPs copied, no expert touched */
@@ -199,7 +217,8 @@ static inline void cref_step(cref *C, int t, uint32_t id, uint32_t p1, uint32_t 
 		if (C->moe_on) {   /* the route from x, the expert into the column's MLP region */
 			const uint32_t e = cref_moe_route(C, c, r->x);
 			C->route[(long)c * C->L + t] = e;
-			memcpy(prm + CX_EX_SLOT, cref_moe_expert(C, e), CX_EX_FLOATS * sizeof *prm);
+			if (C->moe_pool32) { const float *ex = C->moe_pool32 + (size_t)e * CX_EX_FLOATS; for (int i = 0; i < CX_EX_FLOATS; i++) prm[CX_EX_SLOT + i] = ex[i]; }
+			else memcpy(prm + CX_EX_SLOT, cref_moe_expert(C, e), CX_EX_FLOATS * sizeof *prm);
 		}
 		ref_col_mlp(prm, r);
 		for (int i = 0; i < CX_DU; i++) s->hs[i] += r->g * r->u[i];

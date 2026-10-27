@@ -510,3 +510,29 @@ holds the heads and the home experts, and the pool is not saved yet), so the run
 expert count in the report line and the harness until the pool save and a MoE-aware evaluator exist (next, with the
 the evicting fetch (the keys stay F32), the expert prefetch of mode B, learned keys, and the memory and the pool
 together in one run).
+
+### The pool persistent and measurable (07:3x to 07:41, user: "Start working on training the MoE model")
+
+Until now the pool lived only in the daemon and the routed model could not be read on the host, so the first run
+was provisional (ended 07:36:07 at chunk 26,472, its pool lost with the daemon's replacement). Built and gated:
+
+- **The pool through the stage** (lib/cx-proto.h CX_T_POOL, CX_T_POOL_ACK; card/cortexd.c pool_round): rounds of
+  eleven 2 MiB huge pages (23,068,672 B per round, 187 rounds for the 2,048 pages; the daemon holds each page's
+  physical address), DMA lines of at most 1 MiB - 64 B inside their page, the push acknowledged by the last line's
+  status write, the pull after the DMA has landed; an action between chunks, with or without a run. The coach pushes
+  the pool at the run's end, on a `save-pool` line and every `--pool-every` chunks into CKDIR/pool-CHUNK.f32, and
+  pulls one with `--pool FILE` before the LOAD, which keeps it (arg bit 2, `cortex --load --moe --moe-keep`).
+- **The evaluator** (tools/ref-loss.c `--moe POOL [--moe-bias X]`, tools/cref.h cref_moe_pool): the experts read
+  from the pool file, the seeded keys, the bonus given; the checkpoint's home experts unused.
+
+| gate (tools/pool-gate.sh, results/pool-gate.log) | measured |
+|---|---|
+| a push | 4,293,918,720 B in 187 rounds, 33.8 to 36.2 s (the disk write included) |
+| a pull | 1.9 s (the file in the page cache) |
+| round trip | P1 pushed, pulled, pushed again: byte-identical; the checkpoint after the pull identical to the one before (the home experts from the pulled pool) |
+| the evaluator's identity | the fresh pool at bonus 100 reads exactly as the dense checkpoint: 4.7754 nats = 6.8895 bits/token, top-1 0.2990 on 1,000 tokens (6.4 s against 4.0 s) |
+| continuity | 100 chunks from ckpt-200 with its pulled pool at bonus 0: 10.29 then 9.94 bits/token, 5,160 experts touched in 50 chunks (run 1 had reached 16.55 at chunk 100 from free routing) |
+| the routed model read | ckpt-200 with P1 at bonus 0: 17.07 bits/token on 1,000 tokens; its home experts alone 21.79 |
+
+The MoE run restarts from data/live-base/ckpt-661017.bin with the pool pushed every 50,000 chunks and at the end,
+so every pool-N.f32 beside its ckpt-N.bin is a readable state of the routed model.

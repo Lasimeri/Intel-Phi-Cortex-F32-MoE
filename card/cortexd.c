@@ -54,7 +54,7 @@
 #define CX_HEART_S 0.1           /* CX_C_HEART counted up this often by thread 0: the host's liveness word (the TUI) */
 #define CX_IDLE_NAP_US 100       /* every thread's nap per round when there is nothing to do */
 
-enum { ACT_IDLE = 100, ACT_TRAIN, ACT_SAVE, ACT_QUIT };   /* the team's actions besides the mailbox ops */
+enum { ACT_IDLE = 100, ACT_TRAIN, ACT_SAVE, ACT_QUIT, ACT_POOL };   /* the team's actions besides the mailbox ops */
 _Static_assert(CX_T_L == CX_LMAX, "the live ring's chunk length is the card's chunk length");
 _Static_assert(CX_T_WARMUP == CL_WARMUP, "the protocol's warm-up is the trainers' warm-up");
 
@@ -72,6 +72,7 @@ static int ng_train_acked = -1;   /* CX_T_NG_ACK as last written */
  * inference) with the bonus at CX_M_BIAS and train the experts by SGD at CX_M_LR; the pool lives for the daemon's life
  * (a LOAD without the bit returns to the dense model; a LOAD with it refills the pool) */
 static float *pool;
+static uint64_t pool_phys[CX_EX_POOL_PAGES];   /* each huge page's physical address, for the transfer rounds */
 static int moe_loaded;            /* the loaded model routes through the pool */
 static uint64_t part_mib = CX_PART_MIB;
 static uint64_t host_part;        /* the part's address for the DMA engine */
@@ -224,6 +225,31 @@ static uint32_t moe_distinct(void)
 	return n;
 }
 
+/* one transfer round of the pool (thread 0, every thread at the barrier): the round's huge pages pushed into the stage
+ * (direction 1; the last line's status write is the acknowledgement) or pulled from it (direction 2; acknowledged
+ * after the DMA has landed). A line is at most 1 MiB - 64 B and stays inside its page. */
+static int pool_round(uint64_t word)
+{
+	const uint32_t dir = CX_T_POOL_DIR(word), round = CX_T_POOL_ROUND(word);
+	if ((dir != 1 && dir != 2) || round >= CX_EX_POOL_ROUNDS) { fprintf(stderr, "cortexd: bad pool request %llx\n", (unsigned long long)word); return -1; }
+	const uint32_t first = round * CX_POOL_ROUND_PAGES, npages = first + CX_POOL_ROUND_PAGES <= CX_EX_POOL_PAGES ? CX_POOL_ROUND_PAGES : (uint32_t)(CX_EX_POOL_PAGES - first);
+	uint64_t seq = 0;
+	for (uint32_t j = 0; j < npages; j++) {
+		const size_t page = first + j, page_bytes = (page + 1) * (size_t)CX_POOL_PAGE <= CX_EX_POOL_BYTES ? CX_POOL_PAGE : CX_EX_POOL_BYTES - page * (size_t)CX_POOL_PAGE;
+		const uint64_t stage = host_part + CX_STAGE + (uint64_t)j * CX_POOL_PAGE;
+		for (size_t done = 0; done < page_bytes; done += (1u << 20) - 64) {
+			const uint32_t n = page_bytes - done < (1u << 20) - 64 ? (uint32_t)(page_bytes - done) : (1u << 20) - 64;
+			const int last = j + 1 == npages && done + n == page_bytes;
+			if (dir == 1) seq = cdma_submit(&dma, pool_phys[page] + done, stage + done, n, last ? host_part + CX_T_POOL_ACK : 0, last ? word : 0);
+			else seq = cdma_submit(&dma, stage + done, pool_phys[page] + done, n, 0, 0);
+			if (!seq) { fprintf(stderr, "cortexd: pool round %u: DMA submit failed\n", round); return -1; }
+		}
+	}
+	if (cdma_wait(&dma, seq, 10.0)) { fprintf(stderr, "cortexd: pool round %u timed out\n", round); return -1; }
+	if (dir == 2) { cx_fence(); wr64(CX_T_POOL_ACK, word); }
+	return 0;
+}
+
 static uint64_t saves_done;   /* checkpoints pushed since the daemon started (CX_T_SAVES) */
 
 static int push_ckpt(void)
@@ -374,6 +400,15 @@ static int poll_training(void)
 	return 1;
 }
 
+/* a pending pool request (the host's word not yet acknowledged) becomes the team's action */
+static int poll_pool(void)
+{
+	const uint64_t word = rd64(CX_T_POOL);
+	if (!word || rd64(CX_T_POOL_ACK) == word) return 0;
+	act_op[act_slot] = ACT_POOL;
+	return 1;
+}
+
 static void decide(uint64_t round)
 {
 	static double t_heart;
@@ -382,6 +417,7 @@ static void decide(uint64_t round)
 	const double now = cx_now();
 	if (now - t_heart >= CX_HEART_S) { t_heart = now; wr64(CX_C_HEART, ++heart); }
 	if (poll_session()) return;
+	if (poll_pool()) return;
 	if (poll_training()) return;
 	act_op[act_slot] = ACT_IDLE;
 }
@@ -468,10 +504,14 @@ static void live(void *arg, int k)
 		case ACT_SAVE:
 			save_ckpt(k);
 			break;
+		case ACT_POOL:
+			if (!k) { const uint64_t w = rd64(CX_T_POOL); if (pool_round(w)) wr64(CX_T_POOL_ACK, w); }   /* a failed round is acknowledged too (the host sees the error line) */
+			cl_wait(&C, k);
+			break;
 		case CX_OP_LOAD:   /* new weights: a new run, every training buffer as a fresh batch-trainer process has it */
 			if (!k) { if (load_ckpt(a)) wr32(CX_C_STATE, 2); }
 			cl_wait(&C, k);
-			if (moe_loaded) moe_fill(k);   /* the pool from the loaded blocks; the heads route from now on */
+			if (moe_loaded && !(a & 4)) moe_fill(k);   /* the pool from the loaded blocks (bit 2: a pulled pool is kept); the heads route from now on */
 			C.tr[k].moe = moe_loaded ? &C.moe[k] : NULL;
 			if (!k) { C.moe_on = moe_loaded; memset(C.moe_used, 0, (size_t)CX_EX_N * 4); wr32(CX_T_MOE, (uint32_t)moe_loaded); wr32(CX_T_MOE_DISTINCT, 0); }
 			C.tr[k].ng = NULL;
@@ -575,9 +615,13 @@ int main(int argc, char **argv)
 	if (o > (8u << 20)) { fprintf(stderr, "cortexd: shared overflow %zu\n", o); return 1; }
 	memset(sh, 0, o);
 	cx_ex_keys_init(C.keys);
-	pool = huge(((size_t)CX_EX_N * CX_EX_BYTES + (2u << 20) - 1) & ~((size_t)(2u << 20) - 1));   /* 4 GiB of GDDR for the experts */
+	pool = huge(CX_EX_POOL_PAGES * (size_t)CX_POOL_PAGE);   /* 4 GiB of GDDR for the experts, 2,048 huge pages */
 	C.pool = pool;
 	C.moe_on = 0;
+	for (size_t p = 0; p < CX_EX_POOL_PAGES; p++) {
+		pool_phys[p] = phys_of(pool + p * (CX_POOL_PAGE / 4));
+		if (!pool_phys[p]) { fprintf(stderr, "cortexd: no physical address for pool page %zu\n", p); return 1; }
+	}
 	sh_base = sh;
 	sh_zero = (char *)bus_train;
 	sh_used = o;
@@ -624,6 +668,7 @@ int main(int argc, char **argv)
 	wr32(CX_T_NG_ACK, 0);
 	wr32(CX_T_MOE, 0);
 	wr32(CX_T_MOE_DISTINCT, 0);
+	wr64(CX_T_POOL_ACK, 0);
 	wrf(CX_M_BIAS, (double)CX_EX_HOME_BIAS);   /* the knobs' defaults until a coach or a load writes them */
 	wrf(CX_M_LR, (double)CX_EX_LR);
 

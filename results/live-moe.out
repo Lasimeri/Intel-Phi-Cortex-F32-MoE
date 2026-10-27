@@ -1,37 +1,18 @@
-07:18:52 coach: data/chat-base/train.u16 chunks 661017..937252 (276236 chunks = 8839552 tokens), lr 5.000e-04, report every 100, window 300, min gain 0.010, halvings 3, sample every 2000 x 128 tokens, save every 5000, no stop, cmd results/live.cmd, checkpoints data/live-moe/, MoE loaded (bias 100 to 0 over 100000 chunks, expert lr 0.05)
-cortex: checkpoint loaded by DMA in 110.3 ms; prompt 0 tokens; sampling; n-gram gates none; rows none; MoE on (the pool filled from the checkpoint)
+07:42:16 coach: data/chat-base/train.u16 chunks 661017..937252 (276236 chunks = 8839552 tokens), lr 5.000e-04, report every 100, window 300, min gain 0.010, halvings 3, sample every 2000 x 128 tokens, save every 5000, no stop, cmd results/live.cmd, checkpoints data/live-moe/, MoE loaded (bias 100 to 0 over 100000 chunks, expert lr 0.05)
+cortex: checkpoint loaded by DMA in 105.7 ms; prompt 0 tokens; sampling; n-gram gates none; rows none; MoE on (the pool filled from the checkpoint)
 cortex: data/live-base/ckpt-661017.bin is now the daemon's live model (bus off, MoE on)
-07:18:52 coach: data/live-base/ckpt-661017.bin loaded into the daemon
-07:18:52 coach: live (magic set, 960 chunks in the ring)
-07:18:56 report chunk 100  tokens 3200  loss 3.7658 nats = 5.4329 bits/token  lr 5.000e-04  scale 1.0000  825 tok/s  ring 960 ahead  moe 120 experts, bias 99.9
-07:19:00 report chunk 200  tokens 6400  loss 3.5561 nats = 5.1303 bits/token  lr 5.000e-04  scale 1.0000  824 tok/s  ring 960 ahead  moe 120 experts, bias 99.8
-07:19:04 report chunk 300  tokens 9600  loss 3.9219 nats = 5.6581 bits/token  lr 5.000e-04  scale 1.0000  825 tok/s  ring 960 ahead  moe 120 experts, bias 99.7
-07:19:07 report chunk 400  tokens 12800  loss 4.3859 nats = 6.3275 bits/token  lr 5.000e-04  scale 1.0000  824 tok/s  ring 960 ahead  moe 120 experts, bias 99.6
-07:19:11 report chunk 500  tokens 16000  loss 3.8326 nats = 5.5292 bits/token  lr 5.000e-04  scale 1.0000  824 tok/s  ring 960 ahead  moe 120 experts, bias 99.5
-07:19:15 report chunk 600  tokens 19200  loss 3.8646 nats = 5.5754 bits/token  lr 5.000e-04  scale 1.0000  824 tok/s  ring 960 ahead  moe 120 experts, bias 99.4
-07:19:19 report chunk 700  tokens 22400  loss 3.9952 nats = 5.7639 bits/token  lr 5.000e-04  scale 1.0000  824 tok/s  ring 960 ahead  moe 120 experts, bias 99.3
-07:19:23 report chunk 800  tokens 25600  loss 3.9233 nats = 5.6602 bits/token  lr 5.000e-04  scale 1.0000  825 tok/s  ring 960 ahead  moe 120 experts, bias 99.2
-07:19:27 report chunk 900  tokens 28800  loss 3.9228 nats = 5.6594 bits/token  lr 5.000e-04  scale 1.0000  824 tok/s  ring 960 ahead  moe 120 experts, bias 99.1
-07:19:31 report chunk 1000  tokens 32000  loss 4.0152 nats = 5.7927 bits/token  lr 5.000e-04  scale 1.0000  814 tok/s  ring 960 ahead  moe 120 experts, bias 99
-07:19:35 report chunk 1100  tokens 35200  loss 3.5623 nats = 5.1393 bits/token  lr 5.000e-04  scale 1.0000  824 tok/s  ring 960 ahead  moe 120 experts, bias 98.9
-07:19:39 report chunk 1200  tokens 38400  loss 3.7850 nats = 5.4606 bits/token  lr 5.000e-04  scale 1.0000  825 tok/s  ring 960 ahead  moe 120 experts, bias 98.8
-07:19:43 report chunk 1300  tokens 41600  loss 3.8451 nats = 5.5472 bits/token  lr 5.000e-04  scale 1.0000  824 tok/s  ring 960 ahead  moe 120 experts, bias 98.7
-07:19:46 report chunk 1400  tokens 44800  loss 3.9732 nats = 5.7322 bits/token  lr 5.000e-04  scale 1.0000  825 tok/s  ring 960 ahead  moe 120 experts, bias 98.6
-07:19:50 report chunk 1500  tokens 48000  loss 4.1427 nats = 5.9767 bits/token  lr 5.000e-04  scale 1.0000  824 tok/s  ring 960 ahead  moe 120 experts, bias 98.5
-07:19:54 report chunk 1600  tokens 51200  loss 3.9747 nats = 5.7343 bits/token  lr 5.000e-04  scale 1.0000  825 tok/s  ring 960 ahead  moe 120 experts, bias 98.4
-07:19:58 report chunk 1700  tokens 54400  loss 3.9053 nats = 5.6342 bits/token  lr 5.000e-04  scale 1.0000  824 tok/s  ring 960 ahead  moe 120 experts, bias 98.3
-07:20:02 report chunk 1800  tokens 57600  loss 4.0074 nats = 5.7815 bits/token  lr 5.000e-04  scale 1.0000  824 tok/s  ring 960 ahead  moe 120 experts, bias 98.2
-07:20:06 report chunk 1900  tokens 60800  loss 4.0027 nats = 5.7746 bits/token  lr 5.000e-04  scale 1.0000  824 tok/s  ring 960 ahead  moe 120 experts, bias 98.1
-07:20:10 report chunk 2000  tokens 64000  loss 3.9562 nats = 5.7076 bits/token  lr 5.000e-04  scale 1.0000  825 tok/s  ring 960 ahead  moe 120 experts, bias 98
-07:20:10 sample chunk 2000 seed 1: hit 0.974 hit5 0.977 big 0.773 rep4 0.014 sent 15.1 words 151 | <|system|>I am Cortex. I am a small language model on a Xeon Phi card. I have one hundred and twenty columns. I like to talk with people.<|end|> <|user|>What is your name?<|end|> <|assistant|><|think|> can really help us feel better, but it feels hard for me wonder if they will be might not bit sad today<|end|> make a big difference everything especially quickly<|end|> it't it? <|assistant|> mov the same time on my favorite things feelings to do you think. I enjoy that; sometimes I want people have more any way to talk about their life or better and help us see.<|end|><|end|><|end|><|end|><|end|> make me feel sos for our days like they will beHello wonder if we are some these moments?l<|think|> can really make it is a lovely day, just makes things even think you<|assistant|> unin can help us understand 
-07:20:14 report chunk 2100  tokens 67200  loss 3.8728 nats = 5.5873 bits/token  lr 5.000e-04  scale 1.0000  801 tok/s  ring 960 ahead  moe 120 experts, bias 97.9
-07:20:18 report chunk 2200  tokens 70400  loss 3.8412 nats = 5.5416 bits/token  lr 5.000e-04  scale 1.0000  824 tok/s  ring 960 ahead  moe 120 experts, bias 97.8
-07:20:22 report chunk 2300  tokens 73600  loss 3.6442 nats = 5.2574 bits/token  lr 5.000e-04  scale 1.0000  824 tok/s  ring 960 ahead  moe 120 experts, bias 97.7
-07:20:26 report chunk 2400  tokens 76800  loss 3.9747 nats = 5.7343 bits/token  lr 5.000e-04  scale 1.0000  824 tok/s  ring 960 ahead  moe 120 experts, bias 97.6
-07:20:30 report chunk 2500  tokens 80000  loss 3.6478 nats = 5.2626 bits/token  lr 5.000e-04  scale 1.0000  824 tok/s  ring 960 ahead  moe 120 experts, bias 97.5
-07:20:33 report chunk 2600  tokens 83200  loss 3.8388 nats = 5.5383 bits/token  lr 5.000e-04  scale 1.0000  824 tok/s  ring 960 ahead  moe 120 experts, bias 97.4
-07:20:37 report chunk 2700  tokens 86400  loss 4.0128 nats = 5.7893 bits/token  lr 5.000e-04  scale 1.0000  824 tok/s  ring 960 ahead  moe 120 experts, bias 97.3
-07:20:41 report chunk 2800  tokens 89600  loss 4.0211 nats = 5.8012 bits/token  lr 5.000e-04  scale 1.0000  824 tok/s  ring 960 ahead  moe 120 experts, bias 97.2
-07:20:45 report chunk 2900  tokens 92800  loss 3.9526 nats = 5.7024 bits/token  lr 5.000e-04  scale 1.0000  824 tok/s  ring 960 ahead  moe 120 experts, bias 97.1
-07:20:49 report chunk 3000  tokens 96000  loss 3.9400 nats = 5.6842 bits/token  lr 5.000e-04  scale 1.0000  824 tok/s  ring 960 ahead  moe 120 experts, bias 97
-07:20:53 report chunk 3100  tokens 99200  loss 3.6558 nats = 5.2743 bits/token  lr 5.000e-04  scale 1.0000  824 tok/s  ring 960 ahead  moe 120 experts, bias 96.9
+07:42:16 coach: data/live-base/ckpt-661017.bin loaded into the daemon
+07:42:16 coach: live (magic set, 960 chunks in the ring)
+07:42:20 report chunk 100  tokens 3200  loss 3.7658 nats = 5.4329 bits/token  lr 5.000e-04  scale 1.0000  815 tok/s  ring 960 ahead  moe 120 experts, bias 99.9
+07:42:24 report chunk 200  tokens 6400  loss 3.5561 nats = 5.1303 bits/token  lr 5.000e-04  scale 1.0000  815 tok/s  ring 960 ahead  moe 120 experts, bias 99.8
+07:42:28 report chunk 300  tokens 9600  loss 3.9219 nats = 5.6581 bits/token  lr 5.000e-04  scale 1.0000  815 tok/s  ring 960 ahead  moe 120 experts, bias 99.7
+07:42:32 report chunk 400  tokens 12800  loss 4.3859 nats = 6.3275 bits/token  lr 5.000e-04  scale 1.0000  815 tok/s  ring 960 ahead  moe 120 experts, bias 99.6
+07:42:36 report chunk 500  tokens 16000  loss 3.8326 nats = 5.5292 bits/token  lr 5.000e-04  scale 1.0000  815 tok/s  ring 960 ahead  moe 120 experts, bias 99.5
+07:42:39 report chunk 600  tokens 19200  loss 3.8646 nats = 5.5754 bits/token  lr 5.000e-04  scale 1.0000  815 tok/s  ring 960 ahead  moe 120 experts, bias 99.4
+07:42:43 report chunk 700  tokens 22400  loss 3.9952 nats = 5.7639 bits/token  lr 5.000e-04  scale 1.0000  815 tok/s  ring 960 ahead  moe 120 experts, bias 99.3
+07:42:47 report chunk 800  tokens 25600  loss 3.9233 nats = 5.6602 bits/token  lr 5.000e-04  scale 1.0000  814 tok/s  ring 960 ahead  moe 120 experts, bias 99.2
+07:42:51 report chunk 900  tokens 28800  loss 3.9228 nats = 5.6594 bits/token  lr 5.000e-04  scale 1.0000  815 tok/s  ring 960 ahead  moe 120 experts, bias 99.1
+07:42:55 report chunk 1000  tokens 32000  loss 4.0152 nats = 5.7927 bits/token  lr 5.000e-04  scale 1.0000  815 tok/s  ring 960 ahead  moe 120 experts, bias 99
+07:42:59 report chunk 1100  tokens 35200  loss 3.5623 nats = 5.1393 bits/token  lr 5.000e-04  scale 1.0000  815 tok/s  ring 960 ahead  moe 120 experts, bias 98.9
+07:43:03 report chunk 1200  tokens 38400  loss 3.7850 nats = 5.4606 bits/token  lr 5.000e-04  scale 1.0000  815 tok/s  ring 960 ahead  moe 120 experts, bias 98.8
+07:43:07 report chunk 1300  tokens 41600  loss 3.8451 nats = 5.5472 bits/token  lr 5.000e-04  scale 1.0000  815 tok/s  ring 960 ahead  moe 120 experts, bias 98.7

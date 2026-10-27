@@ -52,6 +52,13 @@
  *                          each report), so the heads leave their home experts one by one as the keys' scores pass
  *                          it, instead of all at once (a run that starts free lost 7 bits/token, PLAN-MOE.md)
  *     --expert-lr X        the experts' SGD step (default 0.05); `exlr X` as a command line changes it live
+ *     --pool FILE          a saved pool (pool-N.f32, 4,293,918,720 B) pulled into the daemon in 187 rounds of eleven
+ *                          2 MiB pages through the stage before the LOAD, which then keeps it (LOAD arg bit 2)
+ *                          instead of filling from the checkpoint; the pool is pushed back the same way into
+ *                          CKDIR/pool-CHUNK.f32 at the run's end, on a `save-pool` line and every --pool-every
+ *                          chunks (about 30 s each, the chunks keep flowing between rounds)
+ *     --pool-every N       the pool pushed into CKDIR/pool-CHUNK.f32 every N chunks (default 0 = only at the end and
+ *                          on `save-pool` lines); each copy is 4 GiB on the disk
  *
  * Policy v2 (docs/COACH.md of the F64 tree, measured there): every W reports the mean training loss of the window is
  * compared with the previous window; a gain under B is a plateau; a plateau halves the scale down to 2^-H; at the
@@ -98,6 +105,9 @@ static long tables_every = 100000;
 static int moe, moe_knobs_given;                   /* --moe: the LOAD fills the pool; the knobs are written when given or with --moe */
 static double moe_bias = CX_EX_HOME_BIAS, expert_lr = CX_EX_LR;
 static long bias_decay;                            /* --bias-decay: chunks over which the bonus falls to 0 (0 = constant) */
+static const char *pool_path;                      /* --pool: pulled into the daemon before the LOAD */
+static int pool_save_wanted;                       /* a `save-pool` line */
+static long pool_every;                            /* --pool-every: the pool pushed every this many chunks */
 
 /* ---- the log ---- */
 static FILE *lg;
@@ -198,6 +208,61 @@ static int copy_tables(long chunk)
 	return 0;
 }
 
+/* ---- the MoE pool through the stage (lib/cx-proto.h CX_T_POOL): rounds of eleven 2 MiB pages; a push lands in the
+ * stage and is copied to the file, a pull is staged from the file first; the feeder runs between rounds ---- */
+static void feed(void);
+
+static int pool_wait(uint64_t word)
+{
+	const double t0 = now_s();
+	while (LD64(CX_T_POOL_ACK) != word) { if (now_s() - t0 > 30.0) return -1; usleep(200); }
+	return 0;
+}
+
+static size_t pool_round_bytes(uint32_t round)
+{
+	const size_t first = (size_t)round * CX_POOL_ROUND_BYTES;
+	return first + CX_POOL_ROUND_BYTES <= CX_EX_POOL_BYTES ? CX_POOL_ROUND_BYTES : CX_EX_POOL_BYTES - first;
+}
+
+static int pool_save(const char *path)
+{
+	const double t0 = now_s();
+	FILE *f = fopen(path, "wb");
+	if (!f) { logline("pool: cannot write %s: %s", path, strerror(errno)); return -1; }
+	for (uint32_t r = 0; r < CX_EX_POOL_ROUNDS; r++) {
+		const uint64_t word = CX_T_POOL_WORD(1, r);
+		ST64(CX_T_POOL, word);
+		if (pool_wait(word)) { logline("pool: round %u not acknowledged: FAILED", r); fclose(f); ST64(CX_T_POOL, 0); return -1; }
+		const size_t n = pool_round_bytes(r);
+		if (fwrite(part + CX_STAGE, 1, n, f) != n) { logline("pool: write to %s failed: %s", path, strerror(errno)); fclose(f); ST64(CX_T_POOL, 0); return -1; }
+		feed();
+	}
+	ST64(CX_T_POOL, 0);
+	if (fclose(f)) { logline("pool: closing %s failed: %s", path, strerror(errno)); return -1; }
+	logline("pool: %s, %zu bytes in %u rounds, %.1f s", path, CX_EX_POOL_BYTES, (unsigned)CX_EX_POOL_ROUNDS, now_s() - t0);
+	return 0;
+}
+
+static int pool_load(const char *path)
+{
+	const double t0 = now_s();
+	FILE *f = fopen(path, "rb");
+	if (!f) { logline("pool: cannot read %s: %s", path, strerror(errno)); return -1; }
+	for (uint32_t r = 0; r < CX_EX_POOL_ROUNDS; r++) {
+		const size_t n = pool_round_bytes(r);
+		if (fread(part + CX_STAGE, 1, n, f) != n) { logline("pool: %s is short at round %u", path, r); fclose(f); return -1; }
+		__atomic_thread_fence(__ATOMIC_SEQ_CST);
+		const uint64_t word = CX_T_POOL_WORD(2, r);
+		ST64(CX_T_POOL, word);
+		if (pool_wait(word)) { logline("pool: round %u not acknowledged: FAILED", r); fclose(f); ST64(CX_T_POOL, 0); return -1; }
+	}
+	ST64(CX_T_POOL, 0);
+	fclose(f);
+	logline("pool: %s pulled into the daemon, %zu bytes in %u rounds, %.1f s", path, CX_EX_POOL_BYTES, (unsigned)CX_EX_POOL_ROUNDS, now_s() - t0);
+	return 0;
+}
+
 /* ---- the sampler: the client against the live weights, the text scored ---- */
 static double rep_hist[3];
 static int rep_n, rising_used, halvings;
@@ -261,6 +326,7 @@ static void commands(void)
 		else if (!strcmp(s, "pause")) { set_flags(flags | 4); logline("command: pause"); }
 		else if (!strcmp(s, "resume")) { set_flags(flags & ~4ull); logline("command: resume"); }
 		else if (!strcmp(s, "save")) { request_save(); if (ng_path) tables_wanted = 1; logline("command: save requested%s", ng_path ? " (with the tables)" : ""); }
+		else if (!strcmp(s, "save-pool")) { if (moe) pool_save_wanted = 1; logline("command: pool save %s", moe ? "requested" : "ignored (no --moe)"); }
 		else if (sscanf(s, "bias %lf", &x) == 1 && x >= 0) { moe_bias = x; ST64(CX_M_BIAS, kbits(moe_bias)); logline("command: moe bias %g", moe_bias); }
 		else if (sscanf(s, "exlr %lf", &x) == 1 && x >= 0) { expert_lr = x; ST64(CX_M_LR, kbits(expert_lr)); logline("command: expert lr %g", expert_lr); }
 		else if (!strcmp(s, "stop")) { stop_requested = 1; logline("command: stop requested"); }
@@ -323,7 +389,7 @@ static int wait_ack_bit(uint64_t bit, int set, double timeout_s)
 /* ---- main ---- */
 int main(int argc, char **argv)
 {
-	if (argc < 2) { fprintf(stderr, "usage: coach TOKENS.u16 [--ckpt CKPT] [--start CHUNK] [--chunks N] [--lr X] [--every N] [--window W] [--min-gain B] [--halvings H] [--sample-every N] [--sample-tokens N] [--save-every N] [--no-stop] [--prompt TEXT] [--orchestra NGC] [--words LIST] [--cmd FILE] [--ckdir DIR] [--paused] [--log FILE] [--cortex PATH] [--vocab FILE] [--ngram TABLES.f32 [--row-lr X] [--gates FILE|ones] [--tables-every N]] [--moe] [--moe-bias X] [--bias-decay N] [--expert-lr X]\n"); return 2; }
+	if (argc < 2) { fprintf(stderr, "usage: coach TOKENS.u16 [--ckpt CKPT] [--start CHUNK] [--chunks N] [--lr X] [--every N] [--window W] [--min-gain B] [--halvings H] [--sample-every N] [--sample-tokens N] [--save-every N] [--no-stop] [--prompt TEXT] [--orchestra NGC] [--words LIST] [--cmd FILE] [--ckdir DIR] [--paused] [--log FILE] [--cortex PATH] [--vocab FILE] [--ngram TABLES.f32 [--row-lr X] [--gates FILE|ones] [--tables-every N]] [--moe] [--moe-bias X] [--bias-decay N] [--expert-lr X] [--pool FILE] [--pool-every N]\n"); return 2; }
 	tokens_path = argv[1];
 	for (int i = 2; i < argc; i++) {
 		if (!strcmp(argv[i], "--ckpt") && i + 1 < argc) ckpt = argv[++i];
@@ -355,6 +421,8 @@ int main(int argc, char **argv)
 		else if (!strcmp(argv[i], "--moe-bias") && i + 1 < argc) { moe_bias = atof(argv[++i]); moe_knobs_given = 1; }
 		else if (!strcmp(argv[i], "--bias-decay") && i + 1 < argc) { bias_decay = atol(argv[++i]); moe_knobs_given = 1; }
 		else if (!strcmp(argv[i], "--expert-lr") && i + 1 < argc) { expert_lr = atof(argv[++i]); moe_knobs_given = 1; }
+		else if (!strcmp(argv[i], "--pool") && i + 1 < argc) pool_path = argv[++i];
+		else if (!strcmp(argv[i], "--pool-every") && i + 1 < argc) pool_every = atol(argv[++i]);
 		else { fprintf(stderr, "coach: unknown option %s\n", argv[i]); return 2; }
 	}
 	lg = fopen(log_path, "a");
@@ -383,20 +451,22 @@ int main(int argc, char **argv)
 	if (part == MAP_FAILED) { perror("mmap"); return 1; }
 	if (mkdir(ckdir, 0755) && errno != EEXIST) { perror(ckdir); return 1; }
 	if (ng_path && ng_open(&NG, ng_path, 1)) return 1;
-	if (moe && !ckpt) { fprintf(stderr, "coach: --moe needs --ckpt (the LOAD fills the pool from it)\n"); return 2; }
+	if (moe && !ckpt) { fprintf(stderr, "coach: --moe needs --ckpt (the LOAD fills the pool from it or keeps the pulled one)\n"); return 2; }
+	if (pool_path && !moe) { fprintf(stderr, "coach: --pool needs --moe\n"); return 2; }
 	if (moe || moe_knobs_given) { ST64(CX_M_BIAS, kbits(moe_bias)); ST64(CX_M_LR, kbits(expert_lr)); }
 	saves_seen = LD64(CX_T_SAVES);
 	if (cmd_path) { struct stat st; if (!stat(cmd_path, &st)) cmd_offset = st.st_size; }   /* only lines appended from now on */
 	char mem[1400] = "";
 	if (ng_path) snprintf(mem, sizeof mem, ", n-gram memory %s (row lr %g, gates %s, tables every %ld)", ng_path, row_lr, gates_spec, tables_every);
-	if (moe || moe_knobs_given) snprintf(mem + strlen(mem), sizeof mem - strlen(mem), ", MoE%s (bias %g%s%ld%s, expert lr %g)", moe ? " loaded" : " knobs", moe_bias, bias_decay ? " to 0 over " : "", bias_decay, bias_decay ? " chunks" : "", expert_lr);
+	if (moe || moe_knobs_given) snprintf(mem + strlen(mem), sizeof mem - strlen(mem), ", MoE%s (bias %g%s%ld%s, expert lr %g%s%s)", moe ? " loaded" : " knobs", moe_bias, bias_decay ? " to 0 over " : "", bias_decay, bias_decay ? " chunks" : "", expert_lr, pool_path ? ", pool " : "", pool_path ? pool_path : "");
 	logline("coach: %s chunks %ld..%ld (%ld chunks = %ld tokens), lr %.3e, report every %d, window %d, min gain %.3f, halvings %d, sample every %ld x %d tokens, save every %ld%s%s%s, cmd %s, checkpoints %s/%s",
 	        tokens_path, start_chunk, start_chunk + total_chunks - 1, total_chunks, total_chunks * CX_T_L, lr, every, window, min_gain, max_halvings, sample_every, sample_tokens,
 	        save_every, no_stop ? ", no stop" : "", orchestra ? ", orchestra " : "", orchestra ? orchestra : "", cmd_path ? cmd_path : "(none)", ckdir, mem);
-	/* the initial weights */
+	/* the initial weights (a saved pool first: the LOAD then keeps it) */
+	if (pool_path && pool_load(pool_path)) return 1;
 	if (ckpt) {
 		char cmd[4096];
-		snprintf(cmd, sizeof cmd, "%s --load %s --bus 0 --vocab %s%s%s%s", cortex_bin, ckpt, vocab, ng_path ? " --gates " : "", ng_path ? gates_spec : "", moe ? " --moe" : "");
+		snprintf(cmd, sizeof cmd, "%s --load %s --bus 0 --vocab %s%s%s%s%s", cortex_bin, ckpt, vocab, ng_path ? " --gates " : "", ng_path ? gates_spec : "", moe ? " --moe" : "", pool_path ? " --moe-keep" : "");
 		const int rc = system(cmd);
 		if (rc) { logline("coach: loading %s failed (rc %d)", ckpt, rc); return 1; }
 		logline("coach: %s loaded into the daemon", ckpt);
@@ -419,7 +489,7 @@ int main(int argc, char **argv)
 	uint64_t last_report = report0;
 	double win_sum = 0, prev_mean = 0;
 	int win_n = 0, have_prev = 0, neg_windows = 0;
-	long next_sample = sample_every ? sample_every : -1, next_save = save_every ? save_every : -1, next_tables = tables_every, consumed = 0;
+	long next_sample = sample_every ? sample_every : -1, next_save = save_every ? save_every : -1, next_tables = tables_every, next_pool = pool_every, consumed = 0;
 	int sample_seed = 1, ng_checked = 0;
 	for (;;) {
 		usleep(5000);
@@ -478,6 +548,13 @@ int main(int argc, char **argv)
 			request_save();
 			logline("checkpoint requested at chunk %ld (every %ld chunks)%s", consumed, save_every, tables_wanted ? ", with the tables" : "");
 		}
+		if (moe && pool_every > 0 && consumed >= next_pool) { next_pool = (consumed / pool_every + 1) * pool_every; pool_save_wanted = 1; }
+		if (pool_save_wanted) {   /* a `save-pool` line or the schedule: the pool as it is now, the run going on between rounds */
+			pool_save_wanted = 0;
+			char path[1024];
+			snprintf(path, sizeof path, "%s/pool-%ld.f32", ckdir, consumed);
+			pool_save(path);
+		}
 		if ((next_sample > 0 && consumed >= next_sample) || sample_requested) {
 			if (next_sample > 0 && consumed >= next_sample) next_sample += sample_every;
 			sample_requested = 0;
@@ -498,6 +575,11 @@ int main(int argc, char **argv)
 			set_flags(flags | 1);
 			if (wait_ack_bit(1, 1, 60)) logline("coach: the card did not acknowledge the final checkpoint within 60 s");
 			else collect_ckpt("final");
+			if (moe) {   /* the pool as the run leaves it, beside the final checkpoint */
+				char path[1024];
+				snprintf(path, sizeof path, "%s/pool-%ld.f32", ckdir, consumed);
+				pool_save(path);
+			}
 			ST32(CX_T_MAGIC, 0);
 			set_flags(0);
 			logline("coach: run ended at chunk %ld (%ld tokens), %d halvings, final scale %.4f", consumed, consumed * CX_T_L, halvings, scale);

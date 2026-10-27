@@ -36,6 +36,10 @@ static inline uint32_t cx_ex_index(uint32_t a, uint32_t b) { return (a * CX_EX_K
  * routing is competitive with learned routing (Roller et al. 2021, arXiv 2106.04426); learned keys are the next
  * step. Experts train by plain SGD (no moments for 1.07 G parameters), one rank-1 update per head per step. */
 #define CX_EX_SLOT CX_O_W1                                      /* the expert's place in a head's parameter block */
+#define CX_EX_POOL_BYTES ((size_t)CX_EX_N * CX_EX_BYTES)        /* 4,293,918,720 B; a pool file holds exactly this */
+#define CX_EX_POOL_PAGES ((CX_EX_POOL_BYTES + CX_POOL_PAGE - 1) / CX_POOL_PAGE)   /* 2,048 huge pages (the last one half full) */
+#define CX_EX_POOL_ROUNDS ((CX_EX_POOL_PAGES + CX_POOL_ROUND_PAGES - 1) / CX_POOL_ROUND_PAGES)   /* 187 transfer rounds */
+_Static_assert(CX_POOL_ROUND_BYTES <= CX_STAGE_CKPT, "a pool round fits the stage");
 #define CX_EX_HOME_A(k) ((uint32_t)(k) / CX_EX_KEYS)
 #define CX_EX_HOME_B(k) ((uint32_t)(k) % CX_EX_KEYS)
 #define CX_EX_LR 0.05f                                          /* the experts' SGD step, the run knob's default */
