@@ -544,6 +544,9 @@ fn run(f: &mut Frame, a: &mut App) {
             let verdict = if i.verdict == "PASS" { text(format!("{} ", i.verdict)).bold() } else { dim(format!("{} ", i.verdict)) };
             rows.push(vec![dim(format!("{when:<22}")), verdict, faint(clip(&i.note, cw.saturating_sub(30)))]);
             rows.push(vec![pad(2), dim("student  "), text(clip(&i.reply, cw.saturating_sub(11)))]);
+            if !i.rewrite.is_empty() {
+                rows.push(vec![pad(2), dim("teacher  "), text(clip(&i.rewrite, cw.saturating_sub(11)))]);
+            }
         }
         rows.push(vec![]);
     }

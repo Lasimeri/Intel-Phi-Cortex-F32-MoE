@@ -88,6 +88,8 @@ pub struct Interaction {
     /// Matches in a row so far, as the loop counted them.
     pub hits: u64,
     pub reply: String,
+    /// The teacher's rewrite of the reply (the correction pass, tools/teacher-correct.sh); empty otherwise.
+    pub rewrite: String,
 }
 
 /// The interactions kept, newest last.
@@ -236,10 +238,23 @@ pub fn interaction_of(time: &str, rest: &str) -> Option<Interaction> {
     };
     let (verdict, note) = match score.split_once(' ') {
         Some((v, n)) if v == "PASS" || v == "FAIL" => (v.to_string(), n.trim().to_string()),
+        Some(("GRADE", n)) => grade_of(n),
         _ => (score.split_whitespace().take(2).collect::<Vec<_>>().join(" "), score.to_string()),
     };
     let note = if chunk == 0 { format!("re-test on the final weights: {note}") } else { note };
-    Some(Interaction { time: time.to_string(), round, chunk, verdict, note, hits, reply: reply.trim().to_string() })
+    let (reply, rewrite) = match reply.split_once(" => ") {
+        Some((a, b)) => (a.trim().to_string(), b.trim().to_string()),
+        None => (reply.trim().to_string(), String::new()),
+    };
+    Some(Interaction { time: time.to_string(), round, chunk, verdict, note, hits, reply, rewrite })
+}
+
+/// The correction pass's score "grammar 2 relevance 3 persona 4: why" as ("g2 r3 p4", "why").
+fn grade_of(n: &str) -> (String, String) {
+    let (nums, why) = n.split_once(": ").unwrap_or((n, ""));
+    let w: Vec<&str> = nums.split_whitespace().collect();
+    let pick = |k: &str| w.iter().position(|x| *x == k).and_then(|i| w.get(i + 1)).map_or("?".to_string(), |s| s.to_string());
+    (format!("g{} r{} p{}", pick("grammar"), pick("relevance"), pick("persona")), why.trim().to_string())
 }
 
 /// The file's bytes from `from` to its end.
@@ -501,6 +516,18 @@ mod tests {
         assert!(r.teacher_done.as_deref().unwrap().starts_with("MATCHED after 1 round"));
         r.take_teacher("11:00:00 === identity loop: set y, test persona p, prompt \"Who are you?\", reference r, from z");
         assert!(r.teacher.is_empty() && r.teacher_done.is_none() && r.teacher_prompt.as_deref() == Some("Who are you?"));
+    }
+
+    #[test]
+    fn a_graded_correction_carries_the_grades_and_the_rewrite() {
+        let mut r = Run::default();
+        r.take_teacher("15:05:11 round 2 chunk 3145: GRADE grammar 2 relevance 3 persona 4: incoherent syntax (matches in a row 0) | I like to talk. Do not have a ball. => Yes, I like to talk with people.");
+        assert_eq!(r.teacher.len(), 1);
+        let i = &r.teacher[0];
+        assert_eq!((i.round, i.chunk, i.verdict.as_str(), i.note.as_str()), (2, 3145, "g2 r3 p4", "incoherent syntax"));
+        assert_eq!((i.reply.as_str(), i.rewrite.as_str()), ("I like to talk. Do not have a ball.", "Yes, I like to talk with people."));
+        r.take_teacher("15:05:27 round 2 chunk 3145: FAIL no name (matches in a row 0) | The air is a computer.");
+        assert_eq!((r.teacher[1].verdict.as_str(), r.teacher[1].rewrite.as_str()), ("FAIL", ""));
     }
 
     #[test]

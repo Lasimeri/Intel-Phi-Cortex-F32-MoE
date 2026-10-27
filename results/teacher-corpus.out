@@ -1,24 +1,30 @@
-13:55:06 === corpus writers: 1 at once, 3 conversations of 5 exchanges a call, 199 topics, persona data/chat-base2/persona.txt, into data/teacher (touch data/teacher/stop to end)
-13:55:23 writer 0 batch 1: 3 of 3 conversations, 2429 bytes, 16.4 s, "a book that changed me"
-13:55:44 writer 0 batch 2: 3 of 3 conversations, 2771 bytes, 21.2 s, "Adopted family connections"
-13:55:57 writer 0 batch 3: 3 of 3 conversations, 2365 bytes, 13.0 s, "adopting shelter dogs"
-13:56:10 writer 0 batch 4: 3 of 3 conversations, 2354 bytes, 13.1 s, "animal behavior observation"
-13:56:21 writer 0 batch 5: 3 of 3 conversations, 2075 bytes, 10.8 s, "anxiety over money"
-13:56:37 writer 0 batch 6: 3 of 3 conversations, 2442 bytes, 16.1 s, "aquarium plant maintenance"
-13:56:49 writer 0 batch 7: 3 of 3 conversations, 2394 bytes, 11.7 s, "a song that stuck with me"
-13:57:03 writer 0 batch 8: 3 of 3 conversations, 2639 bytes, 14.5 s, "Autumn leaves falling"
-13:57:18 writer 0 batch 9: 3 of 3 conversations, 2646 bytes, 14.9 s, "baking bread"
-13:57:34 writer 0 batch 10: 3 of 3 conversations, 2351 bytes, 16.3 s, "beach day trip"
-13:57:44 writer 0 batch 11: 3 of 3 conversations, 1965 bytes, 9.5 s, "bench by fountain"
-13:57:57 writer 0 batch 12: 3 of 3 conversations, 2364 bytes, 13.1 s, "Best friend long-distance calls"
-13:58:14 writer 0 batch 13: 3 of 3 conversations, 2397 bytes, 16.8 s, "bike route mapping"
-13:58:30 writer 0 batch 14: 3 of 3 conversations, 2345 bytes, 16.3 s, "bird calls in trees"
-13:58:43 writer 0 batch 15: 3 of 3 conversations, 2274 bytes, 12.9 s, "bird migration patterns"
-13:58:56 writer 0 batch 16: 3 of 3 conversations, 2457 bytes, 13.4 s, "Birthday party ideas"
-13:59:08 writer 0 batch 17: 3 of 3 conversations, 2301 bytes, 11.8 s, "blending smoothies"
-13:59:25 writer 0 batch 18: 3 of 3 conversations, 2616 bytes, 16.5 s, "Blooming flowers early spring"
-13:59:38 writer 0 batch 19: 3 of 3 conversations, 2061 bytes, 13.2 s, "board gaming"
-13:59:53 writer 0 batch 20: 3 of 3 conversations, 2632 bytes, 15.0 s, "boat rental options"
-14:00:06 writer 0 batch 21: 3 of 3 conversations, 1970 bytes, 13.2 s, "boiling soup"
-14:00:17 writer 0 batch 22: 3 of 3 conversations, 2128 bytes, 11.2 s, "book club picks"
-14:00:35 writer 0 batch 23: 3 of 3 conversations, 2528 bytes, 17.7 s, "breeze through leaves"
+15:05:53 the words: asking the teacher for 300 simple words
+15:06:52 words: 425 in data/teacher/words.txt
+15:06:52 === corpus writers: 1 at once, 3 conversations of 5 exchanges a call, 199 topics, 425 seed words, persona data/chat-base2/persona.txt, into data/teacher (touch data/teacher/stop to end)
+15:07:07 writer 0 batch 1: 3 of 3 conversations, 2223 bytes, 15.0 s, "a book that changed me", words swarm, black, fermium, the person friendly and asks the speaker where it lives at some point
+15:07:22 writer 0 batch 2: 3 of 3 conversations, 2021 bytes, 14.1 s, "Adopted family connections", words paper, surf, juice, the person tired
+15:07:43 writer 0 batch 3: 3 of 3 conversations, 3148 bytes, 21.4 s, "adopting shelter dogs", words rock, view, eye, the person chatty and tells a small story of its own
+15:07:59 writer 0 batch 4: 3 of 3 conversations, 2565 bytes, 15.8 s, "animal behavior observation", words splash, cotton, muscle, the person worried about something
+15:08:16 writer 0 batch 5: 3 of 3 conversations, 2445 bytes, 17.4 s, "anxiety over money", words silicon, spin, vase, the person friendly and asks the speaker where it lives at some point
+15:08:28 writer 0 batch 6: 3 of 3 conversations, 2171 bytes, 12.0 s, "aquarium plant maintenance", words soak, fermium, bromine, the person joking around
+15:08:40 writer 0 batch 7: 3 of 3 conversations, 2015 bytes, 11.3 s, "a song that stuck with me", words eat, race, wilt, the person in a hurry
+15:08:49 writer 0 batch 8: 3 of 3 conversations, 2016 bytes, 9.5 s, "Autumn leaves falling", words ball, stone, protein, the person cheerful
+15:08:58 writer 0 batch 9: 3 of 3 conversations, 1793 bytes, 8.8 s, "baking bread", words lung, hydrogen, talk, the person shy and asks short questions
+15:09:16 writer 0 batch 10: 3 of 3 conversations, 2590 bytes, 18.3 s, "beach day trip", words vanadium, break, hive, the person chatty and tells a small story of its own
+15:09:36 writer 0 batch 11: 3 of 3 conversations, 2598 bytes, 19.8 s, "bench by fountain", words sodium, snow, roast, the person worried about something
+15:09:58 writer 0 batch 12: 3 of 3 conversations, 3227 bytes, 22.5 s, "Best friend long-distance calls", words observe, kite, gasp, the person chatty and tells a small story of its own
+15:10:14 writer 0 batch 13: 3 of 3 conversations, 2235 bytes, 15.7 s, "bike route mapping", words cobalt, mop, jump, the person curious and asks the speaker who it is at some point
+15:10:28 writer 0 batch 14: 3 of 3 conversations, 2318 bytes, 13.6 s, "bird calls in trees", words nitrogen, drench, bromine, the person tired
+15:10:40 writer 0 batch 15: 3 of 3 conversations, 2132 bytes, 11.8 s, "bird migration patterns", words lion, cook, dust, the person joking around
+15:10:57 writer 0 batch 16: 3 of 3 conversations, 2696 bytes, 17.2 s, "Birthday party ideas", words gaze, lightning, wig, the person curious
+15:11:15 writer 0 batch 17: 3 of 3 conversations, 2469 bytes, 18.5 s, "blending smoothies", words seaborgium, cotton, phosphorus, the person in a hurry
+15:11:27 writer 0 batch 18: 3 of 3 conversations, 2036 bytes, 11.3 s, "Blooming flowers early spring", words pull, drench, argon, the person excited
+15:11:38 writer 0 batch 19: 3 of 3 conversations, 2346 bytes, 11.1 s, "board gaming", words number, mineral, hat, the person curious
+15:11:58 writer 0 batch 20: 3 of 3 conversations, 2642 bytes, 20.9 s, "boat rental options", words kiss, sand, shave, the person curious
+15:12:21 writer 0 batch 21: 3 of 3 conversations, 2166 bytes, 22.6 s, "boiling soup", words meitnerium, sulfur, pull, the person cheerful
+15:12:40 writer 0 batch 22: 3 of 3 conversations, 2459 bytes, 19.3 s, "book club picks", words bend, emerald, gasp, the person curious
+15:13:00 writer 0 batch 23: 3 of 3 conversations, 2503 bytes, 19.1 s, "breeze through leaves", words oganesson, jam, map, the person in a hurry
+15:13:22 writer 0 batch 24: 3 of 3 conversations, 2424 bytes, 22.0 s, "brewing coffee", words paste, gasp, gravel, the person in a hurry
+15:13:39 writer 0 batch 25: 3 of 3 conversations, 2025 bytes, 17.3 s, "budgeting tips", words cup, iodine, lift, the person in a hurry
+15:14:02 writer 0 batch 26: 3 of 3 conversations, 2271 bytes, 23.2 s, "camping gear check", words god, blow, cool, the person excited
+15:14:20 writer 0 batch 27: 3 of 3 conversations, 2034 bytes, 17.9 s, "card collecting", words point, team, drink, the person joking around

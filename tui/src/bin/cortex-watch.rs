@@ -412,7 +412,12 @@ fn main_screen(f: &mut Frame, w: &mut Watch) {
     let sample_rows = 1 + 3;
     let events_rows = 1 + w.run.events.len().clamp(1, 5);
     let ckpt_rows = 1 + w.run.ckpts.len().clamp(1, 3);
-    let teacher_rows = if w.run.teacher_prompt.is_some() || !w.run.teacher.is_empty() { 1 + if w.run.teacher.is_empty() { 1 } else { 2 * w.run.teacher.len().min(4) } + 1 } else { 0 };
+    let shown = &w.run.teacher[w.run.teacher.len().saturating_sub(4)..];
+    let teacher_rows = if w.run.teacher_prompt.is_some() || !w.run.teacher.is_empty() {
+        1 + if shown.is_empty() { 1 } else { shown.iter().map(|i| 2 + usize::from(!i.rewrite.is_empty())).sum::<usize>() } + 1
+    } else {
+        0
+    };
     let fixed = 1 + rows.len() + sample_rows + 1 + events_rows + 1 + ckpt_rows + 1 + teacher_rows + (1 + talk_h) + 1 + 2;
     let avail = h.saturating_sub(fixed);
     let every = w.run.header.as_ref().map_or(100, |x| x.every);
@@ -492,6 +497,9 @@ fn main_screen(f: &mut Frame, w: &mut Watch) {
             let verdict = if i.verdict == "PASS" { text(format!("{} ", i.verdict)).bold() } else { dim(format!("{} ", i.verdict)) };
             rows.push(vec![dim(format!("{when:<22}")), verdict, faint(clip(&i.note, cw.saturating_sub(30)))]);
             rows.push(vec![pad(2), dim("student  "), text(clip(&i.reply, cw.saturating_sub(11)))]);
+            if !i.rewrite.is_empty() {
+                rows.push(vec![pad(2), dim("teacher  "), text(clip(&i.rewrite, cw.saturating_sub(11)))]);
+            }
         }
         rows.push(vec![]);
     }

@@ -141,3 +141,39 @@ repeat penalty of 1.2 with the JSON grammar one reply drifted into a word list i
 writer caps a reply at 1,600 tokens and drops a conversation with a turn over 220 characters. Arithmetic at 14
 tok/s: about 50,000 tokens an hour, the first megabyte of text (about 250,000 tokens) in four to five hours; the
 from-scratch model's first round starts then.
+
+## Methods from the literature (14:5x, user: "the teacher model also needs to properly teach the student to communicate, use Exa for proper training methods")
+
+Searched with Exa on 2026-10-27; the papers, what each does, and whether it fits a 5.87M-parameter F32 student with
+no attention and its own 4,096-id BPE, served a black-box teacher:
+
+| method | source | mechanism | fit |
+|---|---|---|---|
+| sequence-level KD | Kim & Rush 2016; the survey arxiv 2402.13116 calls it "the simplest and one of the most effective methods" for black-box teachers | the student maximises the likelihood of teacher-written sequences | what the corpus run is |
+| MiniLLM, GKD, DistiLLM | Gu et al. 2023 (arxiv 2306.08543), Agarwal et al. 2023 (OpenReview 3zKtaqxLhW), Ko et al. 2024 (arxiv 2402.03898) | on-policy: the student samples, the teacher scores its samples (reverse KL, JSD, skew KL); fixes exposure bias; needs the teacher's token probabilities of the student's text | trains on the student's own sequences as context: the user's rule forbids training on model outputs, and the tokenizers differ; not built |
+| TinyStories | Eldan & Li 2023 (arxiv 2305.07759) | a corpus of only the words a 3 to 4-year-old knows, diversity forced by three random words and story features per prompt; models under 10M parameters (embedding 256) and even one transformer block write fluent, consistent stories; GPT-4 grades grammar, creativity and consistency "as a teacher grades a student" | adopted in the writer (a 300-word list from the teacher, three seed words and a mood per call, the seven-year-old vocabulary rule) and in the grader (three 0-to-10 dimensions); their models have attention, the Cortex has none |
+| UltraChat, Baize | Ding et al. 2023 (arxiv 2305.14233), Xu et al. 2023 (arxiv 2304.01196) | diversity from meta-topics and opening lines; UltraChat runs two model instances, one playing the user; Baize writes both sides in one transcript around a seed | the themes-to-topics list and the person's mood are the diversity levers; the single-call form is Baize's; the two-instance alternation would double the calls per turn and was not adopted |
+| ILF, LeMa, CITING | Scheurer, Chen et al. 2023 (arxiv 2303.16755, 2303.16749), An et al. 2023 (arxiv 2310.20689), Feng et al. 2023 (arxiv 2310.02527) | the student answers, the teacher critiques and rewrites, the student trains on (input, the rewrite); ILF beats fine-tuning on human summaries and lifts code pass@1 by 38 % relative; CITING wins 79 % against SFT by GPT-4 judgement | THE loop built below: the student's own words never enter the stream, only the teacher's revision of them |
+| ULD, DSKD, ALM | Boizard et al. 2024 (arxiv 2402.12030), Zhang et al. 2024 (arxiv 2406.17328), arxiv 2503.20083 | logit-level distillation across tokenizers: Wasserstein-1 between sorted probabilities, projected hidden states with token alignment, chunk-likelihood matching | needs full-vocabulary teacher probabilities per position and a soft-target gradient (p minus q) on the card: the stage after this one, not built |
+| BabyLM | Warstadt et al. 2023 (CoNLL), the 2025 findings (aclanthology 2025.babylm-main.28) | on 10M and 100M words, curriculum learning (13 of 31 teams) was "largely unsuccessful"; architecture changes won; in 2025 the interaction track, students learning from teacher feedback, "can yield high-quality language models" | supports the correction loop over any curriculum |
+
+## The correction loop (15:0x)
+
+`tools/teacher-correct.sh CORPUS_DIR PERSONA.txt VOCAB OUT.jsonl ROUND CHUNK [--count K] [--tables FILE] [--ngen N]
+[--seed S] [--batches B] [--log FILE]`: K conversations drawn from the newest corpus batches, each cut at a random
+line of the person; the student (the live weights on the card) answers that line under the user's sampling (temp
+0.5, top-k 75, top-p 0.95, min-p 0.05, repeat penalty 1.2, one seed per item); the teacher grades the answer on
+grammar, relevance and persona (0 to 10) and rewrites it (`tools/teacher-grade.sh PERSONA.txt CONTEXT.txt "REPLY"`,
+one JSON object through tools/teacher.sh with the repeat penalty at 1.0); the conversation up to that line with the
+rewrite as the speaker's answer becomes one correction in OUT.jsonl. Every item is a line of the loop's record
+("round R chunk C: GRADE grammar G relevance R persona P: why (matches in a row 0) | STUDENT => REWRITE"), which the
+monitor and the harness show as three rows (the grades, the student's reply, the teacher's rewrite).
+
+The driver (tools/teacher-scratch.sh) runs the pass after every round (20 items), keeps the last three rounds'
+corrections as the set (DIR/corrections-set.u16), and builds the next round's stream with tools/mixstream so one
+correction conversation recurs every six corpus conversations; the trained position advances to where the mix
+left the base. The first pass on the live weights of round 2 (chunk 3,145; 15:05): two items in 23.6 s, the student
+about one second each, the grader about ten; grades 2/3/4 and 1/0/0 ("incoherent syntax and non-sequitur",
+"incoherent gibberish"); the rewrites: "Yes, I like to talk with people. It is fun for me." and "Old stories are
+fun. I like to talk with people." The second rewrite shows the grader's own slip: it put a persona fact into an
+answer nobody asked for; the rubric says only when asked.

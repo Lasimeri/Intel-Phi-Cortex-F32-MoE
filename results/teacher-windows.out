@@ -1,0 +1,6 @@
+   Compiling cortex-tui v0.1.0 (/mnt/Phi-Cortex-F32-MoE/tui)
+    Finished `release` profile [optimized] target(s) in 2.30s
+watch.sh: the monitor is open in a konsole window on the desktop (/mnt/Phi-Cortex-F32-MoE/tui/target/release/cortex-watch)
+    Finished `release` profile [optimized] target(s) in 0.01s
+chat.sh: the TUI is open in a konsole window on the desktop (/mnt/Phi-Cortex-F32-MoE/tui/target/release/cortex-tui)
+14:31:16 the windows relaunched on data/live-teacher

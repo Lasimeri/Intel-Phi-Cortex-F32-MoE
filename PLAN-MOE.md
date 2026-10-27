@@ -660,3 +660,12 @@ writers, the judge and the frame.
 one (tools/json-objects.c; the teacher writes its closing delimiter in place of the object's final brace in half
 the calls): 12.3 conversations and about 7.3 KB of text a minute, the vocabulary's 300 KB about 14:40 and the first
 round right after it; the two desktop windows move to data/live-teacher when its vocabulary and tables exist.
+
+15:0x (user: "the teacher model also needs to properly teach the student to communicate, use Exa for proper training
+methods"): the literature read (docs/TEACHER.md "Methods from the literature": SeqKD, MiniLLM/GKD/DistiLLM, TinyStories,
+UltraChat/Baize, ILF/LeMa/CITING, ULD/DSKD/ALM, BabyLM) and the correction loop built in its ILF/LeMa/CITING shape: after
+every round twenty corpus contexts are answered by the live weights under the user's sampling, graded on grammar,
+relevance and persona and rewritten by the teacher, and the rewrites recur in the next round's stream (one every six
+corpus conversations, the last three rounds kept); the writer follows the TinyStories recipe (a 300-word list, three
+seed words and a mood per call). On-policy logit distillation is ruled out by the user's rule against training on
+model outputs; cross-tokenizer logit distillation (ULD) is the stage after, needing a soft-target gradient on the card.
