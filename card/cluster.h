@@ -73,7 +73,7 @@ typedef struct {
 	const cx_soft *soft_cur, *soft_file;
 	cx_soft *softbuf;
 	uint64_t softbuf_phys, soft_host;
-	long soft_seen;
+	long soft_seen, soft_bad;   /* soft_bad: chunks whose DMA'd slot failed the host's checksum (trained on hard targets) */
 	/* MoE stage 2 (builds with CX_MOE; moe_on 0 = the dense columns): the pool in GDDR, the shared keys, each head's
 	 * router context, every head's route per step (route[k * CX_LMAX + t]), the experts' SGD step */
 	int moe_on;
@@ -150,7 +150,19 @@ static inline void cl_chunk_begin(cluster *C, int k, long ch)
 			const uint64_t seq = cdma_submit(C->dma, C->soft_host + (uint64_t)((uint32_t)ch % CX_T_SLOTS) * CX_SOFT_CHUNK_BYTES, C->softbuf_phys + (uint64_t)s * CX_SOFT_CHUNK_BYTES, CX_SOFT_CHUNK_BYTES, 0, 0);
 			if (!seq || cdma_wait(C->dma, seq, 5.0)) { fprintf(stderr, "cl_chunk_begin: soft target DMA failed at chunk %ld\n", ch); }
 			for (uint32_t i = 0; i < CX_SOFT_CHUNK_BYTES; i += 64) cx_evict1((const char *)C->softbuf + (size_t)s * CX_SOFT_CHUNK_BYTES + i);
-			C->soft_cur = C->softbuf + (size_t)s * CX_T_L;
+			/* the slot's checksum, written by the coach after the records: what the DMA brought must sum to it, or the chunk
+			 * trains on the hard targets alone and the miss is counted (a wrong source address trained chunks on zeros
+			 * while reporting every step soft on 2026-10-27 19:56; never again unseen) */
+			const uint64_t *w = (const uint64_t *)(C->softbuf + (size_t)s * CX_T_L);
+			uint64_t sum = 0;
+			for (int i = 0; i < (int)(CX_SOFT_CHUNK_BYTES / 8); i++) sum += w[i];
+			const uint64_t want = __atomic_load_n((volatile uint64_t *)(C->part + CX_T_SOFT_SUM(ch)), __ATOMIC_ACQUIRE);
+			if (sum == want) C->soft_cur = C->softbuf + (size_t)s * CX_T_L;
+			else {
+				C->soft_cur = NULL;
+				C->soft_bad++;
+				if (C->soft_bad <= 3 || C->soft_bad % 1000 == 0) fprintf(stderr, "cl_chunk_begin: the soft targets of chunk %ld do not match the host's checksum (%ld bad so far): hard targets for this chunk\n", ch, C->soft_bad);
+			}
 		} else C->soft_cur = NULL;
 	}
 	cl_wait(C, k);

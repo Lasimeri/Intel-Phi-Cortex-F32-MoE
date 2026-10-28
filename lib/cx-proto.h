@@ -146,6 +146,10 @@ typedef struct { uint16_t id[CX_SOFT_K]; float p[CX_SOFT_K]; } cx_soft;
 #define CX_T_SOFT (CX_T_BASE + 640u)        /* u32 1: the coach fills the soft ring for every chunk of the run (host) */
 #define CX_T_SOFT_RING (57u << 20)          /* CX_T_SLOTS slots of CX_SOFT_CHUNK_BYTES: 1.5 MiB */
 #define CX_T_SOFT_SLOT(c) (CX_T_SOFT_RING + (uint32_t)((c) % CX_T_SLOTS) * CX_SOFT_CHUNK_BYTES)
+#define CX_T_SOFT_SUM(c) (CX_T_SOFT_RING + CX_T_SLOTS * CX_SOFT_CHUNK_BYTES + (uint32_t)((c) % CX_T_SLOTS) * 8u)   /* u64 the slot's checksum, the sum of its
+                                               192 words, written by the coach after the records (host); the card sums what its DMA brought and trains the chunk on
+                                               the hard targets alone when the two differ (a wrong source or a torn copy never trains on noise unseen) */
+#define CX_T_SOFT_BAD (CX_T_BASE + 1984u)   /* u64 chunks of the run whose soft slot failed the checksum (card) */
 #define CX_T_CTX_US (CX_T_BASE + 1856u)     /* f64 the context memory's mean microseconds a step over the last report window, thread 0 (card) */
 #define CX_T_SOFT_N (CX_T_BASE + 1920u)     /* u64 steps of the last report window whose soft record held a distribution (card) */
 #define CX_T_WARMUP 50                      /* chunks of learning-rate ramp at the start of a live run (as cluster-gate run) */

@@ -150,7 +150,9 @@ static void feed(void)
 		if (soft) {   /* the chunk's soft records into its slot of the soft ring, 64-bit stores into the uncached part */
 			volatile uint64_t *ss = (volatile uint64_t *)(part + CX_T_SOFT_SLOT(fed));
 			const uint64_t *sr = (const uint64_t *)(soft + (start_chunk + fed) * CX_T_L);
-			for (unsigned i = 0; i < CX_SOFT_CHUNK_BYTES / 8; i++) ss[i] = sr[i];
+			uint64_t sum = 0;
+			for (unsigned i = 0; i < CX_SOFT_CHUNK_BYTES / 8; i++) { ss[i] = sr[i]; sum += sr[i]; }
+			*(volatile uint64_t *)(part + CX_T_SOFT_SUM(fed)) = sum;   /* the slot's checksum after its words; the card refuses a slot that does not sum to it */
 		}
 		fed++;
 		__atomic_thread_fence(__ATOMIC_RELEASE);
@@ -557,7 +559,10 @@ int main(int argc, char **argv)
 			char ctx_note[48] = "", soft_note[48] = "";   /* the context memory's step time and the soft targets' share, when the daemon reports them */
 			const double ctx_us = kdbl(LD64(CX_T_CTX_US));
 			if (ctx_us > 0) snprintf(ctx_note, sizeof ctx_note, "  ctx %.0f us/step", ctx_us);
-			if (soft) snprintf(soft_note, sizeof soft_note, "  soft %.0f %%", 100.0 * (double)LD64(CX_T_SOFT_N) / ((double)every * CX_T_L));
+			if (soft) {
+				const unsigned long long bad = (unsigned long long)LD64(CX_T_SOFT_BAD);
+				snprintf(soft_note, sizeof soft_note, "  soft %.0f %%%s%llu%s", 100.0 * (double)LD64(CX_T_SOFT_N) / ((double)every * CX_T_L), bad ? " (bad slots " : "", bad, bad ? ")" : "");
+			}
 			logline("report chunk %ld  tokens %ld  loss %.4f nats = %.4f bits/token  lr %.3e  scale %.4f  %.0f tok/s  ring %ld ahead%s%s%s", consumed, consumed * CX_T_L, loss, loss / CX_LN2, lr_eff, scale, tokps, fed - consumed, moe_note, ctx_note, soft_note);
 			win_sum += loss;
 			win_n++;

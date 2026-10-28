@@ -198,3 +198,12 @@ the inventions come from. Round 5 is the first whose stream carries the set.
 base conversations, seen 1 times each (33 in all); 198 base conversations (29856 tokens) from token 166292 to
 196148"; the coach took 1,035 chunks (33,120 tokens); the trained position moved to 6,129 of the stream's 6,201
 chunks, the 72 behind the base's end token waiting for the next round.
+
+## The partial distillation (18:43, user: "adjust the teacher model so it partially distills itself into the PhiLLM")
+
+docs/DISTIL.md. The teacher's eight likeliest next tokens with their probabilities ride along with every token it
+writes (tools/teacher.sh `--lp-out`, saved beside each batch) and become half of the student's target wherever the
+two tokenisers share a boundary. The server must run without the MTP draft for it (`tools/teacher-serve.sh --np 1`):
+with the draft the distribution comes only at the tokens the target model sampled itself. Measured cost on the
+writer: a call of three conversations took 12 to 16 s with the draft and takes 22 to 29 s without it (19:29, the
+same prompt shape), so the corpus grows at about 6 conversations a minute instead of 12.

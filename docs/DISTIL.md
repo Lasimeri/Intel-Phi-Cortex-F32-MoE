@@ -66,3 +66,18 @@ round-R.soft, the coach feeds it with `--soft`. `--lambda 0` trains on the text 
 ## Measured in the run
 
 (filled at the first round trained with the soft targets.)
+
+## The first deployment lied, and the structure now checks itself (19:56 to 20:02)
+
+The daemon of 19:37 reported `soft 3200 of 3200` for every window of round 3 while the round's file carried a
+distribution on 35.3 % of its tokens. The host side was byte-exact (the part's slots at file offset 1,344 MiB + 57
+MiB matched round-3.soft word for word); the card's DMA read from bus address 57 MiB of nothing, because the soft
+ring's address was computed from the host part's address seven lines before that address was assigned, and the
+zeros it brought looked like records (id 0 is a valid id, probability 0 changes nothing): round 3 trained on the
+plain one-hot while every report said soft. Two changes: the address is taken after the host part is known, and
+every slot now carries a checksum (the sum of its 192 words, written by the coach after the records at
+CX_T_SOFT_SUM); the card sums what its DMA brought, trains the chunk on the hard targets alone when the sums
+differ, counts the miss (CX_T_SOFT_BAD, "bad slots N" in the daemon's and the coach's lines) and says so in its
+log. The cost of the check: 192 additions and one uncached 8-byte read a chunk, under 2 microseconds against a
+chunk of 70 ms. A deployment is verified by holding the daemon's `soft N of M` per report window against the
+file's own count for the same chunks (the scratchpad's softwin tool), not by the report alone.

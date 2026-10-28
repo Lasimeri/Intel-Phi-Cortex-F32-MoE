@@ -410,7 +410,7 @@ static int poll_training(void)
 	lr_base = rdf(CX_T_LR);
 	lr_scale = rdf(CX_T_SCALE);
 	report_every = rd32(CX_T_EVERY) ? rd32(CX_T_EVERY) : 100;
-	if (!tchunks) { loss_acc = 0; loss_n = 0; t_window = cx_now(); soft_seen_win = 0; ctx_cyc_win = C.tr[0].ctx_cycles; }
+	if (!tchunks) { loss_acc = 0; loss_n = 0; t_window = cx_now(); soft_seen_win = 0; ctx_cyc_win = C.tr[0].ctx_cycles; C.soft_bad = 0; }
 	C.bus = bus_train;
 	C.bus_on = train_bus_on;
 	C.ng = ng_run ? nggates : NULL;   /* with the memory: the chunk's rows over the ring (cl_chunk_begin), its row gradients back (cl_bwd_chunk); without: the plain model */
@@ -480,6 +480,7 @@ static void train_chunk(int k)
 			ctx_cyc_win = cyc;
 			wrf(CX_T_CTX_US, ctx_us);
 			wr64(CX_T_SOFT_N, (uint64_t)soft_seen_win);
+			wr64(CX_T_SOFT_BAD, (uint64_t)C.soft_bad);
 			const uint32_t distinct = moe_loaded ? moe_distinct() : 0;
 			if (moe_loaded) wr32(CX_T_MOE_DISTINCT, distinct);
 			cx_fence();
@@ -487,7 +488,7 @@ static void train_chunk(int k)
 			printf("live: chunk %7ld  tokens %10ld  loss %.4f nats = %.4f bits/token  lr %.2e  %.0f tok/s", tchunks, tchunks * (long)CX_LMAX, loss_acc / loss_n, loss_acc / loss_n / CX_LN2, lr_eff, tokps);
 			if (moe_loaded) printf("  moe: bias %g, expert lr %g, %u experts updated", (double)C.moe[0].bias, (double)C.moe_lr, distinct);
 			if (C.ctx_on) printf("  ctx %.0f us/step", ctx_us);
-			if (C.soft_on) printf("  soft %ld of %ld", soft_seen_win, loss_n * (long)CX_LMAX);
+			if (C.soft_on) printf("  soft %ld of %ld%s%ld%s", soft_seen_win, loss_n * (long)CX_LMAX, C.soft_bad ? " (bad slots " : "", C.soft_bad, C.soft_bad ? ")" : "");
 			printf("\n");
 			fflush(stdout);
 			loss_acc = 0;
@@ -694,7 +695,6 @@ int main(int argc, char **argv)
 	C.nggrad_phys = nggrad_phys;
 	C.softbuf = (cx_soft *)(ngpage + (192u << 10) / 4);   /* the partial distillation's two chunk slots of soft targets at 192 KiB of the page */
 	C.softbuf_phys = ngpage_phys + (192u << 10);
-	C.soft_host = host_part + CX_T_SOFT_RING;
 	C.ng = NULL;
 	C.ctxg = nggates + CX_GATES_CTX;   /* the context gates after the n-gram gates; fresh until a load brings a saved block */
 	for (int k = 0; k < CL_N; k++) C.ctxg[k] = CX_CTX_GATE0;
@@ -703,6 +703,7 @@ int main(int argc, char **argv)
 	if (cdma_open(&dma, chan)) return 1;
 	host_part = dma.region_addr + (part_mib << 20);
 	C.ng_host_rows = host_part + CX_NGR_ROWS(0);   /* the training row ring and its gradient slots, as the batch trainer has them */
+	C.soft_host = host_part + CX_T_SOFT_RING;      /* the soft ring of the partial distillation (after host_part is known: set before it, the DMA read address 57 MiB of nothing, 19:56) */
 	C.ng_host_grad = host_part + CX_NGR_GRAD(0);
 	C.ng_host_cseq = host_part + CX_NGR_C_SEQ;
 	int fd = open("/dev/phihost", O_RDWR | O_SYNC);

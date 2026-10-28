@@ -3,7 +3,9 @@
 # ~/llama.cpp/build/bin/llama-server (the CUDA build) on 127.0.0.1:8090 only, every layer in VRAM, 8,192 tokens of
 # context, flash attention, the user's sampling as the server's defaults (temp 0.5, top-k 75, top-p 0.95, min-p
 # 0.05, repeat penalty 1.2: a request's own values win), the MTP draft beside the model for speculative decoding
-# when --mtp is given. The 35B-A3B was ruled out for this card (2026-10-27 10:26): Q6_K is 29,208,731,296 B and
+# when --mtp is given (not while the corpus writer runs, since 19:13: with the draft the server returns the per-token
+# distribution only at the tokens the target model sampled itself, 1 of 396 in a batch; the partial distillation
+# needs it at every token, docs/DISTIL.md). The 35B-A3B was ruled out for this card (2026-10-27 10:26): Q6_K is 29,208,731,296 B and
 # Q4_K_M 21,713,462,944 B of weights against 24,564 MiB of VRAM with 3,849 MiB held by the desktop, so neither sits
 # in VRAM entirely. Log /tmp/cortex-teacher.log; the server detached; `--stop` ends it; `--status` asks /health.
 #   tools/teacher-serve.sh [--mtp] [--np N] [--ctx N] [--port P] | --status | --stop
