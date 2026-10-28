@@ -59,3 +59,15 @@ section with the rest.
 
 ## Measured
 (filled as the rounds come in: the memory reading, the dense reading, the relevance grade, the probe score.)
+
+## Lever 4 built and gated (22:00)
+
+The soft record grew from 48 to 52 bytes: a loss weight `w` per token (lib/cx-proto.h cx_soft), by which the card
+scales the step's whole gradient (card/cluster.h cl_fwd_step, `invLw`) and the reference does the same
+(tools/cref.h) while the reported loss stays the plain cross-entropy. tools/soft-align `--weight-user W` sets w = W
+on every token that predicts a token inside a person's line (the turns alternate, the person first) and 1
+elsewhere; the driver bakes the weight into the streams and rebuilds them when it changes (DIR/soft-format.txt).
+The gate on the card (the dense model, the context memory on, 1,024 warm steps, a chunk with 25 of 32 steps soft
+and the person's lines at 0.5) against the double reference: loss identical (8.425488 nats), hc 3.9e-7, u 2.9e-7,
+W 1.1e-6, W1 2.7e-7, cg 4.7e-7, E 3.5e-7 relative, the context gates 3.2e-7. Deployed with the format change at
+the next gap, at weight 1 until the levers before it have been measured.

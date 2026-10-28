@@ -72,6 +72,7 @@ int main(int argc, char **argv)
 	nbase /= 2;
 	mirror m = { 0 };
 	for (int k = 0; k < CX_SOFT_K; k++) { m.empty.id[k] = (uint16_t)CX_SOFT_NONE; m.empty.p[k] = 0; }
+	m.empty.w = 1.0f;
 	if (soft_in) {
 		m.base = map_file(soft_in, &sbytes);
 		m.nbase = sbytes / (long)sizeof *m.base;

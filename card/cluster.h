@@ -252,15 +252,17 @@ static inline void cl_fwd_step(cluster *C, int k, int t, uint32_t id, uint32_t i
 	for (int v = 0; v < CL_N / 16 + 1; v++) S = _mm512_fmadd_ps(_mm512_load_ps(sb + 16 * v), cx_exp2(_mm512_mul_ps(_mm512_sub_ps(_mm512_load_ps(mb + 16 * v), M), l2e)), S);
 	S = cx_hsum(S);
 	if (!k) _mm512_mask_store_ps(C->loss + (t & ~15), (__mmask16)(1u << (t & 15)), _mm512_fmadd_ps(cx_log2(S), _mm512_set1_ps(CX_LN2), _mm512_sub_ps(M, lt)));
-	const __m512 scale = _mm512_mul_ps(_mm512_mul_ps(cx_exp2(_mm512_mul_ps(_mm512_sub_ps(mk, M), l2e)), cx_rcp(S)), invL);
 	/* the target: onehot(tgt), or with the step's soft record (the partial distillation, lib/cx-proto.h cx_soft)
-	 * (1 - sum p_j) onehot(tgt) + sum_j p_j onehot(id_j); own blocks only, like the one-hot */
+	 * (1 - sum p_j) onehot(tgt) + sum_j p_j onehot(id_j); own blocks only, like the one-hot. The record's w scales
+	 * the step's whole gradient (the loss above stays unweighted) */
 	const cx_soft *sr = C->soft_cur ? C->soft_cur + t : NULL;
-	__m512 wtgt = invL;
+	const __m512 invLw = sr ? _mm512_mul_ps(invL, _mm512_set1_ps(sr->w)) : invL;
+	const __m512 scale = _mm512_mul_ps(_mm512_mul_ps(cx_exp2(_mm512_mul_ps(_mm512_sub_ps(mk, M), l2e)), cx_rcp(S)), invLw);
+	__m512 wtgt = invLw;
 	if (sr) {
 		float w = 1.0f;
 		for (int j = 0; j < CX_SOFT_K; j++) w -= sr->id[j] != CX_SOFT_NONE ? sr->p[j] : 0.0f;
-		wtgt = _mm512_mul_ps(_mm512_set1_ps(w), invL);
+		wtgt = _mm512_mul_ps(_mm512_set1_ps(w), invLw);
 		if (!k && sr->id[0] != CX_SOFT_NONE) C->soft_seen++;
 	}
 	for (int b = 0; b < C->nblk[k]; b++) {
@@ -268,7 +270,7 @@ static inline void cl_fwd_step(cluster *C, int k, int t, uint32_t id, uint32_t i
 		if (C->blk[k][b] == (int)(tgt >> 4)) d = _mm512_mask_sub_ps(d, (__mmask16)(1u << (tgt & 15)), d, wtgt);
 		if (sr) for (int j = 0; j < CX_SOFT_K; j++) {
 			const uint32_t id = sr->id[j];
-			if (id != CX_SOFT_NONE && C->blk[k][b] == (int)(id >> 4)) d = _mm512_mask_sub_ps(d, (__mmask16)(1u << (id & 15)), d, _mm512_mul_ps(_mm512_set1_ps(sr->p[j]), invL));
+			if (id != CX_SOFT_NONE && C->blk[k][b] == (int)(id >> 4)) d = _mm512_mask_sub_ps(d, (__mmask16)(1u << (id & 15)), d, _mm512_mul_ps(_mm512_set1_ps(sr->p[j]), invLw));
 		}
 		_mm512_store_ps(lg + 16 * b, d);
 	}

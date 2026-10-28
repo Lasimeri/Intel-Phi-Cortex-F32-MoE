@@ -11,8 +11,11 @@
  * target stands alone. The card's loss takes the record as the target (lib/cx-proto.h cx_soft: the target is
  * (1 - sum p_j) onehot(next) + sum p_j onehot(id_j), so an empty record is the plain one-hot and a record holding
  * lambda q is (1 - lambda) onehot + lambda q).
- *   soft-align VOCAB.txt TURNS.txt LP.tsv TEXT OUT.soft [--lambda X] [--top K]
+ *   soft-align VOCAB.txt TURNS.txt LP.tsv TEXT OUT.soft [--lambda X] [--top K] [--weight-user W]
  *   soft-align --empty N OUT.soft
+ * --weight-user W (default 1) sets the record's loss weight w to W for every token that predicts a token inside a
+ * person's line (the turns alternate, the person first), 1 elsewhere: the card scales the step's gradient by w and
+ * reports the loss unweighted, so the speaker's own lines carry the training when W < 1 (docs/REASON.md, lever 4).
  * TURNS.txt: the batch's turns, one a line, in order (jq -r '.messages[1:][] | .content' over the batch's jsonl);
  * LP.tsv: one line per teacher token: base64(token) TAB logprob TAB "base64(alt):logprob ..." (jq over the server's
  * logprobs list; a token with no alternatives has an empty third field); TEXT: the batch as the driver feeds it to
@@ -91,6 +94,7 @@ static const unsigned char *find_from(const unsigned char *hay, long hn, long fr
 static void empty_rec(cx_soft *r)
 {
 	for (int k = 0; k < CX_SOFT_K; k++) { r->id[k] = (uint16_t)CX_SOFT_NONE; r->p[k] = 0; }
+	r->w = 1.0f;
 }
 
 static int write_empty(long n, const char *path)
@@ -108,16 +112,18 @@ static int write_empty(long n, const char *path)
 int main(int argc, char **argv)
 {
 	if (argc == 4 && !strcmp(argv[1], "--empty")) return write_empty(atol(argv[2]), argv[3]);
-	if (argc < 6) { fprintf(stderr, "usage: soft-align VOCAB.txt TURNS.txt LP.tsv TEXT OUT.soft [--lambda X] [--top K] | --empty N OUT.soft\n"); return 2; }
+	if (argc < 6) { fprintf(stderr, "usage: soft-align VOCAB.txt TURNS.txt LP.tsv TEXT OUT.soft [--lambda X] [--top K] [--weight-user W] | --empty N OUT.soft\n"); return 2; }
 	int top = CX_SOFT_K;
-	double lambda = 0.5;
+	double lambda = 0.5, wuser = 1.0;
 	for (int i = 6; i < argc; i++) {
 		if (!strcmp(argv[i], "--top") && i + 1 < argc) top = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--lambda") && i + 1 < argc) lambda = atof(argv[++i]);
+		else if (!strcmp(argv[i], "--weight-user") && i + 1 < argc) wuser = atof(argv[++i]);
 		else { fprintf(stderr, "soft-align: unknown option %s\n", argv[i]); return 2; }
 	}
 	if (top < 1 || top > CX_SOFT_K) { fprintf(stderr, "soft-align: --top 1..%d\n", CX_SOFT_K); return 2; }
 	if (lambda < 0 || lambda > 1) { fprintf(stderr, "soft-align: --lambda 0..1\n"); return 2; }
+	if (wuser < 0 || wuser > 1) { fprintf(stderr, "soft-align: --weight-user 0..1\n"); return 2; }
 	const int dbg = getenv("SA_DEBUG") != NULL;
 	if (load_vocab(argv[1])) return 1;
 	for (int id = 0; id < VOCAB; id++) expand(id);
@@ -195,6 +201,10 @@ int main(int argc, char **argv)
 	long cT = 0, cR = 0, nturn = 0, nmatched = 0;
 	long *tb = malloc((size_t)(ns + 1) * sizeof *tb);
 	for (long i = 0; i <= ns; i++) tb[i] = -1;
+	/* the role of every byte of TEXT: 1 inside a person's line, 2 inside the speaker's (the turns alternate, the person
+	 * first), 0 elsewhere (the markers, the system line); the loss weight of a token follows the role of the token it
+	 * predicts */
+	unsigned char *role = calloc((size_t)tn + 1, 1);
 	for (long lp = 0; lp < un;) {
 		long le = lp;
 		while (le < un && turns[le] != '\n') le++;
@@ -203,7 +213,7 @@ int main(int argc, char **argv)
 			nturn++;
 			const unsigned char *inT = find_from(text, tn, cT, turns + lp, L);
 			const unsigned char *inR = find_from(R, rn, cR, turns + lp, L);
-			if (inT) cT = (inT - text) + L;
+			if (inT) { cT = (inT - text) + L; memset(role + (inT - text), (nturn & 1) ? 1 : 2, (size_t)L); }
 			long shared = 0;
 			if (inT && inR) {
 				nmatched++;
@@ -228,11 +238,12 @@ int main(int argc, char **argv)
 	/* the records */
 	FILE *o = fopen(argv[5], "wb");
 	if (!o) { perror(argv[5]); return 1; }
-	long covered = 0, agree = 0;
+	long covered = 0, agree = 0, weighted = 0;
 	double mass = 0;
 	for (long i = 0; i < ns; i++) {
 		cx_soft rec;
 		empty_rec(&rec);
+		if (i + 1 < ns && role[sen[i]] == 1 && wuser < 1.0) { rec.w = (float)wuser; weighted++; }   /* the next token is in a person's line */
 		if (tb[i] >= 0 && i + 1 < ns) {
 			const ttok *t = &tt[tb[i]];
 			int ids[SA_MAXALT + 1], m = 0;
@@ -265,7 +276,7 @@ int main(int argc, char **argv)
 		fwrite(&rec, sizeof rec, 1, o);
 	}
 	if (fclose(o)) { perror(argv[5]); return 1; }
-	printf("soft-align: %ld student tokens, %ld of %ld turns matched in the reply, %ld tokens with the teacher's distribution (%.1f %%), mapped mass %.3f before lambda %.2f, the teacher's first choice is the hard target %.1f %% of them; %ld teacher tokens, %ld with alternatives\n",
-	       ns, nmatched, nturn, covered, ns ? 100.0 * covered / ns : 0, covered ? mass / covered : 0, lambda, covered ? 100.0 * agree / covered : 0, nt, nalt_all);
+	printf("soft-align: %ld student tokens, %ld of %ld turns matched in the reply, %ld tokens with the teacher's distribution (%.1f %%), mapped mass %.3f before lambda %.2f, the teacher's first choice is the hard target %.1f %% of them; %ld teacher tokens, %ld with alternatives; %ld tokens of the person's lines at weight %.2f\n",
+	       ns, nmatched, nturn, covered, ns ? 100.0 * covered / ns : 0, covered ? mass / covered : 0, lambda, covered ? 100.0 * agree / covered : 0, nt, nalt_all, weighted, wuser);
 	return 0;
 }

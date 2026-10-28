@@ -142,9 +142,13 @@
  * (card/cluster.h cl_chunk_begin). The reported loss stays the hard cross-entropy. */
 #define CX_SOFT_K 8
 #define CX_SOFT_NONE 0xFFFFu
-typedef struct { uint16_t id[CX_SOFT_K]; float p[CX_SOFT_K]; } cx_soft;
-#define CX_SOFT_BYTES 48u
-#define CX_SOFT_CHUNK_BYTES (CX_T_L * CX_SOFT_BYTES)   /* 1,536 */
+/* w: the step's loss weight (1 = plain), by which the step's loss gradient is scaled on the card and in the reference
+ * while the reported loss stays unweighted: the driver's --weight-user gives the person's lines less than the
+ * speaker's own (21:5x, the student's replies are what coherence is measured on). Every record carries it, with or
+ * without a distribution. */
+typedef struct { uint16_t id[CX_SOFT_K]; float p[CX_SOFT_K]; float w; } cx_soft;
+#define CX_SOFT_BYTES 52u
+#define CX_SOFT_CHUNK_BYTES (CX_T_L * CX_SOFT_BYTES)   /* 1,664 = 26 lines */
 #define CX_T_SOFT (CX_T_BASE + 640u)        /* u32 1: the coach fills the soft ring for every chunk of the run (host) */
 #define CX_T_SOFT_RING (57u << 20)          /* CX_T_SLOTS slots of CX_SOFT_CHUNK_BYTES: 1.5 MiB */
 #define CX_T_SOFT_SLOT(c) (CX_T_SOFT_RING + (uint32_t)((c) % CX_T_SLOTS) * CX_SOFT_CHUNK_BYTES)

@@ -34,13 +34,17 @@
 #   tools/teacher-scratch.sh CORPUS_DIR PERSONA.txt [--ckdir DIR] [--tables FILE] [--vocab-bytes B]
 #                            [--round-chunks N] [--lr X] [--prompt "..."] [--valid-every K] [--corrections K]
 #                            [--ratio R] [--keep-rounds M] [--lambda X] [--replay|--no-replay] [--mem-dropout P]
-#                            [--probe QUESTIONS.jsonl]
+#                            [--probe QUESTIONS.jsonl] [--weight-user W]
 # Defaults: --ckdir data/live-teacher, --tables /dev/shm/cortex-teacher-tables.f32, --vocab-bytes 300000,
 # --round-chunks 1000, --lr 0.003, --prompt "Introduce yourself", --valid-every 20, --corrections 20 (0 turns the
 # loop off), --ratio 6, --keep-rounds 3, --lambda 0.5 (0 trains on the hard targets alone), --replay (an epoch round
 # over the whole stream whenever fewer than --round-chunks new chunks wait; --no-replay waits for the writer),
 # --mem-dropout 0 (the share of chunks the coach trains without the n-gram memory, host/coach.c --ngram-dropout),
-# --probe data/probe/questions.jsonl (the reasoning probe after every round, tools/teacher-probe.sh). DIR/state.txt carries the round, the trained chunk count and the state: a
+# --probe data/probe/questions.jsonl (the reasoning probe after every round, tools/teacher-probe.sh), --weight-user 1
+# (the loss weight of the tokens that predict a person's line, baked into the soft records by tools/soft-align; the
+# speaker's own lines stay at 1; docs/REASON.md lever 4). The soft records are 52 bytes a token (lib/cx-proto.h
+# cx_soft); DIR/soft-format.txt names the format and the weight they were written with, and a change rebuilds
+# DIR/train.soft and DIR/valid.soft from the batches in DIR/work/encoded.txt. DIR/state.txt carries the round, the trained chunk count and the state: a
 # restart resumes from it. The vocabulary lands in DIR/vocab-teacher4096.txt; the clients and the TUIs take it with
 # --vocab.
 set -u
@@ -48,7 +52,8 @@ cd "$(dirname "$0")/.." || exit 1
 [ $# -ge 2 ] || { echo "usage: tools/teacher-scratch.sh CORPUS_DIR PERSONA.txt [--ckdir DIR] [--tables FILE] [--vocab-bytes B] [--round-chunks N] [--lr X] [--prompt \"...\"] [--valid-every K] [--corrections K] [--ratio R] [--keep-rounds M] [--lambda X]" >&2; exit 2; }
 corpus=$1; persona=$2
 shift 2
-ckdir=data/live-teacher; tables=/dev/shm/cortex-teacher-tables.f32; vocab_bytes=300000; round_chunks=1000; lr=0.003; prompt="Introduce yourself"; valid_every=20; corrections=20; ratio=6; keep_rounds=3; lambda=0.5; replay=1; mem_dropout=0; probe=data/probe/questions.jsonl
+ckdir=data/live-teacher; tables=/dev/shm/cortex-teacher-tables.f32; vocab_bytes=300000; round_chunks=1000; lr=0.003; prompt="Introduce yourself"; valid_every=20; corrections=20; ratio=6; keep_rounds=3; lambda=0.5; replay=1; mem_dropout=0; probe=data/probe/questions.jsonl; weight_user=1
+rec=52   # bytes per soft record (lib/cx-proto.h cx_soft)
 while [ $# -gt 0 ]; do
 	case "$1" in
 	--ckdir) ckdir=$2; shift 2 ;;
@@ -66,6 +71,7 @@ while [ $# -gt 0 ]; do
 	--no-replay) replay=0; shift ;;
 	--mem-dropout) mem_dropout=$2; shift 2 ;;
 	--probe) probe=$2; shift 2 ;;
+	--weight-user) weight_user=$2; shift 2 ;;
 	*) echo "teacher-scratch: unknown option $1" >&2; exit 2 ;;
 	esac
 done
@@ -84,19 +90,52 @@ say() { echo "$(date +%T) $*" | tee -a "$log"; }
 [ -f "$W/encoded.txt" ] || : > "$W/encoded.txt"   # the batch files already in the stream
 [ -f "$train" ] || : > "$train"
 [ -f "$valid" ] || : > "$valid"
-# the soft-target records run beside the token streams, one 48-byte record a token: a stream written before the
-# sidecars, or left short by a stop between the two appends, is padded with empty records (the plain one-hot) up to
-# its token count; a longer one is cut to it
+# one batch's soft records: the sidecar of the teacher's logprobs (when the writer saved one) aligned onto the
+# student's tokens by tools/soft-align, with the person's lines at --weight-user; a batch without a sidecar gets
+# empty records (the plain one-hot, the weights still set). $1 the batch, $2 its text, $3 the records out
+align_batch() {
+	local lp=${1%.jsonl}.lp.json
+	if [ -s "$lp" ]; then
+		jq -r '.[] | [(.token | @base64), (.logprob | tostring), ([.top_logprobs[]? | ((.token | @base64) + ":" + (.logprob | tostring))] | join(" "))] | @tsv' "$lp" > "$W/batch.lp.tsv" 2>/dev/null || : > "$W/batch.lp.tsv"
+	else
+		: > "$W/batch.lp.tsv"
+	fi
+	jq -r '.messages[1:][] | .content' "$1" > "$W/batch.turns" 2>/dev/null || : > "$W/batch.turns"
+	build/host/soft-align "$vocab" "$W/batch.turns" "$W/batch.lp.tsv" "$2" "$3" --lambda "$lambda" --weight-user "$weight_user" >> "$W/soft-align.out" 2>&1
+}
+# the soft-target records run beside the token streams, one $rec-byte record a token. The format and the weight they
+# were written with stand in DIR/soft-format.txt: when either changes, both streams are rebuilt from the batches of
+# DIR/work/encoded.txt in their order (the same walk as encode_new, so the token counts agree exactly); a stream left
+# short by a stop between the two appends is padded with empty records up to its token count, a longer one cut
+soft_format="rec $rec weight-user $weight_user lambda $lambda"
+resoft_all() {
+	local f nb=0 t v
+	say "the soft records are rebuilt ($soft_format): $(wc -l < "$W/encoded.txt") batches of $W/encoded.txt"
+	: > "$soft"; : > "$vsoft"
+	while IFS= read -r f; do
+		nb=$((nb + 1))
+		[ -f "$f" ] || continue
+		build/host/chat-text "$f" "$W/batch.txt" --no-think-block --detok > /dev/null 2>&1 || continue
+		build/host/bpe encode "$vocab" "$W/batch.txt" "$W/batch.u16" > /dev/null 2>&1 || continue
+		align_batch "$f" "$W/batch.txt" "$W/batch.soft" || continue
+		[ $(( $(stat -c %s "$W/batch.soft") / rec )) -eq $(( $(stat -c %s "$W/batch.u16") / 2 )) ] || continue
+		if [ $((nb % valid_every)) -eq 0 ]; then cat "$W/batch.soft" >> "$vsoft"; else cat "$W/batch.soft" >> "$soft"; fi
+	done < "$W/encoded.txt"
+	t=$(( $(stat -c %s "$train") / 2 )); v=$(( $(stat -c %s "$valid") / 2 ))
+	say "rebuilt: train $(( $(stat -c %s "$soft") / rec )) records for $t tokens, valid $(( $(stat -c %s "$vsoft") / rec )) for $v (a difference is padded or cut)"
+	echo "$soft_format" > "$ckdir/soft-format.txt"
+}
 pad_soft() {
 	local toks recs
 	toks=$(( $(stat -c %s "$1") / 2 ))
-	recs=0; [ -f "$2" ] && recs=$(( $(stat -c %s "$2") / 48 ))
-	if [ "$recs" -gt "$toks" ]; then truncate -s $((toks * 48)) "$2"; recs=$toks; fi
+	recs=0; [ -f "$2" ] && recs=$(( $(stat -c %s "$2") / rec ))
+	if [ "$recs" -gt "$toks" ]; then truncate -s $((toks * rec)) "$2"; recs=$toks; fi
 	[ "$recs" -lt "$toks" ] || return 0
 	build/host/soft-align --empty $((toks - recs)) "$W/pad.soft" > /dev/null || { say "soft-align --empty failed"; exit 1; }
 	cat "$W/pad.soft" >> "$2"
 	say "$2: padded with $((toks - recs)) empty records to $toks"
 }
+[ -s "$vocab" ] && [ "$(cat "$ckdir/soft-format.txt" 2>/dev/null)" != "$soft_format" ] && resoft_all
 pad_soft "$train" "$soft"
 pad_soft "$valid" "$vsoft"
 prompt_text=$(printf '<|system|>%s<|end|>\n<|user|>%s<|end|>\n<|assistant|>' "$(cat "$persona")" "$prompt")
@@ -113,16 +152,9 @@ encode_new() {
 		build/host/chat-text "$f" "$W/batch.txt" --no-think-block --detok > /dev/null 2>&1 || { echo "$f" >> "$W/encoded.txt"; continue; }
 		build/host/bpe encode "$vocab" "$W/batch.txt" "$W/batch.u16" > /dev/null 2>&1 || { echo "$f" >> "$W/encoded.txt"; continue; }
 		# the teacher's distribution at every token it generated (the batch's sidecar, tools/teacher.sh --lp-out), carried
-		# onto the student's tokens by tools/soft-align (docs/DISTIL.md); a batch without a sidecar gets empty records
-		lp=${f%.jsonl}.lp.json
-		if [ -s "$lp" ]; then
-			jq -r '.[] | [(.token | @base64), (.logprob | tostring), ([.top_logprobs[]? | ((.token | @base64) + ":" + (.logprob | tostring))] | join(" "))] | @tsv' "$lp" > "$W/batch.lp.tsv" 2>/dev/null || : > "$W/batch.lp.tsv"
-		else
-			: > "$W/batch.lp.tsv"
-		fi
-		jq -r '.messages[1:][] | .content' "$f" > "$W/batch.turns" 2>/dev/null || : > "$W/batch.turns"
-		build/host/soft-align "$vocab" "$W/batch.turns" "$W/batch.lp.tsv" "$W/batch.txt" "$W/batch.soft" --lambda "$lambda" >> "$W/soft-align.out" 2>&1 || { say "batch $(basename "$f"): soft-align failed, skipped"; echo "$f" >> "$W/encoded.txt"; continue; }
-		if [ $(( $(stat -c %s "$W/batch.soft") / 48 )) -ne $(( $(stat -c %s "$W/batch.u16") / 2 )) ]; then say "batch $(basename "$f"): the soft records do not match the tokens, skipped"; echo "$f" >> "$W/encoded.txt"; continue; fi
+		# onto the student's tokens by tools/soft-align (docs/DISTIL.md), the person's lines at --weight-user
+		align_batch "$f" "$W/batch.txt" "$W/batch.soft" || { say "batch $(basename "$f"): soft-align failed, skipped"; echo "$f" >> "$W/encoded.txt"; continue; }
+		if [ $(( $(stat -c %s "$W/batch.soft") / rec )) -ne $(( $(stat -c %s "$W/batch.u16") / 2 )) ]; then say "batch $(basename "$f"): the soft records do not match the tokens, skipped"; echo "$f" >> "$W/encoded.txt"; continue; fi
 		if [ $((nbatch % valid_every)) -eq 0 ]; then cat "$W/batch.u16" >> "$valid"; cat "$W/batch.soft" >> "$vsoft"; else cat "$W/batch.u16" >> "$train"; cat "$W/batch.soft" >> "$soft"; fi
 		echo "$f" >> "$W/encoded.txt"
 	done
@@ -187,7 +219,7 @@ while true; do
 		mixnote="the correction set recurring: $(head -n 1 "$W/mix-$round.out" | cut -c1-140)"
 	else
 		dd if="$train" of="$stream" bs=64 skip="$trained" count="$untrained" status=none
-		dd if="$soft" of="${stream%.u16}.soft" bs=1536 skip="$trained" count="$untrained" status=none
+		dd if="$soft" of="${stream%.u16}.soft" bs=$((rec * 32)) skip="$trained" count="$untrained" status=none
 		mixnote="no correction set yet"
 	fi
 	poolopt=(); [ -n "$cur_pool" ] && [ -f "$cur_pool" ] && poolopt=(--pool "$cur_pool")

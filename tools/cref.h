@@ -307,7 +307,8 @@ static inline double cref_chunk(cref *C, cgrads *G, const double *T0, const floa
 	for (int t = 0; t < L; t++) cref_step(C, t, ids[t], t >= 1 ? ids[t - 1] : p1, t >= 2 ? ids[t - 2] : (t == 1 ? p1 : p2));
 	for (int t = 0; t < L; t++) {
 		loss += ref_head_hc(C->E, C->cs[t].hc, ids[t + 1], dl, soft ? soft + t : NULL);
-		if (G) for (int v = 0; v < CX_VOCAB; v++) dls[(long)t * CX_VOCAB + v] = dl[v] / L;
+		const double wL = (soft ? (double)soft[t].w : 1.0) / L;   /* the record's loss weight scales the step's gradient, not the loss */
+		if (G) for (int v = 0; v < CX_VOCAB; v++) dls[(long)t * CX_VOCAB + v] = dl[v] * wL;
 	}
 	if (G) {
 		double *dT = calloc((size_t)C->N * CX_NT, sizeof *dT);
