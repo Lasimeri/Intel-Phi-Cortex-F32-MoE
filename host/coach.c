@@ -561,7 +561,8 @@ int main(int argc, char **argv)
 			if (ctx_us > 0) snprintf(ctx_note, sizeof ctx_note, "  ctx %.0f us/step", ctx_us);
 			if (soft) {
 				const unsigned long long bad = (unsigned long long)LD64(CX_T_SOFT_BAD);
-				snprintf(soft_note, sizeof soft_note, "  soft %.0f %%%s%llu%s", 100.0 * (double)LD64(CX_T_SOFT_N) / ((double)every * CX_T_L), bad ? " (bad slots " : "", bad, bad ? ")" : "");
+				const int n = snprintf(soft_note, sizeof soft_note, "  soft %.0f %%", 100.0 * (double)LD64(CX_T_SOFT_N) / ((double)every * CX_T_L));
+				if (bad && n > 0 && (size_t)n < sizeof soft_note) snprintf(soft_note + n, sizeof soft_note - (size_t)n, " (bad slots %llu)", bad);
 			}
 			logline("report chunk %ld  tokens %ld  loss %.4f nats = %.4f bits/token  lr %.3e  scale %.4f  %.0f tok/s  ring %ld ahead%s%s%s", consumed, consumed * CX_T_L, loss, loss / CX_LN2, lr_eff, scale, tokps, fed - consumed, moe_note, ctx_note, soft_note);
 			win_sum += loss;

@@ -722,3 +722,14 @@ target as (1 - sum p) onehot + sum p_j onehot(id_j); the reported loss stays the
 card against the double reference with 24 of 32 steps carrying a distribution: every gradient within 4e-6
 relative, the loss identical. The daemon also times the context memory's step (rdtsc, "ctx N us/step" in the
 report) so the 3.4 ms is split, not guessed.
+
+## 19:37 to 20:3x (10-27): the distillation deployed, caught lying, verified
+
+The daemon of 19:37 trained round 3 on zeros it took for records (the soft ring's DMA source computed before the
+host part's address was set) and reported every step soft; the host side was byte-exact. Fixed, and every slot now
+carries a checksum the card must reproduce or the chunk trains on the hard targets and the miss is counted. Round 4
+(20:25 to 20:28) verified to the record: the card's count of soft steps per window of 100 chunks equals the file's
+own in all ten windows (1862, 1817, 1864, 1724, 1757, 1799, 1751, 1853, 2005, 1675 of 3,200), zero misses; the
+corpus gives 52 to 63 % of the steps a distribution. The memory's own step time measured for the first time: 289
+to 507 us a step over a filling ring (docs/CONTEXT.md). The held-out after one soft round: 4.6594 bits/token
+(4.6361 before). docs/DISTIL.md.

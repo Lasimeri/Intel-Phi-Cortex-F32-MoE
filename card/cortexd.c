@@ -488,7 +488,10 @@ static void train_chunk(int k)
 			printf("live: chunk %7ld  tokens %10ld  loss %.4f nats = %.4f bits/token  lr %.2e  %.0f tok/s", tchunks, tchunks * (long)CX_LMAX, loss_acc / loss_n, loss_acc / loss_n / CX_LN2, lr_eff, tokps);
 			if (moe_loaded) printf("  moe: bias %g, expert lr %g, %u experts updated", (double)C.moe[0].bias, (double)C.moe_lr, distinct);
 			if (C.ctx_on) printf("  ctx %.0f us/step", ctx_us);
-			if (C.soft_on) printf("  soft %ld of %ld%s%ld%s", soft_seen_win, loss_n * (long)CX_LMAX, C.soft_bad ? " (bad slots " : "", C.soft_bad, C.soft_bad ? ")" : "");
+			if (C.soft_on) {
+				printf("  soft %ld of %ld", soft_seen_win, loss_n * (long)CX_LMAX);
+				if (C.soft_bad) printf(" (bad slots %ld)", C.soft_bad);
+			}
 			printf("\n");
 			fflush(stdout);
 			loss_acc = 0;

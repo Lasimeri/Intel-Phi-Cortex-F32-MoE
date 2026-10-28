@@ -71,3 +71,11 @@ ahead, 16:57) changed nothing measurable (round 11 of the old instance: 630 to 4
 The rounds of 1,000 chunks from a load never showed this number because a load clears the ring. The daemon of the
 distillation build reports the memory's own step time (rdtsc around cx_ctx_step, "ctx N us/step"), which splits the
 3.4 ms into the memory and the rest instead of inferring it.
+
+**The memory's own step time (the rdtsc timer of the 20:08 daemon, round 4 of the fresh instance, a ring filling from
+a load):** 289 us a step over chunks 1 to 100 (3,200 entries), 343 at 200, 385 at 300, 418 at 400, 456 at 500, 482
+at 600 (the ring full from chunk 512), 479, 494, 507, 496 us at 700 to 1,000; the whole step 1.58 ms at the start
+and 2.23 ms at the end (631 to 449 tok/s). So at a ring just filled the memory is 0.5 ms of a 2.2 ms step, about a
+quarter, not the 2.2 ms the 3.47 ms steps of round 1 (one run of 14,861 chunks) suggested; the rest of round 1's
+cost grows after the ring is full, with the index lists' fill (the probed lists lengthen as a trained model's keys
+cluster), and the timer will put a number on it the next time a round runs long enough.

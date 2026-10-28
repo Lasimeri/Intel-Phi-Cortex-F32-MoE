@@ -63,9 +63,36 @@ The driver (tools/teacher-scratch.sh) does the rest: the sidecar of every new ba
 encoded, a stream from before the sidecars is padded with empty records, mixstream mirrors the round's stream into
 round-R.soft, the coach feeds it with `--soft`. `--lambda 0` trains on the text alone with the same machinery.
 
-## Measured in the run
+## Measured in the run (round 4 of the fresh instance, 20:25 to 20:28, the daemon of 20:08)
 
-(filled at the first round trained with the soft targets.)
+The coach: `soft targets data/live-teacher2/round-4.soft: 19029 of 33664 tokens of the run carry the teacher's
+distribution (56.5 %)`. The card's count per report window of 100 chunks (its `soft N of 3200`) against the file's
+own count for the same chunks (the scratchpad's softwin tool over round-4.soft):
+
+| chunks | the card | the file | ctx us/step | tok/s | training loss (hard CE, bits/token) |
+|---|---|---|---|---|---|
+| 1..100 | 1862 | 1862 | 289 | 631 | 3.2946 |
+| 101..200 | 1817 | 1817 | 343 | 606 | 3.4895 |
+| 201..300 | 1864 | 1864 | 385 | 577 | 3.3490 |
+| 301..400 | 1724 | 1724 | 418 | 543 | 2.8849 |
+| 401..500 | 1757 | 1757 | 456 | 513 | 2.9170 |
+| 501..600 | 1799 | 1799 | 482 | 494 | 3.4290 |
+| 601..700 | 1751 | 1751 | 479 | 479 | 3.3500 |
+| 701..800 | 1853 | 1853 | 494 | 466 | 2.8338 |
+| 801..900 | 2005 | 2005 | 507 | 453 | 3.8259 |
+| 901..1000 | 1675 | 1675 | 496 | 449 | 2.7808 |
+
+Ten windows, ten exact matches, zero checksum misses (`grep -c checksum cortexd.log` = 0): every record the host
+aligned reached the card's target. Round 3's stream, for the record, carried only 35.3 % because its first 400
+chunks were the correction set and batches the old driver had encoded without the soft path (padded empty at the
+restart); from round 4 on the share is the corpus's own, 52 to 63 % a window.
+
+The held-out (the hard cross-entropy on valid.u16, 5,001 tokens): round 1 4.6801, round 2 4.5369, round 3 4.6361
+(hard targets, the zero-read), round 4 4.6594 bits/token. One round of 1,052 chunks with the teacher's distribution
+in half the target does not move the hard held-out; what it does to the student's distribution shows over rounds,
+not in one, and the judge's grades (round 3: grammar 4.3, relevance 0.6, persona 3.2 of 10) are where it has to
+show. The stray `0` after the soft share in the lines of this round (`soft 58 %0`, `soft 1862 of 32000`) was the
+bad-slot count printed even at zero; fixed at 20:30, deployed at the next gap.
 
 ## The first deployment lied, and the structure now checks itself (19:56 to 20:02)
 
