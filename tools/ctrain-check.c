@@ -1,5 +1,6 @@
 /*
- * ctrain-check: Stage 4, host side. usage: ctrain-check fwd|bwd DIR TOKENS.u16 L WARM [DUMP_COL...]
+ * ctrain-check: Stage 4, host side. usage: ctrain-check fwd|bwd DIR TOKENS.u32 L WARM [DUMP_COL...]
+ * TOKENS.u32: the slice the card ran, little-endian u32 ids (lib/cx-proto.h cx_tok); CX_SOFT=FILE its cx_soft records.
  * Replays the card's cluster run (tools/cluster-gate.c) through tools/cref.h (120 columns, double, live bus from
  * zero) and compares: per-step loss, hc, and u / bc / g of the dumped columns; bwd: their parameter gradients, cg, E.
  * Env CX_NG=1 replays the memory (host/ngserve.c's tables); CX_MOE=1 replays the MoE model (the seeded keys, the
@@ -37,7 +38,7 @@ static void cmp(const char *name, int k, const float *card, const double *ref, l
 
 int main(int argc, char **argv)
 {
-	if (argc < 6) { fprintf(stderr, "usage: ctrain-check fwd|bwd DIR TOKENS.u16 L WARM [DUMP_COL...]\n"); return 2; }
+	if (argc < 6) { fprintf(stderr, "usage: ctrain-check fwd|bwd DIR TOKENS.u32 L WARM [DUMP_COL...]\n"); return 2; }
 	const int bwd = !strcmp(argv[1], "bwd"), L = atoi(argv[4]), warm = atoi(argv[5]);
 	const char *dir = argv[2];
 	int ndump = 0, dl_[CX_NCOL];
@@ -63,11 +64,9 @@ int main(int argc, char **argv)
 	cgrads_zero(&G, N);
 	FILE *f = fopen(argv[3], "rb");
 	if (!f) { perror(argv[3]); return 1; }
-	uint16_t *tok = malloc((size_t)(warm + L + 1) * 2);
-	if (fread(tok, 2, (size_t)(warm + L + 1), f) != (size_t)(warm + L + 1)) return 1;
+	cx_tok *ids = malloc((size_t)(warm + L + 1) * sizeof *ids);
+	if (fread(ids, sizeof *ids, (size_t)(warm + L + 1), f) != (size_t)(warm + L + 1)) return 1;
 	fclose(f);
-	uint32_t *ids = malloc((size_t)(warm + L + 1) * 4);
-	for (int t = 0; t < warm + L + 1; t++) ids[t] = tok[t];
 	cx_soft *soft = NULL;   /* CX_SOFT=FILE: the partial distillation's records of the slice, the chunk's in the target (as cluster-gate) */
 	if (getenv("CX_SOFT")) {
 		FILE *sf = fopen(getenv("CX_SOFT"), "rb");

@@ -2,7 +2,8 @@
  * ref-loss: the mean next-token loss of a checkpoint over a token stream, on the host in double (tools/cref.h: the
  * 120 columns, the bus off as the lineage was trained). The measurement of what a change to the weights costs, such
  * as the 3-bit quantisation of tools/quant3.c, and of a run's held-out loss while the card is busy training.
- *   ref-loss CKPT IDS.u16 NTOK [SKIP] [--ngram TABLES GATES] [--ctx] [--moe POOL.f32 [--moe-bias X]] [--dump FILE]
+ *   ref-loss CKPT IDS.u32 NTOK [SKIP] [--ngram TABLES GATES] [--ctx] [--moe POOL.f32 [--moe-bias X]] [--dump FILE]
+ * IDS.u32: little-endian u32 ids (lib/cx-proto.h cx_tok, 4 B a token, so token SKIP sits at byte 4 x SKIP).
  * Steps the stream from token SKIP (default 0) for NTOK tokens with the fast weights carried across the whole pass
  * (the state starts from zero, as a session does) and prints the loss in nats and bits per token and the top-1
  * accuracy, with a running line every 5,000 tokens. The last token has no target: NTOK - 1 predictions. With
@@ -73,7 +74,7 @@ static double now(void)
 
 int main(int argc, char **argv)
 {
-	if (argc < 4) { fprintf(stderr, "usage: ref-loss CKPT IDS.u16 NTOK [SKIP] [--ngram TABLES GATES] [--ctx] [--moe POOL.f32 [--moe-bias X]] [--dump FILE]\n"); return 2; }
+	if (argc < 4) { fprintf(stderr, "usage: ref-loss CKPT IDS.u32 NTOK [SKIP] [--ngram TABLES GATES] [--ctx] [--moe POOL.f32 [--moe-bias X]] [--dump FILE]\n"); return 2; }
 	const long ntok = atol(argv[3]);
 	long skip = 0;
 	const char *tables = NULL, *gates_path = NULL, *pool_path = NULL, *dump_path = NULL;
@@ -126,9 +127,9 @@ int main(int argc, char **argv)
 	}
 	FILE *f = fopen(argv[2], "rb");
 	if (!f) { perror(argv[2]); return 1; }
-	uint16_t *tok = malloc((size_t)ntok * 2);
-	fseek(f, skip * 2, SEEK_SET);
-	if (fread(tok, 2, (size_t)ntok, f) != (size_t)ntok) { fprintf(stderr, "ref-loss: %s holds fewer than %ld ids after %ld\n", argv[2], ntok, skip); return 1; }
+	cx_tok *tok = malloc((size_t)ntok * sizeof *tok);
+	fseek(f, skip * (long)sizeof *tok, SEEK_SET);
+	if (fread(tok, sizeof *tok, (size_t)ntok, f) != (size_t)ntok) { fprintf(stderr, "ref-loss: %s holds fewer than %ld ids after %ld\n", argv[2], ntok, skip); return 1; }
 	fclose(f);
 	FILE *dump = NULL;
 	if (dump_path && !(dump = fopen(dump_path, "wb"))) { perror(dump_path); return 1; }

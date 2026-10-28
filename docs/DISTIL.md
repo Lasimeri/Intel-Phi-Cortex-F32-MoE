@@ -12,8 +12,8 @@ distribution rides along with every token it writes and becomes part of the stud
 |---|---|---|
 | the sidecar | tools/teacher.sh `--lp-out FILE`, the writer tools/teacher-corpus.sh | every generated token with its eight likeliest alternatives and their log probabilities (the server's `logprobs: true, top_logprobs: 8`, the raw softmax of the logits), saved as batch-*.lp.json beside each batch |
 | the alignment | tools/soft-align.c | the student tokenises the batch's text with its own 4,096-id BPE; where a student token boundary falls on a teacher token boundary inside a turn, the teacher's alternatives are mapped onto student ids (each alternative's first student token, cut the way the stream is cut), summed per id, the mass the eight do not carry given to the hard target, the whole scaled by lambda (0.5); elsewhere the record is empty |
-| the records | DIR/train.soft, valid.soft, round-R.soft (tools/mixstream `--soft`, the driver) | one 48-byte record a token (lib/cx-proto.h cx_soft: uint16 id[8], float p[8]; 0xFFFF unused), in the stream's order, for the token after it; the correction set's tokens and the stream from before the sidecars carry empty records |
-| the ring | host/coach.c `--soft FILE`, the part at 57 MiB (CX_T_SOFT_SLOT) | each chunk's 32 records (1,536 B) go into the chunk's slot of a second ring beside the token ring before the chunk is published; CX_T_SOFT tells the daemon |
+| the records | DIR/train.soft, valid.soft, round-R.soft (tools/mixstream `--soft`, the driver) | one 68-byte record a token (lib/cx-proto.h cx_soft: cx_tok id[8] as u32, float p[8], float w; CX_SOFT_NONE 0xFFFFFFFF unused), in the stream's order, for the token after it; the correction set's tokens and the stream from before the sidecars carry empty records. 48 B (uint16 id[8], float p[8]; 0xFFFF unused) at 19:25, 52 B with the weight w from 22:00, 68 B with u32 ids from 10-28 06:xx (the last section) |
+| the ring | host/coach.c `--soft FILE`, the part at 57 MiB (CX_T_SOFT_SLOT) | each chunk's 32 records (2,176 B; 1,536 B at 48 B a record) go into the chunk's slot of a second ring beside the token ring before the chunk is published; CX_T_SOFT tells the daemon |
 | the card | card/cluster.h cl_chunk_begin, cl_fwd_step | thread 0 DMAs the slot into GDDR with the chunk's n-gram rows; the step's target becomes (1 - sum p_j) onehot(next) + sum_j p_j onehot(id_j), subtracted in each thread's own vocabulary blocks like the one-hot; the reported loss stays the hard cross-entropy |
 | the reference | tools/ref.h ref_head_hc, cref.h, ctrain-check `CX_SOFT=FILE` | the same target in double, for the gate |
 | the report | the coach's report line `soft N %`, the daemon's `soft N of M`, the monitor's "distil" row | the share of the window's steps whose record held a distribution |
@@ -121,3 +121,31 @@ whose record count differs from its token count instead of padding it. It refuse
 rule for tools/mixstream, the 48-byte binary of the night wrote 48-byte records into the 52-byte run (4,889,904 bytes
 for 101,873 tokens); the rule exists now. On the card, round 18's soft count per window of 100 chunks equals the
 file's in every window (1719, 1696, 1719, 1682, 1637, 1735, 1713, 1650 of 3,200), zero checksum misses.
+
+## Token ids are u32 (10-28)
+
+2026-10-28 06:10, the user's request as relayed to the workflow that made the change: "Storing an F32 value as F32
+is innaproriate and you need to change that". The reading the change works from (lib/cx-proto.h `cx_tok`): a token
+id is a 32-bit value where it is used (the card's chunk_ids and every lookup), so storing it in 16 bits is wrong.
+Every place an id is stored is 32-bit in the source from 06:xx; the ids are the same numbers (0 to 4,095 for the
+4,096-id vocabulary) in the same order.
+
+| what | since 10-28 06:xx | before |
+|---|---|---|
+| the type | `cx_tok` = uint32_t, CX_TOK_BYTES 4 (lib/cx-proto.h) | uint16_t |
+| a token stream | NAME.u32: little-endian uint32 ids; a chunk of 32 tokens is 128 B of the file; a token count is the file's bytes / 4 | NAME.u16: 64 B a chunk, bytes / 2 |
+| a slot of the token ring (CX_T_SLOT, the part at 56 MiB) | 256 B (CX_T_SLOT_BYTES): CX_T_L + 1 = 33 u32 ids (132 B) and the flags; the memory-dropout flag (CX_T_SLOT_MEMOFF) is the u32 at index 48 (byte 192); 1,024 slots = 262,144 B | 128 B: 33 u16 ids, the flag the u16 at index 60 (byte 120) |
+| a soft record (cx_soft) | 68 B (CX_SOFT_BYTES, held by a static assertion): cx_tok id[8], float p[8], float w; CX_SOFT_NONE 0xFFFFFFFF unused | 52 B: uint16 id[8], float p[8], float w; 0xFFFF unused |
+| a chunk's records (CX_SOFT_CHUNK_BYTES) | 2,176 B = 32 x 68 (34 lines of 64 B); the soft ring's 1,024 slots are 2,228,224 B from part + 57 MiB (to 59.125 MiB), the slots' checksums after them | 1,664 B |
+| the slot checksum (CX_T_SOFT_SUM) | the sum of the slot's 272 u64 words (2,176 / 8), written by the coach, recomputed by the card | 208 words (192 with the 48-byte records) |
+| the tokenizer | tools/bpe.c: encode writes a .u32 file, decode reads one (encode_word writes cx_tok ids) | .u16 |
+| a stream or records of before | tools/ids32.c: `ids32 IN.u16 OUT.u32` widens a stream id for id; `ids32 --soft IN.soft OUT.soft --rec 48\|52` rewrites 48- or 52-byte records as 68-byte cx_soft records (each id widened, 0xFFFF to CX_SOFT_NONE 0xFFFFFFFF, p copied bit for bit, w the record's own for 52 B and 1.0f for 48 B); both modes re-read OUT against IN and exit 1 on any difference | |
+
+What does not move: host/ngtables.h hashes a table row from the ids' values (ng_at, ng_gather and ng_apply take
+`const cx_tok *` and hand each id to the hash by value), so every n-gram row stays where the trained tables have it;
+the checkpoints, the gates files, the pool and the tables hold weights, not ids, and are untouched; the stories
+model's .ngc count files (host/orchestra.h ngc_bucket) keep their u16 layout, a stories-era format the from-scratch
+instance never loads. A run on a widened stream therefore sees the same ids in the same order, the same row hashes
+and the same records apart from the widened id fields. At the time of writing (10-28 06:2x) nothing had been built
+or run on the card with the u32 layout: the live round in progress ran the binaries in build/, built with the u16
+layout.

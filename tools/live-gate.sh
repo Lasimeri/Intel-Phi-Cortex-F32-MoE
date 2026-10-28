@@ -1,9 +1,11 @@
 #!/bin/bash
 # live-gate.sh: the live trainer's gates A to C (docs/LIVE.md). Run from the MoE tree with cortexd serving on the
 # card and no other card run. Every card access goes over the control socket (phi run); the ssh forward is not used.
-# CKPT = the starting checkpoint on the host, CARD_CKPT the same file on the card; SLICE.u16 = the gate's token slice
-# on the host (64,001 tokens: 2,000 chunks of 32 plus the next token), CARD_SLICE its copy on the card.
-#   bash tools/live-gate.sh CKPT CARD_CKPT SLICE.u16 CARD_SLICE
+# CKPT = the starting checkpoint on the host, CARD_CKPT the same file on the card; SLICE.u32 = the gate's token slice
+# on the host (64,001 tokens: 2,000 chunks of 32 plus the next token, little-endian u32 ids, 256,004 bytes), CARD_SLICE
+# its copy on the card; the reference's validation stream is /tmp/cortex/valid.u32 on the card (u32 ids too: a .u16
+# of before 2026-10-28 06:1x is widened by tools/ids32.c before it is put there).
+#   bash tools/live-gate.sh CKPT CARD_CKPT SLICE.u32 CARD_SLICE
 # The reference (cluster-gate run on the card: the batch trainer from the same checkpoint on the same tokens, its final
 # checkpoint's md5 printed) must run with the card free, so it is run here only when results/live-gate-ref.log does
 # not hold it yet; otherwise the existing log is used.
@@ -19,7 +21,7 @@ losses_of() { /usr/bin/grep -E "^.{8} report chunk" "$1" | awk '{print $4, $8}';
 say "=== live gates $(date '+%F %T'): $ckpt, slice $slice (2,000 chunks)"
 say "--- reference: cluster-gate run from the checkpoint on the slice, EVERY 100 (the batch trainer)"
 if ! /usr/bin/grep -q "gateA/ckpt.bin" results/live-gate-ref.log 2>/dev/null; then
-	phi run sh -c "cd /tmp/cortex && mkdir -p gateA && CX_BUS=0 CX_INIT=$card_ckpt ./cluster-gate run $card_slice /tmp/cortex/gateA 32 64000 0.003 /tmp/cortex/valid.u16 3200 100 2>&1; md5sum /tmp/cortex/gateA/ckpt.bin $card_ckpt" > results/live-gate-ref.log 2>&1
+	phi run sh -c "cd /tmp/cortex && mkdir -p gateA && CX_BUS=0 CX_INIT=$card_ckpt ./cluster-gate run $card_slice /tmp/cortex/gateA 32 64000 0.003 /tmp/cortex/valid.u32 3200 100 2>&1; md5sum /tmp/cortex/gateA/ckpt.bin $card_ckpt" > results/live-gate-ref.log 2>&1
 fi
 /usr/bin/grep -E "^chunk" results/live-gate-ref.log | awk '{print $2, $6}' > results/live-gate-ref.losses
 ref_md5=$(awk '/^[0-9a-f]{32}  .*gateA\/ckpt.bin$/ {print $1}' results/live-gate-ref.log)

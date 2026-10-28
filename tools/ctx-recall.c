@@ -17,10 +17,12 @@
  * four returned), the score ratio (the returned four's scores over the exact four's), and the candidates scored a
  * query. Also how much of the exact top-4 lies within the last 256, 1,024 and 4,096 steps: how far back the
  * model's own keys reach.
- *   ctx-recall CKPT STREAM.u16 NTOK [--skip TOKENS] [--heads K] [--from S] [--every E] [--save QK.f32 | --load QK.f32]
+ *   ctx-recall CKPT STREAM.u32 NTOK [--skip TOKENS] [--heads K] [--from S] [--every E] [--save QK.f32 | --load QK.f32]
  * Defaults: --skip 0, --heads 12 (columns 0, 10, 20, ...), --from 4096, --every 8. --save writes the q, k of the
  * reference run (heads x NTOK x 128 F32) and --load reads them instead of running the reference (70 s for 20,000
- * tokens).
+ * tokens). STREAM.u32 holds u32 ids (lib/cx-proto.h cx_tok, 4 B a token; --skip counts tokens, 4 B each); a .u16
+ * stream of before 2026-10-28 is widened by tools/ids32 first, and an id at 4,096 or above among the NTOK read (a
+ * .u16 stream read as u32 pairs two ids into one) is refused.
  */
 #include "cref.h"
 #include "../lib/cx-proto.h"
@@ -296,7 +298,7 @@ static void print_stat(const char *name, const stat *S)
 
 int main(int argc, char **argv)
 {
-	if (argc < 4) { fprintf(stderr, "usage: ctx-recall CKPT STREAM.u16 NTOK [--skip TOKENS] [--heads K] [--from S] [--every E] [--save QK.f32 | --load QK.f32]\n"); return 2; }
+	if (argc < 4) { fprintf(stderr, "usage: ctx-recall CKPT STREAM.u32 NTOK [--skip TOKENS] [--heads K] [--from S] [--every E] [--save QK.f32 | --load QK.f32]\n"); return 2; }
 	const long ntok = atol(argv[3]);
 	long skip = 0, from = 4096;
 	int nheads = 12, every = 8;
@@ -326,10 +328,19 @@ int main(int argc, char **argv)
 		if (load_ckpt(&C, argv[1])) return 1;
 		FILE *f = fopen(argv[2], "rb");
 		if (!f) { perror(argv[2]); return 1; }
-		uint16_t *tok = malloc((size_t)ntok * 2);
-		fseek(f, skip * 2, SEEK_SET);
-		if (fread(tok, 2, (size_t)ntok, f) != (size_t)ntok) { fprintf(stderr, "ctx-recall: %s holds fewer than %ld ids after %ld\n", argv[2], ntok, skip); return 1; }
+		cx_tok *tok = malloc((size_t)ntok * sizeof *tok);
+		fseek(f, skip * (long)CX_TOK_BYTES, SEEK_SET);
+		if (fread(tok, sizeof *tok, (size_t)ntok, f) != (size_t)ntok) { fprintf(stderr, "ctx-recall: %s holds fewer than %ld ids after %ld\n", argv[2], ntok, skip); return 1; }
 		fclose(f);
+		/* every id below 4,096: the OR of all ids has no bit at 12 or above (one vectorised pass, as tools/conv-pos.c) */
+		cx_tok m = 0;
+		for (long s = 0; s < ntok; s++) m |= tok[s];
+		if (m >> 12) {
+			long s = 0;
+			while (tok[s] < CX_VOCAB) s++;
+			fprintf(stderr, "ctx-recall: %s: id %u at token %ld is outside the 4,096-id vocabulary (a .u16 stream? tools/ids32 widens one)\n", argv[2], tok[s], skip + s);
+			return 1;
+		}
 		/* the reference over the stream, the bus carried across the window of L steps */
 		for (long s = 0; s < ntok; s++) {
 			const int t = (int)(s % L);

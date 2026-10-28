@@ -62,9 +62,10 @@ section with the rest.
 
 ## Lever 4 built and gated (22:00)
 
-The soft record grew from 48 to 52 bytes: a loss weight `w` per token (lib/cx-proto.h cx_soft), by which the card
-scales the step's whole gradient (card/cluster.h cl_fwd_step, `invLw`) and the reference does the same
-(tools/cref.h) while the reported loss stays the plain cross-entropy. tools/soft-align `--weight-user W` sets w = W
+The soft record grew from 48 to 52 bytes (68 since 10-28 06:xx, the ids u32: docs/DISTIL.md "Token ids are u32
+(10-28)"): a loss weight `w` per token (lib/cx-proto.h cx_soft), by which the card scales the step's whole gradient
+(card/cluster.h cl_fwd_step, `invLw`) and the reference does the same (tools/cref.h) while the reported loss stays
+the plain cross-entropy. tools/soft-align `--weight-user W` sets w = W
 on every token that predicts a token inside a person's line (the turns alternate, the person first) and 1
 elsewhere; the driver bakes the weight into the streams and rebuilds them when it changes (DIR/soft-format.txt).
 The gate on the card (the dense model, the context memory on, 1,024 warm steps, a chunk with 25 of 32 steps soft
@@ -180,3 +181,21 @@ five items (the persona) no longer measure far transfer; the decision metric is 
 Attribution from here: round 19 is the epoch learning rate alone (1e-3); from round 20 the reward and the corrections
 graded against the student's record train too. Grades written after 05:33 come from a teacher that sees the record
 and are not comparable with the grades before.
+
+## The reward's cold start, and the group reward (07:2x)
+
+Round 19's pass, the first with the bank: 0 of 19 replies of the correction pass graded right, 0 of 80 answers of the
+bank judged right. A reward that waits for a right answer gives a student that answers nothing right no signal at all.
+The bank's reward is therefore graded and relative from round 21 (tools/teacher-reward.sh `--mode rloo`, the default):
+30 questions a round, 4 answers each; the teacher scores every answer 0 to 10 against the expected answer (10 the
+expected answer plainly, 5 to 7 about the question and partly right, 2 to 4 on the topic without answering, 1 fluent
+and unrelated, 0 nonsense), R = score / 10, and within a question's group each answer's advantage is its R minus the
+mean R of the other answers: REINFORCE leave-one-out (Kool et al. 2019; Ahmadian et al. 2024, "Back to Basics",
+arxiv 2402.14740), an unbiased baseline without a value network; GRPO (Shao et al. 2024, arxiv 2402.03300) would also
+divide by the group's standard deviation, which is not used here. The advantage, clipped to [-0.25, 1], is the loss
+weight of the answer's tokens on the card (tools/reward-soft.c, the record's w): an answer nearer the expected one than
+its siblings is pushed up, one further away is pushed down a little, so every group teaches even when nothing in it is
+right. A hand check of the arithmetic: scores 6, 3, 3, 0 give +0.40, 0, 0 and -0.25 (the clip). The samples are used
+in the round after they were drawn only (--reward-rounds 1, on-policy as far as one round allows), and the set recurs
+every 12 corpus conversations instead of 24 so its conversations train at all (at 24 a round of 3,700 chunks gave the
+set about 35 slots for 120 conversations).

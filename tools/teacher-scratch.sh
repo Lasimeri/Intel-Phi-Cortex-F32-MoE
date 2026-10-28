@@ -6,16 +6,16 @@
 # drops batch files into CORPUS_DIR; this driver turns them into the stream and trains:
 #   1. the vocabulary: once at least --vocab-bytes of plain text exist (the batches through chat-text
 #      --no-think-block --detok), a 4,096-id BPE is trained on that text (tools/bpe.c) and fixed for good;
-#   2. every new batch is converted and encoded with that vocabulary and appended to DIR/train.u16, every 20th
-#      batch to DIR/valid.u16 instead (the held-out), whole conversations, as they land (DIR/work/encoded.txt
+#   2. every new batch is converted and encoded with that vocabulary and appended to DIR/train.u32, every 20th
+#      batch to DIR/valid.u32 instead (the held-out), whole conversations, as they land (DIR/work/encoded.txt
 #      remembers which, across restarts); beside each stream the soft-target records of the partial distillation
 #      (docs/DISTIL.md; 2026-10-27 18:43, user: "adjust the teacher model so it partially distills itself into the
 #      PhiLLM"): the batch's sidecar of the teacher's logprobs (the writer's batch-*.lp.json) aligned onto the
 #      student's tokens by tools/soft-align with --lambda as the teacher's share of the target, empty records for a
-#      batch without a sidecar, one 48-byte record a token in DIR/train.soft and DIR/valid.soft (a stream from
+#      batch without a sidecar, one 68-byte record a token in DIR/train.soft and DIR/valid.soft (a stream from
 #      before the sidecars is padded with empty records at the start);
 #   3. a training round starts when the stream holds at least --round-chunks untrained chunks (32 tokens each): the
-#      round's stream DIR/round-R.u16 is those chunks, with the correction set recurring inside them once there is
+#      round's stream DIR/round-R.u32 is those chunks, with the correction set recurring inside them once there is
 #      one (tools/mixstream: one correction conversation, then --ratio corpus conversations, again; the set is the
 #      last --keep-rounds rounds' corrections, with empty soft records) and its soft records DIR/round-R.soft, which
 #      the coach feeds into the daemon's soft ring (--soft); the coach runs it from the last state (fresh weights from
@@ -28,7 +28,7 @@
 #      tools/teacher-judge.sh), and the correction pass (tools/teacher-correct.sh: --corrections corpus conversations
 #      cut at a person's line, answered by the live weights under the user's sampling, graded on grammar, relevance
 #      and persona and rewritten by the teacher; the rewrites become DIR/corrections-round-R.jsonl and, encoded, the
-#      set DIR/corrections-set.u16), all written to results/identity-loop.log in the loop's line shape, so the
+#      set DIR/corrections-set.u32), all written to results/identity-loop.log in the loop's line shape, so the
 #      monitor's "the teacher and the student" section shows them; the student's own words never enter the stream;
 #   5. until CORPUS_DIR/stop exists and no untrained chunk is left.
 #   tools/teacher-scratch.sh CORPUS_DIR PERSONA.txt [--ckdir DIR] [--tables FILE] [--vocab-bytes B]
@@ -37,6 +37,16 @@
 #                            [--probe QUESTIONS.jsonl] [--weight-user W] [--epoch-lr X]
 #                            [--reward|--no-reward] [--reward-min G] [--reward-rounds N] [--reward-weight W]
 #                            [--reward-bank FILE] [--reward-count N] [--reward-samples S]
+# (v8, 2026-10-28 06:1x; lib/cx-proto.h cx_tok, the change of 06:10: a token id is a 32-bit value where it is used, so
+# it is stored in 32 bits) every token stream is a .u32 file of little-endian uint32 ids (DIR/train.u32,
+# DIR/valid.u32, DIR/round-R.u32, DIR/corrections-set.u32; tools/bpe.c encode writes them), the same ids 0 to 4,095 in
+# the same order: 4 bytes a token, 128 bytes a chunk of 32; the soft records are 68 bytes (cx_soft: 8 u32 ids with
+# CX_SOFT_NONE 0xFFFFFFFF unused, 8 F32 probabilities, the F32 weight). An instance of before the change is widened at
+# the start and nothing of it is deleted: a missing DIR/train.u32, valid.u32 or corrections-set.u32 is written from its
+# .u16 by build/host/ids32 (tools/ids32.c); the set's 52-byte records are widened record by record by ids32 --soft (the
+# reward weights exactly as they were), the 52-byte file kept as DIR/corrections-set-rec52.soft; DIR/train.soft and
+# DIR/valid.soft are widened the same way by ids32 --soft (kept as DIR/train-rec52.soft and DIR/valid-rec52.soft); a
+# rebuild from the batches follows only a change of --weight-user or --lambda or a record count that does not match.
 # (v7, 05:5x) --reward-bank FILE (default DIR/reward-bank.jsonl, tools/teacher-bank.sh): after the correction pass,
 # tools/teacher-reward.sh puts --reward-count questions of the bank (default 40, a draw fixed by the round) to the live
 # weights --reward-samples times each (default 2) and the teacher verifies every answer against its expected one; the
@@ -67,18 +77,20 @@
 # --mem-dropout 0 (the share of chunks the coach trains without the n-gram memory, host/coach.c --ngram-dropout),
 # --probe data/probe/questions.jsonl (the reasoning probe after every round, tools/teacher-probe.sh), --weight-user 1
 # (the loss weight of the tokens that predict a person's line, baked into the soft records by tools/soft-align; the
-# speaker's own lines stay at 1; docs/REASON.md lever 4). The soft records are 52 bytes a token (lib/cx-proto.h
-# cx_soft); DIR/soft-format.txt names the format and the weight they were written with, and a change rebuilds
-# DIR/train.soft and DIR/valid.soft from the batches in DIR/work/encoded.txt. DIR/state.txt carries the round, the trained chunk count and the state: a
-# restart resumes from it. The vocabulary lands in DIR/vocab-teacher4096.txt; the clients and the TUIs take it with
-# --vocab.
+# speaker's own lines stay at 1; docs/REASON.md lever 4). The soft records are 68 bytes a token (lib/cx-proto.h
+# cx_soft: 8 u32 ids, 8 F32 probabilities, the F32 weight); DIR/soft-format.txt names the format, the weight and the
+# lambda they were written with; a change of the weight or the lambda rebuilds DIR/train.soft and DIR/valid.soft from
+# the batches in DIR/work/encoded.txt, and the 52-byte records of before the u32 ids are widened, not rebuilt (v8).
+# DIR/state.txt carries the round, the trained chunk count and the state: a restart resumes from it. The vocabulary
+# lands in DIR/vocab-teacher4096.txt; the clients and the TUIs take it with --vocab.
 set -u
 cd "$(dirname "$0")/.." || exit 1
 [ $# -ge 2 ] || { echo "usage: tools/teacher-scratch.sh CORPUS_DIR PERSONA.txt [--ckdir DIR] [--tables FILE] [--vocab-bytes B] [--round-chunks N] [--lr X] [--prompt \"...\"] [--valid-every K] [--corrections K] [--ratio R] [--keep-rounds M] [--lambda X]" >&2; exit 2; }
 corpus=$1; persona=$2
 shift 2
 ckdir=data/live-teacher; tables=/dev/shm/cortex-teacher-tables.f32; vocab_bytes=300000; round_chunks=1000; lr=0.003; prompt="Introduce yourself"; valid_every=20; corrections=20; ratio=6; keep_rounds=3; lambda=0.5; replay=1; mem_dropout=0; probe=data/probe/questions.jsonl; weight_user=1; epoch_lr=""; reward=1; reward_min=7; reward_rounds=5; reward_weight=1; reward_bank=""; reward_count=40; reward_samples=2
-rec=52   # bytes per soft record (lib/cx-proto.h cx_soft)
+rec=68   # bytes per soft record (lib/cx-proto.h cx_soft, CX_SOFT_BYTES)
+tok=4    # bytes per token id in a stream (lib/cx-proto.h cx_tok, CX_TOK_BYTES): a chunk of 32 tokens is 128 bytes
 while [ $# -gt 0 ]; do
 	case "$1" in
 	--ckdir) ckdir=$2; shift 2 ;;
@@ -114,13 +126,29 @@ done
 mkdir -p "$ckdir/work"
 W=$ckdir/work
 vocab=$ckdir/vocab-teacher4096.txt
-train=$ckdir/train.u16
-valid=$ckdir/valid.u16
-setfile=$ckdir/corrections-set.u16
+train=$ckdir/train.u32
+valid=$ckdir/valid.u32
+setfile=$ckdir/corrections-set.u32
 soft=$ckdir/train.soft
 vsoft=$ckdir/valid.soft
 log=results/identity-loop.log
 say() { echo "$(date +%T) $*" | tee -a "$log"; }
+# an instance of before the u32 ids (2026-10-28 06:10): every stream with no .u32 yet and a .u16 is widened by
+# build/host/ids32 (tools/ids32.c: the same ids in the same order, 4 bytes each) into a temporary file, which takes the
+# .u32 name only when it holds exactly twice the .u16's bytes (as many ids); the .u16 stays where it is. This runs
+# before anything below creates an empty stream, so a stream of before the change is never mistaken for a new one.
+for u32 in "$train" "$valid" "$setfile"; do
+	u16=${u32%.u32}.u16
+	[ ! -e "$u32" ] && [ -f "$u16" ] || continue
+	[ -x build/host/ids32 ] || { say "the stream $u16 needs widening to $u32 and build/host/ids32 is missing: stopping"; exit 1; }
+	if ! build/host/ids32 "$u16" "$u32.tmp" > "$W/ids32.out" 2>&1 || [ "$(stat -c %s "$u32.tmp" 2>/dev/null || echo 0)" -ne $((2 * $(stat -c %s "$u16"))) ]; then
+		say "the stream $u16 could not be widened to $u32 ($(tail -n 1 "$W/ids32.out" | cut -c1-120)): stopping"
+		rm -f "$u32.tmp"
+		exit 1
+	fi
+	mv "$u32.tmp" "$u32"
+	say "the stream $u16 widened to $u32: $(( $(stat -c %s "$u32") / tok )) tokens as u32 ids (the .u16 kept)"
+done
 [ -f "$W/encoded.txt" ] || : > "$W/encoded.txt"   # the batch files already in the stream
 [ -f "$train" ] || : > "$train"
 [ -f "$valid" ] || : > "$valid"
@@ -141,8 +169,10 @@ align_batch() {
 # were written with stand in DIR/soft-format.txt: when either changes, or a stream's record count differs from its
 # token count (a stop between the two appends), both streams are rebuilt from the batches of DIR/work/encoded.txt in
 # their order (the same walk as encode_new: every batch whose text converted and encoded is in the token stream, so it
-# gets records, empty ones when its alignment fails; none failed in 1,387 alignments to 2026-10-28 05:07). Then the
-# counts must agree and the records must align (tools/soft-check), or the driver stops: it never pads.
+# gets records, empty ones when its alignment fails; none failed in 1,387 alignments to 2026-10-28 05:07). One change
+# of format is not a rebuild: the 52-byte records of before the u32 ids, written with this run's weight and lambda at
+# one record a token, are widened to $rec bytes record by record (below). Then the counts must agree and the records
+# must align (tools/soft-check), or the driver stops: it never pads.
 soft_format="rec $rec weight-user $weight_user lambda $lambda"
 resoft_all() {
 	local f nb=0 nt
@@ -152,8 +182,8 @@ resoft_all() {
 		nb=$((nb + 1))
 		[ -f "$f" ] || continue
 		build/host/chat-text "$f" "$W/batch.txt" --no-think-block --detok > /dev/null 2>&1 || continue
-		build/host/bpe encode "$vocab" "$W/batch.txt" "$W/batch.u16" > /dev/null 2>&1 || continue
-		nt=$(( $(stat -c %s "$W/batch.u16") / 2 ))
+		build/host/bpe encode "$vocab" "$W/batch.txt" "$W/batch.u32" > /dev/null 2>&1 || continue
+		nt=$(( $(stat -c %s "$W/batch.u32") / tok ))
 		if ! align_batch "$f" "$W/batch.txt" "$W/batch.soft" || [ $(( $(stat -c %s "$W/batch.soft") / rec )) -ne "$nt" ]; then
 			build/host/soft-align --empty "$nt" "$W/batch.soft" > /dev/null || { say "soft-align --empty failed"; exit 1; }
 			say "rebuild: batch $(basename "$f") did not align: $nt empty records"
@@ -162,10 +192,34 @@ resoft_all() {
 	done < "$W/encoded.txt"
 	echo "$soft_format" > "$ckdir/soft-format.txt"
 }
-soft_counts_ok() { [ $(( $(stat -c %s "$train") / 2 )) -eq $(( $(stat -c %s "$soft" 2>/dev/null || echo 0) / rec )) ] && [ $(( $(stat -c %s "$valid") / 2 )) -eq $(( $(stat -c %s "$vsoft" 2>/dev/null || echo 0) / rec )) ]; }
+soft_counts_ok() { [ $(( $(stat -c %s "$train") / tok )) -eq $(( $(stat -c %s "$soft" 2>/dev/null || echo 0) / rec )) ] && [ $(( $(stat -c %s "$valid") / tok )) -eq $(( $(stat -c %s "$vsoft" 2>/dev/null || echo 0) / rec )) ]; }
+# the streams' records of before the u32 ids (DIR/soft-format.txt "rec 52 weight-user W lambda X" with this run's
+# weight and lambda, one 52-byte record a token of each stream): widened by build/host/ids32 --soft as the set's are
+# below (each id widened, 0xFFFF to CX_SOFT_NONE, p and w copied bit for bit, the output re-read against the input),
+# not rebuilt from the batches: the writer (tools/teacher-corpus.sh) fills a batch file in place one conversation at a
+# time and moves its sidecar beside it after, so a batch encoded early would get other records, or another token
+# count, from a rebuild. The widened files take the names only when both streams widened at exactly $rec bytes a
+# record; the 52-byte files are kept as DIR/train-rec52.soft and DIR/valid-rec52.soft.
+if [ "$(cat "$ckdir/soft-format.txt" 2>/dev/null)" = "rec 52 weight-user $weight_user lambda $lambda" ] \
+	&& [ "$(stat -c %s "$soft" 2>/dev/null || echo -1)" -eq $(( $(stat -c %s "$train") / tok * 52 )) ] \
+	&& [ "$(stat -c %s "$vsoft" 2>/dev/null || echo -1)" -eq $(( $(stat -c %s "$valid") / tok * 52 )) ]; then
+	[ -x build/host/ids32 ] || { say "the soft records need widening from 52 to $rec bytes and build/host/ids32 is missing: stopping"; exit 1; }
+	for s in "$soft" "$vsoft"; do
+		nr=$(( $(stat -c %s "$s") / 52 ))
+		if ! build/host/ids32 --soft "$s" "$s.tmp" --rec 52 > "$W/ids32.out" 2>&1 || [ "$(stat -c %s "$s.tmp" 2>/dev/null || echo 0)" -ne $((nr * rec)) ]; then
+			say "the soft records $s could not be widened from 52 to $rec bytes ($(tail -n 1 "$W/ids32.out" | cut -c1-120)): stopping"
+			rm -f "$soft.tmp" "$vsoft.tmp"
+			exit 1
+		fi
+		say "$(head -n 1 "$W/ids32.out" | cut -c1-260)"
+	done
+	for s in "$soft" "$vsoft"; do mv "$s" "${s%.soft}-rec52.soft"; mv "$s.tmp" "$s"; done
+	echo "$soft_format" > "$ckdir/soft-format.txt"
+	say "the soft records widened from 52 to $rec bytes (u32 ids; the 52-byte files kept as ${soft%.soft}-rec52.soft and ${vsoft%.soft}-rec52.soft)"
+fi
 if [ -s "$vocab" ]; then
 	if [ "$(cat "$ckdir/soft-format.txt" 2>/dev/null)" != "$soft_format" ] || ! soft_counts_ok; then resoft_all; fi
-	soft_counts_ok || { say "the soft records do not match the tokens after the rebuild (train $(( $(stat -c %s "$train") / 2 )) tokens, $(( $(stat -c %s "$soft") / rec )) records; valid $(( $(stat -c %s "$valid") / 2 )), $(( $(stat -c %s "$vsoft") / rec ))): stopping"; exit 1; }
+	soft_counts_ok || { say "the soft records do not match the tokens after the rebuild (train $(( $(stat -c %s "$train") / tok )) tokens, $(( $(stat -c %s "$soft") / rec )) records; valid $(( $(stat -c %s "$valid") / tok )), $(( $(stat -c %s "$vsoft") / rec ))): stopping"; exit 1; }
 	for pair in "$train:$soft" "$valid:$vsoft"; do
 		build/host/soft-check "${pair%%:*}" "${pair#*:}" --rec "$rec" > "$W/soft-check.out" 2>&1 || { say "the soft records of ${pair#*:} do not align with the tokens: $(tail -n 1 "$W/soft-check.out"): stopping"; exit 1; }
 		say "$(/usr/bin/grep -E 'next token among' "$W/soft-check.out" | sed -E 's/^soft-check: //') (${pair#*:})"
@@ -185,18 +239,18 @@ setsoft=$ckdir/corrections-set.soft
 build_set() {
 	local nc nrw=0
 	ls "$ckdir"/corrections-round-*.jsonl | sort -t- -k3 -n | tail -n "$keep_rounds" | xargs cat > "$W/set.jsonl"
-	if ! build/host/chat-text "$W/set.jsonl" "$W/set.txt" --no-think-block --detok > /dev/null 2>&1 || ! build/host/bpe encode "$vocab" "$W/set.txt" "$W/setc.u16" > /dev/null 2>&1; then
+	if ! build/host/chat-text "$W/set.jsonl" "$W/set.txt" --no-think-block --detok > /dev/null 2>&1 || ! build/host/bpe encode "$vocab" "$W/set.txt" "$W/setc.u32" > /dev/null 2>&1; then
 		say "round $round: the correction set could not be encoded"
 		return
 	fi
-	nc=$(( $(stat -c %s "$W/setc.u16") / 2 ))
+	nc=$(( $(stat -c %s "$W/setc.u32") / tok ))
 	build/host/soft-align --empty "$nc" "$W/setc.soft" > /dev/null || { say "round $round: soft-align --empty failed"; return; }
 	if [ "$reward" -eq 1 ]; then
 		ls "$ckdir"/rewards-round-*.jsonl 2>/dev/null | sort -t- -k3 -n | tail -n "$reward_rounds" | xargs -r cat > "$W/rw.jsonl"
 		if [ -s "$W/rw.jsonl" ]; then
-			if build/host/chat-text "$W/rw.jsonl" "$W/rw.txt" --no-think-block --detok > /dev/null 2>&1 && build/host/bpe encode "$vocab" "$W/rw.txt" "$W/rw.u16" > /dev/null 2>&1 \
-				&& jq -r '.reward // 1' "$W/rw.jsonl" > "$W/rw.rewards" && build/host/reward-soft "$W/rw.u16" "$W/rw.rewards" "$W/rw.soft" --scale "$reward_weight" > "$W/reward-soft.out" 2>&1; then
-				cat "$W/rw.u16" >> "$W/setc.u16"
+			if build/host/chat-text "$W/rw.jsonl" "$W/rw.txt" --no-think-block --detok > /dev/null 2>&1 && build/host/bpe encode "$vocab" "$W/rw.txt" "$W/rw.u32" > /dev/null 2>&1 \
+				&& jq -r '.reward // 1' "$W/rw.jsonl" > "$W/rw.rewards" && build/host/reward-soft "$W/rw.u32" "$W/rw.rewards" "$W/rw.soft" --scale "$reward_weight" > "$W/reward-soft.out" 2>&1; then
+				cat "$W/rw.u32" >> "$W/setc.u32"
 				cat "$W/rw.soft" >> "$W/setc.soft"
 				nrw=$(wc -l < "$W/rw.jsonl")
 			else
@@ -204,13 +258,33 @@ build_set() {
 			fi
 		fi
 	fi
-	mv "$W/setc.u16" "$setfile"
+	mv "$W/setc.u32" "$setfile"
 	mv "$W/setc.soft" "$setsoft"
 	say "round $round: the correction set is $(wc -l < "$W/set.jsonl") conversations, $nc tokens, from the last $keep_rounds rounds$([ "$reward" -eq 1 ] && echo "; the reward set $nrw of the student's own right replies of the last $reward_rounds rounds, at weight $reward_weight ($(sed -n -E 's/.* ([0-9]+) reinforced tokens.*/\1/p' "$W/reward-soft.out" 2>/dev/null) reinforced tokens)")"
 }
-# a set written before its records existed gets empty ones (weight 1, as mixstream gave it then)
-if [ -s "$setfile" ] && { [ ! -f "$setsoft" ] || [ $(( $(stat -c %s "$setsoft") / rec )) -ne $(( $(stat -c %s "$setfile") / 2 )) ]; }; then
-	build/host/soft-align --empty $(( $(stat -c %s "$setfile") / 2 )) "$setsoft" > /dev/null || { say "soft-align --empty failed"; exit 1; }
+# the set's records, one per token of the set. A set of before the u32 ids carries 52-byte records (u16 id[8] with
+# 0xFFFF unused, F32 p[8], F32 w), the format the 52-byte driver wrote and kept (its own start had already replaced a
+# 48-byte set's records): build/host/ids32 --soft widens them record by record to the 68-byte cx_soft (each id widened,
+# 0xFFFF to CX_SOFT_NONE, p and w copied bit for bit) and re-reads its output against them, so the reward weights
+# tools/reward-soft wrote stay exactly as they were (byte-identical to a widening through the two structs on 100,000
+# random records, 2026-10-28 06:3x); the widened file takes the name only at exactly $rec bytes a token, and the
+# 52-byte file is kept as DIR/corrections-set-rec52.soft. A set written before its records existed gets empty ones
+# (weight 1, as mixstream gave it then).
+if [ -s "$setfile" ]; then
+	nset=$(( $(stat -c %s "$setfile") / tok ))
+	if [ -f "$setsoft" ] && [ "$(stat -c %s "$setsoft")" -eq $((nset * 52)) ]; then
+		[ -x build/host/ids32 ] || { say "the correction set's 52-byte records need widening and build/host/ids32 is missing: stopping"; exit 1; }
+		if ! build/host/ids32 --soft "$setsoft" "$setsoft.tmp" --rec 52 > "$W/ids32.out" 2>&1 || [ "$(stat -c %s "$setsoft.tmp" 2>/dev/null || echo 0)" -ne $((nset * rec)) ]; then
+			say "the correction set's $nset records of 52 bytes could not be widened to $rec ($(tail -n 1 "$W/ids32.out" | cut -c1-120)): stopping"
+			rm -f "$setsoft.tmp"
+			exit 1
+		fi
+		mv "$setsoft" "$ckdir/corrections-set-rec52.soft"
+		mv "$setsoft.tmp" "$setsoft"
+		say "the correction set's $nset soft records widened from 52 to $rec bytes (u32 ids; the 52-byte file kept as $ckdir/corrections-set-rec52.soft)"
+	elif [ ! -f "$setsoft" ] || [ $(( $(stat -c %s "$setsoft") / rec )) -ne "$nset" ]; then
+		build/host/soft-align --empty "$nset" "$setsoft" > /dev/null || { say "soft-align --empty failed"; exit 1; }
+	fi
 fi
 
 say "=== identity loop: set $corpus (the teacher's corpus as it grows), test persona $persona, prompt \"$prompt\", the teacher judges (tools/teacher-judge.sh) and corrects ($corrections a round, ratio $ratio, the last $keep_rounds rounds kept), from ${cur_ckpt:-fresh weights}; a round every $round_chunks new chunks, lr $lr, memory $tables, the vocabulary on the first $vocab_bytes bytes"
@@ -223,12 +297,12 @@ encode_new() {
 		/usr/bin/grep -q -x -F "$f" "$W/encoded.txt" && continue
 		nbatch=$((nbatch + 1))
 		build/host/chat-text "$f" "$W/batch.txt" --no-think-block --detok > /dev/null 2>&1 || { echo "$f" >> "$W/encoded.txt"; continue; }
-		build/host/bpe encode "$vocab" "$W/batch.txt" "$W/batch.u16" > /dev/null 2>&1 || { echo "$f" >> "$W/encoded.txt"; continue; }
+		build/host/bpe encode "$vocab" "$W/batch.txt" "$W/batch.u32" > /dev/null 2>&1 || { echo "$f" >> "$W/encoded.txt"; continue; }
 		# the teacher's distribution at every token it generated (the batch's sidecar, tools/teacher.sh --lp-out), carried
 		# onto the student's tokens by tools/soft-align (docs/DISTIL.md), the person's lines at --weight-user
 		align_batch "$f" "$W/batch.txt" "$W/batch.soft" || { say "batch $(basename "$f"): soft-align failed, skipped"; echo "$f" >> "$W/encoded.txt"; continue; }
-		if [ $(( $(stat -c %s "$W/batch.soft") / rec )) -ne $(( $(stat -c %s "$W/batch.u16") / 2 )) ]; then say "batch $(basename "$f"): the soft records do not match the tokens, skipped"; echo "$f" >> "$W/encoded.txt"; continue; fi
-		if [ $((nbatch % valid_every)) -eq 0 ]; then cat "$W/batch.u16" >> "$valid"; cat "$W/batch.soft" >> "$vsoft"; else cat "$W/batch.u16" >> "$train"; cat "$W/batch.soft" >> "$soft"; fi
+		if [ $(( $(stat -c %s "$W/batch.soft") / rec )) -ne $(( $(stat -c %s "$W/batch.u32") / tok )) ]; then say "batch $(basename "$f"): the soft records do not match the tokens, skipped"; echo "$f" >> "$W/encoded.txt"; continue; fi
+		if [ $((nbatch % valid_every)) -eq 0 ]; then cat "$W/batch.u32" >> "$valid"; cat "$W/batch.soft" >> "$vsoft"; else cat "$W/batch.u32" >> "$train"; cat "$W/batch.soft" >> "$soft"; fi
 		echo "$f" >> "$W/encoded.txt"
 	done
 }
@@ -258,7 +332,7 @@ round=0; trained=0; cur_ckpt=""; cur_pool=""
 [ -f "$ckdir/state.txt" ] && read -r round trained cur_ckpt cur_pool < "$ckdir/state.txt"
 while true; do
 	encode_new
-	have=$(( $(stat -c %s "$train") / 64 ))
+	have=$(( $(stat -c %s "$train") / (32 * tok) ))
 	untrained=$((have - trained))
 	epoch=0
 	if [ "$untrained" -lt "$round_chunks" ]; then
@@ -281,18 +355,18 @@ while true; do
 		cur_ckpt=$ckdir/ckpt-init.bin
 	fi
 	# the round's stream: the untrained chunks, with the correction set recurring inside them once there is one
-	stream=$ckdir/round-$round.u16
+	stream=$ckdir/round-$round.u32
 	trained_after=$have
 	if [ "$corrections" -gt 0 ] && [ -s "$setfile" ]; then
-		build/host/mixstream "$setfile" "$train" $((trained * 32)) "$ratio" "$untrained" "$stream" --soft "$soft" "${stream%.u16}.soft" --set-soft "$setsoft" > "$W/mix-$round.out" 2>&1 || { say "round $round: mixstream failed: $(tail -n 1 "$W/mix-$round.out" | cut -c1-120)"; exit 1; }
+		build/host/mixstream "$setfile" "$train" $((trained * 32)) "$ratio" "$untrained" "$stream" --soft "$soft" "${stream%.u32}.soft" --set-soft "$setsoft" > "$W/mix-$round.out" 2>&1 || { say "round $round: mixstream failed: $(tail -n 1 "$W/mix-$round.out" | cut -c1-120)"; exit 1; }
 		# the base's end token in the mix is where the next round starts (a partial conversation is moved up by mixstream)
 		end_tok=$(sed -n -E 's/.*from token [0-9]+ to ([0-9]+) of.*/\1/p' "$W/mix-$round.out" | head -n 1)
 		[ -n "$end_tok" ] && trained_after=$((end_tok / 32))
 		[ "$trained_after" -gt "$have" ] && trained_after=$have
 		mixnote="the correction set recurring: $(head -n 1 "$W/mix-$round.out" | cut -c1-140)"
 	else
-		dd if="$train" of="$stream" bs=64 skip="$trained" count="$untrained" status=none
-		dd if="$soft" of="${stream%.u16}.soft" bs=$((rec * 32)) skip="$trained" count="$untrained" status=none
+		dd if="$train" of="$stream" bs=$((32 * tok)) skip="$trained" count="$untrained" status=none
+		dd if="$soft" of="${stream%.u32}.soft" bs=$((rec * 32)) skip="$trained" count="$untrained" status=none
 		mixnote="no correction set yet"
 	fi
 	poolopt=(); [ -n "$cur_pool" ] && [ -f "$cur_pool" ] && poolopt=(--pool "$cur_pool")
@@ -300,8 +374,8 @@ while true; do
 	dropopt=(); [ "$(awk -v d="$mem_dropout" 'BEGIN { print (d > 0) }')" = 1 ] && dropopt=(--ngram-dropout "$mem_dropout")
 	rlr=$lr; [ "$epoch" -eq 1 ] && rlr=$epoch_lr
 	say "round $round${epoch:+$([ "$epoch" -eq 1 ] && echo " (an epoch: the whole stream again)")}: $untrained untrained chunks of $have; the coach from $cur_ckpt${cur_pool:+ with $cur_pool} on $stream ($mixnote; gates $gates${dropopt:+; memory dropout $mem_dropout}; lr $rlr)"
-	build/host/soft-check "$stream" "${stream%.u16}.soft" --rec "$rec" > "$W/soft-check.out" 2>&1 || { say "round $round: the soft records do not align with the round's tokens: $(tail -n 1 "$W/soft-check.out"): refusing the round"; exit 1; }
-	setsid nohup build/host/coach "$stream" --soft "${stream%.u16}.soft" --prompt "$prompt_text" --words "$words_list" --ckpt "$cur_ckpt" "${poolopt[@]}" --start 0 --lr "$rlr" --every 100 --window 300 --halvings 0 --no-stop \
+	build/host/soft-check "$stream" "${stream%.u32}.soft" --rec "$rec" > "$W/soft-check.out" 2>&1 || { say "round $round: the soft records do not align with the round's tokens: $(tail -n 1 "$W/soft-check.out"): refusing the round"; exit 1; }
+	setsid nohup build/host/coach "$stream" --soft "${stream%.u32}.soft" --prompt "$prompt_text" --words "$words_list" --ckpt "$cur_ckpt" "${poolopt[@]}" --start 0 --lr "$rlr" --every 100 --window 300 --halvings 0 --no-stop \
 		--save-every 5000 --sample-every 0 --vocab "$vocab" --cmd results/live.cmd --log results/live.log --ckdir "$ckdir" \
 		--moe --moe-bias 100 --expert-lr 0.05 --ngram "$tables" --row-lr 0.1 --gates "$gates" "${dropopt[@]}" > "$W/coach-$round.out" 2>&1 < /dev/null &
 	cpid=$!
@@ -320,7 +394,7 @@ while true; do
 	# the held-out loss on what the held-out holds, up to 5,000 tokens: the memory reading first (the checkpoint with its
 	# n-gram memory, the configuration it trains and answers in: 2.76 bits/token at round 6 against the dense 5.15, the
 	# bigram floor 3.06 and the trigram floor 2.58 on this corpus, 21:4x), then the dense reading for the columns alone
-	held=""; heldd=""; vt=$(( $(stat -c %s "$valid") / 2 )); ntok=$((vt - 64)); [ "$ntok" -gt 5001 ] && ntok=5001
+	held=""; heldd=""; vt=$(( $(stat -c %s "$valid") / tok )); ntok=$((vt - 64)); [ "$ntok" -gt 5001 ] && ntok=5001
 	if [ "$ntok" -ge 1000 ]; then
 		[ -f "${cur_ckpt%.bin}-gates.f32" ] && held=$(build/host/ref-loss "$cur_ckpt" "$valid" "$ntok" --ngram "$tables" "${cur_ckpt%.bin}-gates.f32" --ctx 2>/dev/null | tail -n 1 | sed -E 's/.*: ([0-9.]+ nats = [0-9.]+ bits\/token).*/\1/')
 		heldd=$(build/host/ref-loss "$cur_ckpt" "$valid" "$ntok" 2>/dev/null | tail -n 1 | sed -E 's/.*: ([0-9.]+ nats = [0-9.]+ bits\/token).*/\1/')

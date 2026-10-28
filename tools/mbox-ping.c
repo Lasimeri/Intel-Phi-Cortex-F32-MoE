@@ -67,7 +67,7 @@ int main(int argc, char **argv)
 		for (int p = 0; p < 2; p++) {
 			const uint32_t lines = payload[p];
 			for (long r = 0; r < rounds; r++) {
-				seq++;
+				seq = CX_CMD_NEXT(seq);   /* 32-bit sequence (protocol version 2), never the quit value */
 				const uint64_t a = ns();
 				ST64(CX_H_CMD, CX_CMD(seq, lines));
 				while (LD64(CX_C_ACK) != seq) {}

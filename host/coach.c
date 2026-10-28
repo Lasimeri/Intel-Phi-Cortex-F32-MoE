@@ -5,7 +5,7 @@
  * a file that a person (or an assistant watching the log) appends to. Nothing the coach writes and nothing the model
  * generates is training data: the gradient comes from the token file only.
  *
- *   coach TOKENS.u16 [options]
+ *   coach TOKENS.u32 [options]       TOKENS: little-endian u32 ids (lib/cx-proto.h cx_tok), 4 bytes a token, 128 a chunk
  *     --ckpt CKPT          load this checkpoint into the daemon first (a new run for the Adam state)
  *     --start CHUNK        the first chunk of the token file to feed (default 0)
  *     --chunks N           feed at most N chunks (default: to the end of the file)
@@ -30,8 +30,9 @@
  *     --log FILE           the log (default results/live.log, appended)
  *     --cortex PATH        the client binary (default build/host/cortex)
  *     --vocab FILE         the BPE vocabulary (default data/bpe/vocab4096.txt)
- *     --soft FILE          the partial distillation (docs/DISTIL.md): FILE holds one 48-byte record per token of the
- *                          stream (tools/soft-align.c, the teacher's distribution mapped onto the student's ids); each
+ *     --soft FILE          the partial distillation (docs/DISTIL.md): FILE holds one 68-byte record per token of the
+ *                          stream (lib/cx-proto.h cx_soft: 8 u32 ids, 8 F32 probabilities, the F32 loss weight;
+ *                          tools/soft-align.c, the teacher's distribution mapped onto the student's ids); each
  *                          chunk's records go into the soft ring with it and the daemon mixes them into the target
  *     --ngram-dropout P    with --ngram: the share of chunks trained without the memory, chosen by a hash of the chunk's
  *                          stream position (the slot carries the flag, lib/cx-proto.h CX_T_SLOT_MEMOFF): the daemon
@@ -154,17 +155,22 @@ static void logline(const char *fmt, ...)
 }
 
 /* ---- the token stream and the ring ---- */
-static uint16_t *tok;
+static cx_tok *tok;
 static long ntok, total_chunks, fed;   /* fed: chunks written into the ring (run-local count) */
+
+/* a slot is u32 words: the chunk's CX_T_L + 1 ids from word 0, the memory dropout's flag at word CX_T_SLOT_MEMOFF; the
+ * soft records are copied as u64 words, CX_SOFT_CHUNK_BYTES / 8 = 272 a chunk, every chunk's records 8-byte aligned */
+_Static_assert(CX_T_L + 1 <= CX_T_SLOT_MEMOFF && (CX_T_SLOT_MEMOFF + 1) * CX_TOK_BYTES <= CX_T_SLOT_BYTES, "the ids, then the flag, inside one slot");
+_Static_assert(CX_SOFT_CHUNK_BYTES % 8 == 0, "a chunk's soft records are whole u64 words");
 
 static void feed(void)
 {
 	const long consumed = (long)LD64(CX_T_C_CHUNKS);
 	while (fed < total_chunks && fed - consumed < (long)RING_AHEAD) {
-		volatile uint16_t *slot = (volatile uint16_t *)(part + CX_T_SLOT(fed));
-		const uint16_t *src = tok + (start_chunk + fed) * CX_T_L;
+		volatile uint32_t *slot = (volatile uint32_t *)(part + CX_T_SLOT(fed));
+		const cx_tok *src = tok + (start_chunk + fed) * CX_T_L;
 		for (int t = 0; t <= CX_T_L; t++) slot[t] = src[t];
-		slot[CX_T_SLOT_MEMOFF] = (uint16_t)(ng_path && chunk_dropped(fed));   /* the memory dropout's flag for the chunk */
+		slot[CX_T_SLOT_MEMOFF] = (uint32_t)(ng_path && chunk_dropped(fed));   /* the memory dropout's flag for the chunk */
 		if (soft) {   /* the chunk's soft records into its slot of the soft ring, 64-bit stores into the uncached part */
 			volatile uint64_t *ss = (volatile uint64_t *)(part + CX_T_SOFT_SLOT(fed));
 			const uint64_t *sr = (const uint64_t *)(soft + (start_chunk + fed) * CX_T_L);
@@ -428,7 +434,7 @@ static int wait_ack_bit(uint64_t bit, int set, double timeout_s)
 /* ---- main ---- */
 int main(int argc, char **argv)
 {
-	if (argc < 2) { fprintf(stderr, "usage: coach TOKENS.u16 [--ckpt CKPT] [--start CHUNK] [--chunks N] [--lr X] [--every N] [--window W] [--min-gain B] [--halvings H] [--sample-every N] [--sample-tokens N] [--save-every N] [--no-stop] [--prompt TEXT] [--orchestra NGC] [--words LIST] [--cmd FILE] [--ckdir DIR] [--paused] [--log FILE] [--cortex PATH] [--vocab FILE] [--ngram TABLES.f32 [--row-lr X] [--gates FILE|ones] [--tables-every N]] [--moe] [--moe-bias X] [--bias-decay N] [--expert-lr X] [--pool FILE] [--pool-every N]\n"); return 2; }
+	if (argc < 2) { fprintf(stderr, "usage: coach TOKENS.u32 [--ckpt CKPT] [--start CHUNK] [--chunks N] [--lr X] [--every N] [--window W] [--min-gain B] [--halvings H] [--sample-every N] [--sample-tokens N] [--save-every N] [--no-stop] [--prompt TEXT] [--orchestra NGC] [--words LIST] [--cmd FILE] [--ckdir DIR] [--paused] [--log FILE] [--cortex PATH] [--vocab FILE] [--ngram TABLES.f32 [--row-lr X] [--gates FILE|ones] [--tables-every N]] [--moe] [--moe-bias X] [--bias-decay N] [--expert-lr X] [--pool FILE] [--pool-every N]\n"); return 2; }
 	tokens_path = argv[1];
 	for (int i = 2; i < argc; i++) {
 		if (!strcmp(argv[i], "--ckpt") && i + 1 < argc) ckpt = argv[++i];
@@ -472,31 +478,50 @@ int main(int argc, char **argv)
 	if (load_vocab(vocab)) return 1;
 	for (int id = 0; id < 256 + nmerges; id++) expand(id);
 	expand(EOT);
-	/* the token stream */
+	/* the token stream: u32 ids; a length that is not whole ids or an id outside the vocabulary is refused before anything
+	 * reaches the card (a .u16 stream of before 2026-10-28 read as u32 pairs two ids into one value of 65,536 or more:
+	 * tools/ids32.c widens one) */
 	FILE *f = fopen(tokens_path, "rb");
 	if (!f) { perror(tokens_path); return 1; }
 	fseek(f, 0, SEEK_END);
-	ntok = ftell(f) / 2;
+	const long tbytes = ftell(f);
+	ntok = tbytes / CX_TOK_BYTES;
 	fseek(f, 0, SEEK_SET);
-	tok = malloc((size_t)ntok * 2);
-	if (fread(tok, 2, (size_t)ntok, f) != (size_t)ntok) { perror(tokens_path); return 1; }
+	if (tbytes % CX_TOK_BYTES) { fprintf(stderr, "coach: %s: %ld bytes, not whole u32 ids\n", tokens_path, tbytes); return 1; }
+	tok = malloc((size_t)ntok * sizeof *tok);
+	if (fread(tok, sizeof *tok, (size_t)ntok, f) != (size_t)ntok) { perror(tokens_path); return 1; }
 	fclose(f);
+	for (long i = 0; i < ntok; i++)
+		if (tok[i] >= CX_VOCAB) { fprintf(stderr, "coach: %s: id %u at token %ld is outside the %d-id vocabulary (a .u16 stream?)\n", tokens_path, (unsigned)tok[i], i, CX_VOCAB); return 1; }
 	total_chunks = (ntok - 1) / CX_T_L - start_chunk;
 	if (max_chunks >= 0 && max_chunks < total_chunks) total_chunks = max_chunks;
 	if (total_chunks <= 0) { fprintf(stderr, "coach: nothing to feed (file %ld tokens, start chunk %ld)\n", ntok, start_chunk); return 1; }
-	if (soft_path) {   /* the soft targets: one record per token, at least through the run's last chunk */
+	/* the soft targets: one record per token, at least through the run's last chunk; whole 68-byte records, each id CX_SOFT_NONE or in the
+	 * vocabulary, every p and w finite (a 48- or 52-byte file of 17 x m records is whole 68-byte records, and with w = 0 its ids read as
+	 * CX_SOFT_NONE or 0 while its 0xFFFF id bytes land in p and w as NaN; tools/soft-align.c, mixstream.c and reward-soft.c fill unused
+	 * slots with p = 0) */
+	if (soft_path) {
 		FILE *sf = fopen(soft_path, "rb");
 		if (!sf) { perror(soft_path); return 1; }
 		fseek(sf, 0, SEEK_END);
-		nsoft = ftell(sf) / (long)CX_SOFT_BYTES;
+		const long sbytes = ftell(sf);
+		nsoft = sbytes / (long)CX_SOFT_BYTES;
 		fseek(sf, 0, SEEK_SET);
+		if (sbytes % (long)CX_SOFT_BYTES) { fprintf(stderr, "coach: %s: %ld bytes, not whole %u-byte records (a 48- or 52-byte file with u16 ids?)\n", soft_path, sbytes, CX_SOFT_BYTES); return 1; }
 		const long need = (start_chunk + total_chunks) * CX_T_L, first = start_chunk * CX_T_L;
 		if (nsoft < need) { fprintf(stderr, "coach: %s holds %ld records, the run needs %ld (the tokens through chunk %ld)\n", soft_path, nsoft, need, start_chunk + total_chunks - 1); return 1; }
 		soft = malloc((size_t)nsoft * CX_SOFT_BYTES);
 		if (fread(soft, CX_SOFT_BYTES, (size_t)nsoft, sf) != (size_t)nsoft) { perror(soft_path); return 1; }
 		fclose(sf);
 		long with = 0;
-		for (long i = first; i < need; i++) with += soft[i].id[0] != CX_SOFT_NONE;
+		for (long i = first; i < need; i++) {
+			if (!isfinite(soft[i].w)) { fprintf(stderr, "coach: %s: record %ld holds a non-finite weight (a 48- or 52-byte file with u16 ids?)\n", soft_path, i); return 1; }
+			for (int j = 0; j < CX_SOFT_K; j++) {
+				if (soft[i].id[j] != CX_SOFT_NONE && soft[i].id[j] >= CX_VOCAB) { fprintf(stderr, "coach: %s: record %ld holds id %u, outside the %d-id vocabulary\n", soft_path, i, (unsigned)soft[i].id[j], CX_VOCAB); return 1; }
+				if (!isfinite(soft[i].p[j])) { fprintf(stderr, "coach: %s: record %ld holds a non-finite probability (a 48- or 52-byte file with u16 ids?)\n", soft_path, i); return 1; }
+			}
+			with += soft[i].id[0] != CX_SOFT_NONE;
+		}
 		logline("coach: soft targets %s: %ld of %ld tokens of the run carry the teacher's distribution (%.1f %%)", soft_path, with, need - first, 100.0 * (double)with / (double)(need - first));
 	}
 	/* the part */

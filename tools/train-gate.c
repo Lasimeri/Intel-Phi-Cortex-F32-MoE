@@ -1,16 +1,19 @@
 /*
- * train-gate: Stage 3, card side. usage: train-gate fwd|bwd TOKENS.u16 OUTDIR L WARM
+ * train-gate: Stage 3, card side. usage: train-gate fwd|bwd TOKENS.u32 OUTDIR L WARM
  *
  * One column (thread pinned to CPU 1 = core 0). Weights, the embedding and the bus ring from lib/cx-col.h (column 0),
- * tokens from TOKENS.u16 (ids[0..WARM+L]). WARM steps from T = 0 without a head, then a chunk of L steps with saves,
- * the head, the losses and dl; `bwd` continues with the backward and dumps every gradient. The host side
- * (tools/train-check.c) replays the same tokens in double.
+ * tokens from TOKENS.u32 (ids[0..WARM+L], little-endian uint32 ids, lib/cx-proto.h cx_tok; an id outside the
+ * vocabulary refuses the file, as a .u16 stream of before 10-28 read as u32 does whenever an id at an odd position,
+ * counted from 0, is not 0). WARM steps from T = 0 without a head, then a chunk of L steps with saves, the head, the
+ * losses and dl; `bwd` continues with the backward and dumps every gradient. The host side (tools/train-check.c)
+ * replays the same tokens in double.
  *
  * Dumps in OUTDIR: fwd-loss.f32 (L), fwd-dl.f32 (L x 4096), fwd-hc.f32 (L x 128); bwd: gprm.f32 (CX_NPARAM), gcg.f32
  * (128), get.f32 (ETB layout, 4096 x 128), dhc.f32 (L x 128). Prints the time per step of each phase.
  */
 #include "../card/team.h"
 #include "../card/train.h"
+#include "../lib/cx-proto.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -33,31 +36,39 @@ static int dump(const char *dir, const char *name, const void *p, size_t bytes)
 	return 0;
 }
 
+/* at most `want` ids of the .u32 stream `path` into `out`: the count read, or -1 when the file cannot be opened or
+ * holds an id outside the vocabulary (the first such id is named) */
+static long read_ids(const char *path, cx_tok *out, long want)
+{
+	FILE *f = fopen(path, "rb");
+	if (!f) { perror(path); return -1; }
+	const long got = (long)fread(out, CX_TOK_BYTES, (size_t)want, f);
+	fclose(f);
+	for (long t = 0; t < got; t++)
+		if (out[t] >= CX_VOCAB) { fprintf(stderr, "%s: id %u at token %ld is outside the %d-id vocabulary (a .u16 stream? tools/ids32.c widens one)\n", path, out[t], t, CX_VOCAB); return -1; }
+	return got;
+}
 
-/* run: train one column on NTOK tokens of TOKENS.u16 in chunks of L with Adam; evaluate on NVAL tokens of VALID.u16.
- * usage: train-gate run TOKENS.u16 OUTDIR L NTOK LR VALID.u16 NVAL [REPORT_EVERY] */
+/* run: train one column on NTOK tokens of TOKENS.u32 in chunks of L with Adam; evaluate on NVAL tokens of VALID.u32.
+ * usage: train-gate run TOKENS.u32 OUTDIR L NTOK LR VALID.u32 NVAL [REPORT_EVERY] */
 static int run_mode(int argc, char **argv, cx_train *tr, float *ring)
 {
 	(void)ring;
-	if (argc < 9) { fprintf(stderr, "usage: train-gate run TOKENS.u16 OUTDIR L NTOK LR VALID.u16 NVAL [REPORT_EVERY]\n"); return 2; }
+	if (argc < 9) { fprintf(stderr, "usage: train-gate run TOKENS.u32 OUTDIR L NTOK LR VALID.u32 NVAL [REPORT_EVERY]\n"); return 2; }
 	const int L = tr->L;
 	const long ntok = atol(argv[5]), nval = atol(argv[8]);
 	const float lr = (float)atof(argv[6]);
 	const int every = argc > 9 ? atoi(argv[9]) : 100;
 	const float b1 = 0.9f, b2 = 0.95f, eps = 1e-8f;
 	const int warm_chunks = 50;
-	FILE *f = fopen(argv[2], "rb");
-	if (!f) { perror(argv[2]); return 1; }
-	uint16_t *tok = malloc((size_t)(ntok + 1) * 2);
-	const long got = (long)fread(tok, 2, (size_t)ntok + 1, f);
-	fclose(f);
+	cx_tok *tok = malloc((size_t)(ntok + 1) * CX_TOK_BYTES);
+	const long got = read_ids(argv[2], tok, ntok + 1);
+	if (got < 0) return 1;
 	if (got < L + 1) { fprintf(stderr, "train-gate: short token file\n"); return 1; }
 	const long nchunks = (got - 1) / L;
-	f = fopen(argv[7], "rb");
-	if (!f) { perror(argv[7]); return 1; }
-	uint16_t *vtok = malloc((size_t)(nval + 1) * 2);
-	const long vgot = (long)fread(vtok, 2, (size_t)nval + 1, f);
-	fclose(f);
+	cx_tok *vtok = malloc((size_t)(nval + 1) * CX_TOK_BYTES);
+	const long vgot = read_ids(argv[7], vtok, nval + 1);
+	if (vgot < 0) return 1;
 
 	/* optimizer state */
 	float *m_prm = huge(2u << 20), *v_prm = m_prm + ((CX_NPARAM + 15) & ~15);
@@ -71,14 +82,13 @@ static int run_mode(int argc, char **argv, cx_train *tr, float *ring)
 	memset(Bt, 0, CX_DB * CX_NBUS * 4);
 	float bc_prev[CX_DB] __attribute__((aligned(64))) = { 0 };
 	float *losslog = malloc((size_t)nchunks * 4);
-	uint32_t ids[CX_LMAX + 1];
 
 	printf("run: %ld tokens = %ld chunks of %d, lr %g (warm-up %d chunks), b1 %g b2 %g, valid %ld tokens\n", got - 1, nchunks, L, lr, warm_chunks, b1, b2, vgot - 1);
 	float b1k = 1, b2k = 1;
 	double acc_loss = 0, t_start = cx_now(), t_last = t_start;
 	uint64_t cyc[8] = { 0 };
 	for (long k = 0; k < nchunks; k++) {
-		for (int t = 0; t <= L; t++) ids[t] = tok[k * L + t];
+		const cx_tok *ids = tok + k * L;   /* the chunk's L inputs and the next token, in the stream */
 		const uint64_t c0 = cx_rdtsc();
 		cx_train_chunk_begin(tr);
 		cx_gather_prefetch(tr->ET, ids[0]);
@@ -137,7 +147,7 @@ static int run_mode(int argc, char **argv, cx_train *tr, float *ring)
 	memset(bc_prev, 0, sizeof bc_prev);
 	double vsum = 0;
 	for (long k = 0; k < vchunks; k++) {
-		for (int t = 0; t <= L; t++) ids[t] = vtok[k * L + t];
+		const cx_tok *ids = vtok + k * L;
 		cx_gather_prefetch(tr->ET, ids[0]);
 		for (int t = 0; t < L; t++) {
 			cx_bus_set0(Bt, t ? tr->acts + (long)(t - 1) * CX_NACT + CX_A_BC : bc_prev);
@@ -153,7 +163,7 @@ static int run_mode(int argc, char **argv, cx_train *tr, float *ring)
 	/* checkpoint: prm, cg, ETB */
 	char path[512];
 	snprintf(path, sizeof path, "%s/ckpt.bin", argv[3]);
-	f = fopen(path, "wb");
+	FILE *f = fopen(path, "wb");
 	if (!f || fwrite(tr->col.prm, 4, CX_NPARAM, f) != CX_NPARAM || fwrite(tr->cg, 4, CX_DU, f) != CX_DU ||
 	    fwrite(tr->ET, 4, (size_t)CX_VOCAB * CX_DE, f) != (size_t)CX_VOCAB * CX_DE || fclose(f)) { perror(path); return 1; }
 	return 0;
@@ -163,7 +173,7 @@ static int run_mode(int argc, char **argv, cx_train *tr, float *ring)
 
 int main(int argc, char **argv)
 {
-	if (argc < 6 || (strcmp(argv[1], "fwd") && strcmp(argv[1], "bwd") && strcmp(argv[1], "run"))) { fprintf(stderr, "usage: train-gate fwd|bwd TOKENS.u16 OUTDIR L WARM | run TOKENS.u16 OUTDIR L NTOK LR VALID.u16 NVAL [EVERY]\n"); return 2; }
+	if (argc < 6 || (strcmp(argv[1], "fwd") && strcmp(argv[1], "bwd") && strcmp(argv[1], "run"))) { fprintf(stderr, "usage: train-gate fwd|bwd TOKENS.u32 OUTDIR L WARM | run TOKENS.u32 OUTDIR L NTOK LR VALID.u32 NVAL [EVERY]\n"); return 2; }
 	const int bwd = !strcmp(argv[1], "bwd"), runm = !strcmp(argv[1], "run"), L = atoi(argv[4]), warm = runm ? 0 : atoi(argv[5]);
 	if (L < 16 || L > CX_LMAX || L % 16) { fprintf(stderr, "train-gate: L must be 16 or 32\n"); return 2; }
 	cx_pin(getenv("CX_CPU") ? atoi(getenv("CX_CPU")) : cx_cpu(0));
@@ -210,13 +220,10 @@ int main(int argc, char **argv)
 	cx_in_init(dummy, CX_RING, ring, 0);
 
 	if (runm) return run_mode(argc, argv, &tr, ring);
-	FILE *f = fopen(argv[2], "rb");
-	if (!f) { perror(argv[2]); return 1; }
-	uint16_t *tok = malloc((size_t)(warm + L + 1) * 2);
-	if (fread(tok, 2, (size_t)(warm + L + 1), f) != (size_t)(warm + L + 1)) { fprintf(stderr, "train-gate: short token file\n"); return 1; }
-	fclose(f);
-	uint32_t *ids = malloc((size_t)(warm + L + 1) * 4);
-	for (int t = 0; t < warm + L + 1; t++) ids[t] = tok[t];
+	cx_tok *ids = malloc((size_t)(warm + L + 1) * CX_TOK_BYTES);
+	const long got = read_ids(argv[2], ids, warm + L + 1);
+	if (got < 0) return 1;
+	if (got != warm + L + 1) { fprintf(stderr, "train-gate: short token file\n"); return 1; }
 #define BT(t) (ring + (long)((t) % CX_RING) * CX_DB * CX_NBUS)
 
 	uint64_t c[12];

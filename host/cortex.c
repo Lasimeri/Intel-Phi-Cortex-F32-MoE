@@ -26,7 +26,8 @@
  *                           role marker of the harness's frame, tui/cortex.jinja); given up to 8 times, any of them
  *                           ends it; the piece completing it is not printed nor counted, the pieces before it were
  *                           (the harness trims a partial label), and "cortex: stopped at STRING" goes to stderr
- *   --ids FILE.u16         the prompt as token ids from a file (the prompt text is then ignored; gates replay it)
+ *   --ids FILE.u32          the prompt as token ids from a file of little-endian u32 ids (lib/cx-proto.h cx_tok; the
+ *                           prompt text is then ignored; gates replay it)
  *   --dump-logits FILE      every step's 4096 raw logits as received from the card, appended as F32 (gates, replay)
  *   --ngram TABLES          the n-gram memory's tables (2 orders x CX_NG_ROWS x 128 F32, host/ngtables.h: ngserve
  *                           --save, a run's tables-N.f32, or the live run's file in /dev/shm, mapped read-only as it
@@ -77,7 +78,7 @@ static uint64_t seq;
 
 static int command(uint32_t op, uint32_t arg, double timeout_s)
 {
-	seq++;
+	seq = CX_CMD_NEXT(seq);   /* 32-bit sequence, never the quit value */
 	ST32(CX_H_CMD_OP, op);
 	ST64(CX_H_CMD, CX_CMD(seq, arg));
 	const uint64_t t0 = ns();
@@ -174,7 +175,7 @@ static int select_top(const float *l, int k, cand *c)
 	return n;
 }
 
-static int sample(const float *logits, const uint32_t *hist, int nhist, int greedy, float temp, int topk, float topp, float minp, float rp)
+static int sample(const float *logits, const cx_tok *hist, int nhist, int greedy, float temp, int topk, float topp, float minp, float rp)
 {
 	static float l[CX_VOCAB];
 	static cand c[CX_VOCAB];
@@ -211,35 +212,37 @@ static int sample(const float *logits, const uint32_t *hist, int nhist, int gree
 
 /* ---- the prompt ---- */
 
-static int tokenise(const char *prompt, uint32_t *ids)
+static int tokenise(const char *prompt, cx_tok *ids)
 {
 	const unsigned char *p = (const unsigned char *)prompt;
 	long n = (long)strlen(prompt), pos = 0;
 	int nid = 0;
-	uint16_t tmp[WMAX];
+	cx_tok tmp[WMAX];
 	while (pos < n) {
 		int sp;
 		const int len = next_word(p + pos, n - pos, &sp);
-		if (sp) ids[nid++] = (uint16_t)sp;   /* a special token as its own id */
+		if (sp) ids[nid++] = (cx_tok)sp;   /* a special token as its own id */
 		else { const int m = encode_word(p + pos, len, tmp); for (int i = 0; i < m; i++) ids[nid++] = tmp[i]; }
 		pos += len;
 	}
 	return nid;
 }
 
-static long read_ids(const char *path, uint32_t **out)
+/* the ids of a .u32 file; a length that is not whole ids or an id outside the vocabulary is refused (a .u16 file of
+ * before 2026-10-28 read as u32 pairs two ids into one value of 65,536 or more: tools/ids32.c widens one) */
+static long read_ids(const char *path, cx_tok **out)
 {
 	FILE *f = fopen(path, "rb");
 	if (!f) { perror(path); return -1; }
 	fseek(f, 0, SEEK_END);
-	const long n = ftell(f) / 2;
+	const long bytes = ftell(f), n = bytes / CX_TOK_BYTES;
 	fseek(f, 0, SEEK_SET);
-	uint16_t *u = malloc((size_t)n * 2);
-	if (fread(u, 2, (size_t)n, f) != (size_t)n) { perror(path); return -1; }
+	if (bytes % CX_TOK_BYTES) { fprintf(stderr, "cortex: %s: %ld bytes, not whole u32 ids\n", path, bytes); fclose(f); return -1; }
+	*out = malloc((size_t)n * sizeof **out);
+	if (fread(*out, sizeof **out, (size_t)n, f) != (size_t)n) { perror(path); return -1; }
 	fclose(f);
-	*out = malloc((size_t)n * 4);
-	for (long i = 0; i < n; i++) (*out)[i] = u[i];
-	free(u);
+	for (long i = 0; i < n; i++)
+		if ((*out)[i] >= CX_VOCAB) { fprintf(stderr, "cortex: %s: id %u at token %ld is outside the %d-id vocabulary (a .u16 file?)\n", path, (unsigned)(*out)[i], i, CX_VOCAB); return -1; }
 	return n;
 }
 
@@ -269,7 +272,7 @@ static void tail_add(host_side *h, int id)
 }
 
 /* the next token from the step's logits; -1 when the chat turn ended */
-static int host_step(host_side *h, float *logits, uint32_t *ids, int s)
+static int host_step(host_side *h, float *logits, cx_tok *ids, int s)
 {
 	uint64_t a = ns();
 	if (h->O) orch_adjust(h->O, logits, ids, s + 1, tok_s, tok_len, EOT);
@@ -280,7 +283,7 @@ static int host_step(host_side *h, float *logits, uint32_t *ids, int s)
 	h->sample_ns += c - b;
 	if (h->chat && id == EOT) return -1;
 	if (h->stop_eot && id == EOT) { fwrite(tok_s[id], 1, (size_t)tok_len[id], stdout); fflush(stdout); return -1; }
-	ids[s + 1] = (uint32_t)id;
+	ids[s + 1] = (cx_tok)id;
 	if (h->chat || h->nstop) {
 		tail_add(h, id);
 		if (h->chat && (strstr(h->tail, "\n\nHuman:") || strstr(h->tail, "\nHuman:"))) { h->stopped = "\nHuman:"; return -1; }
@@ -314,7 +317,7 @@ static void usage(void)
 {
 	fprintf(stderr, "usage: cortex CKPT \"prompt\" NGEN [options] | cortex --replay LOGITS.f32 NSTEPS [options] | cortex --stop\n"
 	                "options: [--greedy] [--bus 0|1] [--temp T] [--topk K] [--topp P] [--minp M] [--rp R] [--seed S] [--vocab FILE] [--chat] [--no-echo] [--stop-eot] [--stop STRING]...\n"
-	                "         [--ids FILE.u16] [--dump-logits FILE] [--ngram TABLES] [--gates FILE|ones] [--moe [--moe-keep]] [--moe-bias X]\n"
+	                "         [--ids FILE.u32] [--dump-logits FILE] [--ngram TABLES] [--gates FILE|ones] [--moe [--moe-keep]] [--moe-bias X]\n"
 	                "         [--orchestra NGC [--words LIST] [--word-min N] [--lambda X] [--no-filter] [--repeat-ok]]\n");
 }
 
@@ -374,18 +377,18 @@ int main(int argc, char **argv)
 	if (orch_ngc) { H.O = &O; fprintf(stderr, "cortex: orchestra on: %s, lambda %.2f, word filter %s (%s, count >= %d), repeat block %s\n", orch_ngc, orch_lambda, orch_filter ? "on" : "off", orch_words, orch_wmin, orch_norepeat ? "on" : "off"); }
 
 	/* the prompt's tokens: from the ids file, or tokenised */
-	uint32_t *ids;
+	cx_tok *ids;
 	int nprompt = 0;
 	if (ids_path) {
-		uint32_t *given;
+		cx_tok *given;
 		const long n = read_ids(ids_path, &given);
 		if (n <= 0) return 1;
-		ids = malloc((size_t)(n + ngen + 16) * 4);
-		memcpy(ids, given, (size_t)n * 4);
+		ids = malloc((size_t)(n + ngen + 16) * sizeof *ids);
+		memcpy(ids, given, (size_t)n * sizeof *ids);
 		free(given);
 		nprompt = (int)n;
 	} else {
-		ids = malloc((size_t)(strlen(prompt) + ngen + 16) * 4);
+		ids = malloc((size_t)(strlen(prompt) + ngen + 16) * sizeof *ids);
 		nprompt = tokenise(prompt, ids);
 	}
 	float *logits = malloc(CX_VOCAB * sizeof *logits);
@@ -400,7 +403,7 @@ int main(int argc, char **argv)
 		fclose(f);
 		if (nprompt > nsteps) nprompt = nsteps;
 		if (nprompt < 1) { ids[0] = EOT; nprompt = 1; }
-		ids = realloc(ids, (size_t)(nsteps + 16) * 4);
+		ids = realloc(ids, (size_t)(nsteps + 16) * sizeof *ids);
 		const uint64_t g0 = ns();
 		int gen = 0;
 		for (int s = 0; s < nsteps; s++) {
@@ -456,7 +459,7 @@ int main(int argc, char **argv)
 		if (ng_tables) ng_rows(s, ids[s], s >= 1 ? ids[s - 1] : CX_NG_PAD, s >= 2 ? ids[s - 2] : CX_NG_PAD);
 		const uint64_t a2 = ns();
 		rows_ns += a2 - a;
-		if (command(CX_OP_STEP, ids[s], 5)) return 1;
+		if (command(CX_OP_STEP, ids[s], 5)) return 1;   /* the id rides in the command word's argument as a whole u32, bits 32-63 (lib/cx-proto.h CX_CMD, protocol version 2) */
 		card_ns += ns() - a2;
 		steps++;
 		if (dump) fwrite(part + CX_LOGITS, sizeof *logits, CX_VOCAB, dump);
@@ -473,7 +476,7 @@ int main(int argc, char **argv)
 	if (ng_tables) fprintf(stderr, "cortex: n-gram rows gathered on the host: %.2f us per step\n", rows_ns / 1e3 / steps);
 	if (H.stopped) fprintf(stderr, "cortex: stopped at %s\n", H.stopped);
 	ST64(CX_H_CMD, CX_CMD(CX_CMD_QUIT, 0));
-	f = fopen("data/cortex-last.u16", "wb");   /* the ids of the last run, for cmp against a baseline */
-	if (f) { for (int i = 0; i < nprompt + ngen; i++) { const uint16_t v = (uint16_t)ids[i]; fwrite(&v, 2, 1, f); } fclose(f); }
+	f = fopen("data/cortex-last.u32", "wb");   /* the ids of the last run as u32 (cx_tok), for cmp against a baseline */
+	if (f) { fwrite(ids, sizeof *ids, (size_t)(nprompt + ngen), f); fclose(f); }
 	return 0;
 }

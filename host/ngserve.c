@@ -3,7 +3,9 @@
  * orders x CX_NG_ROWS rows x 128 F32) and the token stream; per chunk of L steps it gathers the 2 L rows the card needs
  * into the ring in the part (lib/cx-proto.h), and applies the row gradients the card DMAs back.
  *
- *   ngserve TOKENS.u16 L NCHUNKS [--init gate|zero] [--lr X] [--dump DIR] [--valid VALID.u16 NVCHUNKS] [--save TABLES.f32]
+ *   ngserve TOKENS.u32 L NCHUNKS [--init gate|zero] [--lr X] [--dump DIR] [--valid VALID.u32 NVCHUNKS] [--save TABLES.f32]
+ *
+ * TOKENS and VALID are streams of little-endian u32 ids (lib/cx-proto.h cx_tok), 4 bytes a token.
  *
  * --init gate: the deterministic small tables of lib/cx-col.h (the gate builds), zero: training from scratch.
  * --lr X: the rows' SGD step (0 = gradients only). --dump DIR: the last chunk's rows and gradients as DIR/cl-ngrows.f32
@@ -26,18 +28,18 @@ static uint8_t *part;
 
 static float *T[CX_NG_ORDERS];
 static ngtables NG;   /* the gather and the apply over T are the live trainer's (host/ngtables.h) */
-static uint16_t *tok, *vtok;
+static cx_tok *tok, *vtok;
 static long ntok, nvtok;
 static int L;
 
 /* the rows of chunk c of stream s (train or valid, whose chunks start at c0) into the row slot c & 1 */
-static void gather(long c, const uint16_t *s, long n, long c0)
+static void gather(long c, const cx_tok *s, long n, long c0)
 {
 	ng_gather(&NG, s, n, c - c0, L, (float *)(part + CX_NGR_ROWS(c & 1)));
 	__atomic_thread_fence(__ATOMIC_RELEASE);
 }
 
-static void apply(long c, const uint16_t *s, long n, long c0, const float *grad, float lr)
+static void apply(long c, const cx_tok *s, long n, long c0, const float *grad, float lr)
 {
 	ng_apply(&NG, s, n, c - c0, L, grad, lr);
 }
@@ -51,22 +53,28 @@ static int save(const char *dir, const char *name, const void *p, size_t bytes)
 	return 0;
 }
 
-static uint16_t *load_tokens(const char *path, long *n)
+/* a stream of u32 ids; a length that is not whole ids or an id outside the vocabulary is refused (a .u16 stream of
+ * before 2026-10-28 read as u32 pairs two ids into one value of 65,536 or more: tools/ids32.c widens one) */
+static cx_tok *load_tokens(const char *path, long *n)
 {
 	FILE *f = fopen(path, "rb");
 	if (!f) { perror(path); return NULL; }
 	fseek(f, 0, SEEK_END);
-	*n = ftell(f) / 2;
+	const long bytes = ftell(f);
+	*n = bytes / CX_TOK_BYTES;
 	fseek(f, 0, SEEK_SET);
-	uint16_t *s = malloc((size_t)*n * 2);
-	if (fread(s, 2, (size_t)*n, f) != (size_t)*n) { perror(path); return NULL; }
+	if (bytes % CX_TOK_BYTES) { fprintf(stderr, "ngserve: %s: %ld bytes, not whole u32 ids\n", path, bytes); fclose(f); return NULL; }
+	cx_tok *s = malloc((size_t)*n * sizeof *s);
+	if (fread(s, sizeof *s, (size_t)*n, f) != (size_t)*n) { perror(path); return NULL; }
 	fclose(f);
+	for (long i = 0; i < *n; i++)
+		if (s[i] >= CX_VOCAB) { fprintf(stderr, "ngserve: %s: id %u at token %ld is outside the %d-id vocabulary (a .u16 stream?)\n", path, (unsigned)s[i], i, CX_VOCAB); return NULL; }
 	return s;
 }
 
 int main(int argc, char **argv)
 {
-	if (argc < 4) { fprintf(stderr, "usage: ngserve TOKENS.u16 L NCHUNKS [--init gate|zero] [--lr X] [--dump DIR] [--valid VALID.u16 NVCHUNKS] [--save TABLES.f32]\n"); return 2; }
+	if (argc < 4) { fprintf(stderr, "usage: ngserve TOKENS.u32 L NCHUNKS [--init gate|zero] [--lr X] [--dump DIR] [--valid VALID.u32 NVCHUNKS] [--save TABLES.f32]\n"); return 2; }
 	L = atoi(argv[2]);
 	const long nchunks = atol(argv[3]);
 	const char *init = "zero", *dump = NULL, *vpath = NULL;

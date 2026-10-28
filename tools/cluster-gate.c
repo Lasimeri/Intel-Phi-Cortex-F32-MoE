@@ -1,6 +1,11 @@
 /*
- * cluster-gate: Stage 4, card side. usage: cluster-gate fwd|bwd TOKENS.u16 OUTDIR L WARM [DUMP_COL...]
- *                                          cluster-gate run TOKENS.u16 OUTDIR L NTOK LR VALID.u16 NVAL [EVERY]
+ * cluster-gate: Stage 4, card side. usage: cluster-gate fwd|bwd TOKENS.u32 OUTDIR L WARM [DUMP_COL...]
+ *                                          cluster-gate run TOKENS.u32 OUTDIR L NTOK LR VALID.u32 NVAL [EVERY]
+ *                                          cluster-gate gen CKPT PROMPT.u32 NPROMPT NGEN OUT.u32 [L]
+ *
+ * Token streams are .u32 files of little-endian uint32 ids (lib/cx-proto.h cx_tok, 4 B a token); a file holding an id
+ * outside the vocabulary is refused (a .u16 stream of before 10-28 read as u32 pairs two ids into one value, 65,536 or
+ * more whenever the second id is not 0).
  *
  * 120 columns on 120 threads (card/cluster.h), the state from zero. WARM (a multiple of L) forward-only steps, then
  * one chunk of L steps (fwd) or that chunk's backward too (bwd: no Adam, gradients dumped). Dumps in OUTDIR:
@@ -46,7 +51,21 @@ static uint64_t pmu_read(int fd)
 	return fd >= 0 && read(fd, &v, sizeof v) == sizeof v ? v : 0;
 }
 static int L, warm, bwd, runm, ndump, dump_list[CL_N];
-static uint32_t *ids;
+static cx_tok *ids;
+
+/* at most `want` ids of the .u32 stream `path` into `out`: the count read, or -1 when the file cannot be opened or
+ * holds an id outside the vocabulary (the first such id is named) */
+static long read_ids(const char *path, cx_tok *out, long want)
+{
+	FILE *f = fopen(path, "rb");
+	if (!f) { perror(path); return -1; }
+	const long got = (long)fread(out, CX_TOK_BYTES, (size_t)want, f);
+	fclose(f);
+	for (long t = 0; t < got; t++)
+		if (out[t] >= CX_VOCAB) { fprintf(stderr, "%s: id %u at token %ld is outside the %d-id vocabulary (a .u16 stream? tools/ids32.c widens one)\n", path, out[t], t, CX_VOCAB); return -1; }
+	return got;
+}
+
 static cdma ngdma;   /* MoE stage 1: the n-gram ring DMA channel */
 #ifdef CX_MOE
 /* MoE stage 2 (card/moe.h): the build runs the heads with the pool unless CX_MOE=0 (then the dense columns, the same
@@ -170,7 +189,7 @@ static int is_dumped(int k)
 }
 
 static double wall[4];
-static cx_soft *soft_recs;   /* CX_SOFT=FILE: the partial distillation's record per token of the slice (tools/soft-align.c) */
+static cx_soft *soft_recs;   /* CX_SOFT=FILE: the partial distillation's record per token of the slice (tools/soft-align.c), CX_SOFT_BYTES = 68 B each with u32 ids */
 
 static void run_check(void *arg, int k)
 {
@@ -178,13 +197,13 @@ static void run_check(void *arg, int k)
 	cx_gather_prefetch(C.ETB, ids[0]);
 	for (int ch = 0; ch < warm / L; ch++) {
 		cl_chunk_begin(&C, k, ch);
-		const uint32_t *id = ids + (long)ch * L;
+		const cx_tok *id = ids + (long)ch * L;
 		for (int t = 0; t < L; t++) cl_fwd_step(&C, k, t, id[t], id[t + 1], id[t + 1]);
 		cl_wait(&C, k);
 		if (!k) cx_copy(C.bus, C.bus + (long)L * CL_BUS, CL_BUS);
 		cl_wait(&C, k);
 	}
-	const uint32_t *id = ids + (long)warm;
+	const cx_tok *id = ids + (long)warm;
 	cl_chunk_begin(&C, k, warm / L);
 	const int pfd = pmu_open(getenv("CX_PMU") ? strtoull(getenv("CX_PMU"), NULL, 16) : 0x10cb);
 	const uint64_t p0 = pmu_read(pfd);
@@ -225,7 +244,7 @@ static int ckpt_every;
 static int write_ckpt(const char *path);
 static double run_lr;
 static int run_every, bus_on = 1;
-static uint32_t *vids;
+static cx_tok *vids;
 static float *stage;   /* 120 x CX_NPARAM for the checkpoint */
 static double rwall[8];
 static uint64_t rcyc[4];
@@ -240,7 +259,7 @@ static void run_train(void *arg, int k)
 	if (!k) rwall[0] = rwall[1] = cx_now();
 	cx_gather_prefetch(C.ETB, ids[0]);
 	for (long ch = 0; ch < nchunks; ch++) {
-		const uint32_t *id = ids + ch * L;
+		const cx_tok *id = ids + ch * L;
 		cl_chunk_begin(&C, k, ch);
 		const uint64_t c0 = cx_rdtsc();
 		for (int t = 0; t < L; t++) cl_fwd_step(&C, k, t, id[t], id[t + 1], id[t + 1]);
@@ -284,7 +303,7 @@ static void run_train(void *arg, int k)
 	const long vchunks = (run_nval - 1) / L;
 	double vsum = 0;
 	for (long ch = 0; ch < vchunks; ch++) {
-		const uint32_t *id = vids + ch * L;
+		const cx_tok *id = vids + ch * L;
 		cl_chunk_begin(&C, k, run_ntok / L + ch);   /* the rows of this validation chunk; nothing without the memory */
 		for (int t = 0; t < L; t++) cl_fwd_step(&C, k, t, id[t], id[t + 1], id[t + 1]);
 		cl_wait(&C, k);
@@ -318,21 +337,17 @@ static int write_ckpt(const char *path)
 
 static int run_mode(int argc, char **argv)
 {
-	/* run TOKENS.u16 OUTDIR L NTOK LR VALID.u16 NVAL [EVERY] */
-	if (argc < 9) { fprintf(stderr, "usage: cluster-gate run TOKENS.u16 OUTDIR L NTOK LR VALID.u16 NVAL [EVERY]\n"); return 2; }
+	/* run TOKENS.u32 OUTDIR L NTOK LR VALID.u32 NVAL [EVERY] */
+	if (argc < 9) { fprintf(stderr, "usage: cluster-gate run TOKENS.u32 OUTDIR L NTOK LR VALID.u32 NVAL [EVERY]\n"); return 2; }
 	run_ntok = ntok;   /* tokens already read: NTOK + 1 */
 	run_lr = atof(argv[6]);
 	run_every = argc > 9 ? atoi(argv[9]) : 100;
 	run_nval = atol(argv[8]) + 1;
 	if (getenv("CX_BUS")) bus_on = atoi(getenv("CX_BUS"));
 	C.bus_on = bus_on;
-	FILE *f = fopen(argv[7], "rb");
-	if (!f) { perror(argv[7]); return 1; }
-	uint16_t *vt = malloc((size_t)run_nval * 2);
-	run_nval = (long)fread(vt, 2, (size_t)run_nval, f);
-	fclose(f);
-	vids = malloc((size_t)run_nval * 4);
-	for (long t = 0; t < run_nval; t++) vids[t] = vt[t];
+	vids = malloc((size_t)run_nval * CX_TOK_BYTES);
+	run_nval = read_ids(argv[7], vids, run_nval);
+	if (run_nval < 0) return 1;
 	stage = huge((size_t)CL_N * CX_NPARAM * 4 + (2u << 20));
 	if (getenv("CX_CKPT_EVERY")) ckpt_every = atoi(getenv("CX_CKPT_EVERY"));
 	if (getenv("CX_INIT")) { if (load_ckpt(getenv("CX_INIT"))) return 1; printf("run: weights, cg and embedding loaded from %s\n", getenv("CX_INIT")); }
@@ -353,7 +368,7 @@ static int run_mode(int argc, char **argv)
 #endif
 	char path[512];
 	snprintf(path, sizeof path, "%s/ckpt.bin", outdir);
-	f = fopen(path, "wb");
+	FILE *f = fopen(path, "wb");
 	if (!f || fwrite(stage, 4, (size_t)CL_N * CX_NPARAM, f) != (size_t)CL_N * CX_NPARAM || fwrite(C.cg, 4, CX_DU, f) != CX_DU ||
 	    fwrite(C.ETB, 4, (size_t)CX_VOCAB * CX_DE, f) != (size_t)CX_VOCAB * CX_DE || fclose(f)) { perror(path); return 1; }
 	printf("checkpoint %s: %ld bytes\n", path, (long)((size_t)CL_N * CX_NPARAM + CX_DU + (size_t)CX_VOCAB * CX_DE) * 4);
@@ -363,7 +378,7 @@ static int run_mode(int argc, char **argv)
 
 /* ---- gen mode: greedy generation from a checkpoint ---- */
 static long gen_nprompt, gen_n;
-static uint32_t *gen_out;
+static cx_tok *gen_out;
 
 static int load_ckpt(const char *path)
 {
@@ -382,7 +397,7 @@ static void run_gen(void *arg, int k)
 	(void)arg;
 	const int L = C.L;
 	const long total = gen_nprompt + gen_n;
-	uint32_t cur = gen_out[0], nxt;
+	cx_tok cur = gen_out[0], nxt;
 	if (!k) rwall[0] = cx_now();
 	for (long s = 0; s < total - 1; s++) {
 		const int t = (int)(s % L);
@@ -390,7 +405,7 @@ static void run_gen(void *arg, int k)
 		const int prompt = s + 1 < gen_nprompt;
 		nxt = prompt ? gen_out[s + 1] : 0;
 		cl_fwd_step(&C, k, t, cur, nxt, prompt ? nxt : 0);
-		const uint32_t am = cl_argmax(&C, k, t);
+		const cx_tok am = cl_argmax(&C, k, t);
 		if (!prompt) { nxt = am; if (!k) gen_out[s + 1] = am; }
 		cur = nxt;
 	}
@@ -399,29 +414,24 @@ static void run_gen(void *arg, int k)
 
 static int gen_mode(int argc, char **argv)
 {
-	/* gen CKPT PROMPT.u16 NPROMPT NGEN OUT.u16 [L] */
-	if (argc < 7) { fprintf(stderr, "usage: cluster-gate gen CKPT PROMPT.u16 NPROMPT NGEN OUT.u16\n"); return 2; }
+	/* gen CKPT PROMPT.u32 NPROMPT NGEN OUT.u32 [L] */
+	if (argc < 7) { fprintf(stderr, "usage: cluster-gate gen CKPT PROMPT.u32 NPROMPT NGEN OUT.u32 [L]\n"); return 2; }
 	gen_nprompt = atol(argv[4]);
 	gen_n = atol(argv[5]);
 	if (load_ckpt(argv[2])) return 1;
 #ifdef CX_MOE
 	if (C.moe_on) cx_team_run(CL_N, moe_fill, NULL);
 #endif
-	FILE *f = fopen(argv[3], "rb");
-	if (!f) { perror(argv[3]); return 1; }
-	uint16_t *pt = malloc((size_t)gen_nprompt * 2);
-	if ((long)fread(pt, 2, (size_t)gen_nprompt, f) != gen_nprompt) { fprintf(stderr, "gen: short prompt\n"); return 1; }
-	fclose(f);
-	gen_out = calloc((size_t)(gen_nprompt + gen_n), 4);
-	for (long i = 0; i < gen_nprompt; i++) gen_out[i] = pt[i];
+	gen_out = calloc((size_t)(gen_nprompt + gen_n), CX_TOK_BYTES);   /* the prompt, then the generated ids */
+	const long got = read_ids(argv[3], gen_out, gen_nprompt);
+	if (got < 0) return 1;
+	if (got != gen_nprompt) { fprintf(stderr, "gen: short prompt\n"); return 1; }
 	memset(C.bus, 0, (size_t)(CX_LMAX + 1) * CL_BUS * 4);
 	for (int k = 0; k < CL_N; k++) memset(C.tr[k].col.T, 0, CX_NT * 4);
 	cx_team_run(CL_N, run_gen, NULL);
 	printf("gen: %ld prompt + %ld generated tokens in %.3f s (%.1f us per token)\n", gen_nprompt, gen_n, rwall[1] - rwall[0], (rwall[1] - rwall[0]) * 1e6 / (gen_nprompt + gen_n - 1));
-	f = fopen(argv[6], "wb");
-	if (!f) { perror(argv[6]); return 1; }
-	for (long i = 0; i < gen_nprompt + gen_n; i++) { const uint16_t v = (uint16_t)gen_out[i]; fwrite(&v, 2, 1, f); }
-	fclose(f);
+	FILE *f = fopen(argv[6], "wb");   /* the whole stream as a .u32 file */
+	if (!f || fwrite(gen_out, CX_TOK_BYTES, (size_t)(gen_nprompt + gen_n), f) != (size_t)(gen_nprompt + gen_n) || fclose(f)) { perror(argv[6]); return 1; }
 	printf("ids:");
 	for (long i = 0; i < gen_nprompt + gen_n && i < 96; i++) printf(" %u", gen_out[i]);
 	printf("\n");
@@ -430,7 +440,7 @@ static int gen_mode(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
-	if (argc < 6) { fprintf(stderr, "usage: cluster-gate fwd|bwd TOKENS.u16 OUTDIR L WARM [DUMP_COL...] | run TOKENS.u16 OUTDIR L NTOK LR VALID.u16 NVAL [EVERY]\n"); return 2; }
+	if (argc < 6) { fprintf(stderr, "usage: cluster-gate fwd|bwd TOKENS.u32 OUTDIR L WARM [DUMP_COL...] | run TOKENS.u32 OUTDIR L NTOK LR VALID.u32 NVAL [EVERY] | gen CKPT PROMPT.u32 NPROMPT NGEN OUT.u32 [L]\n"); return 2; }
 	bwd = !strcmp(argv[1], "bwd");
 	runm = !strcmp(argv[1], "run");
 	const int genm = !strcmp(argv[1], "gen");
@@ -524,14 +534,10 @@ int main(int argc, char **argv)
 
 	if (genm) { cx_barrier_init(&C.bar, CL_N, 2, CX_CORE_REL); cx_team_run(CL_N, setup, NULL); return gen_mode(argc, argv); }
 	const long need = runm ? atol(argv[5]) + 1 : warm + L + 1;
-	FILE *f = fopen(argv[2], "rb");
-	if (!f) { perror(argv[2]); return 1; }
-	uint16_t *tok = malloc((size_t)need * 2);
-	ntok = (long)fread(tok, 2, (size_t)need, f);
-	fclose(f);
+	ids = malloc((size_t)need * CX_TOK_BYTES);
+	ntok = read_ids(argv[2], ids, need);
+	if (ntok < 0) return 1;
 	if (ntok < (runm ? L + 1 : need)) { fprintf(stderr, "cluster-gate: short token file\n"); return 1; }
-	ids = malloc((size_t)ntok * 4);
-	for (long t = 0; t < ntok; t++) ids[t] = tok[t];
 	if (getenv("CX_SOFT") && !runm) {   /* the partial distillation: a soft record per token of the slice; the chunks' records become the targets */
 		const char *path = getenv("CX_SOFT");
 		FILE *sf = fopen(path, "rb");
@@ -540,6 +546,12 @@ int main(int argc, char **argv)
 		const long got = (long)fread(soft_recs, sizeof *soft_recs, (size_t)ntok, sf);
 		fclose(sf);
 		if (got < warm + L) { fprintf(stderr, "cluster-gate: %s holds %ld records, %d needed\n", path, got, warm + L); return 1; }
+		for (long t = 0; t < got; t++)   /* every id is CX_SOFT_NONE or in the vocabulary: a 52-B record file with u16 ids read as 68-B records fails here */
+			for (int j = 0; j < CX_SOFT_K; j++)
+				if (soft_recs[t].id[j] != CX_SOFT_NONE && soft_recs[t].id[j] >= CX_VOCAB) {
+					fprintf(stderr, "cluster-gate: %s record %ld holds id %u, outside the %d-id vocabulary (records are %u B with u32 ids)\n", path, t, soft_recs[t].id[j], CX_VOCAB, CX_SOFT_BYTES);
+					return 1;
+				}
 		long with = 0;
 		for (int t = warm; t < warm + L; t++) with += soft_recs[t].id[0] != CX_SOFT_NONE;
 		C.soft_file = soft_recs;

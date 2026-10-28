@@ -70,6 +70,9 @@
 enum { ACT_IDLE = 100, ACT_TRAIN, ACT_SAVE, ACT_QUIT, ACT_POOL };   /* the team's actions besides the mailbox ops */
 _Static_assert(CX_T_L == CX_LMAX, "the live ring's chunk length is the card's chunk length");
 _Static_assert(CX_T_WARMUP == CL_WARMUP, "the protocol's warm-up is the trainers' warm-up");
+_Static_assert(sizeof(cx_tok) == CX_TOK_BYTES, "a token id in a ring slot is a u32");
+_Static_assert(CX_T_L + 1 <= CX_T_SLOT_MEMOFF && (CX_T_SLOT_MEMOFF + 1) * CX_TOK_BYTES <= CX_T_SLOT_BYTES,
+               "a slot holds the chunk's CX_T_L + 1 u32 ids below the dropout flag, and the flag inside the slot");
 
 static cluster C __attribute__((aligned(64)));
 static volatile uint8_t *part;
@@ -310,7 +313,7 @@ static int inf_bus_on = 1;
 static long ng_steps, lg_steps, served;
 static double ng_dma_s, ng_dma_max, lg_dma_s, lg_dma_max;
 
-static uint32_t chunk_ids[CX_LMAX + 1] __attribute__((aligned(64)));
+static cx_tok chunk_ids[CX_LMAX + 1] __attribute__((aligned(64)));   /* the chunk in hand: its CX_LMAX inputs and the next token, from its ring slot */
 static long soft_seen_win;      /* the partial distillation: steps of the report window whose record held a distribution */
 static int chunk_dropped;       /* the memory dropout: the chunk in hand trains without the n-gram memory (its slot's flag) */
 static long dropped_win;        /* such chunks in the report window */
@@ -355,6 +358,15 @@ static int poll_session(void)
 {
 	if (!session_open) {
 		if (rd32(CX_H_MAGIC) != CX_MAGIC || rd64(CX_H_SESSION) == rd64(CX_C_SESSION)) return 0;
+		if (rd32(CX_H_VERSION) != CX_VERSION) {   /* a client of another protocol (version 1 sent the step's token id in 16 bits): refused, once per session */
+			static uint64_t refused;
+			if (rd64(CX_H_SESSION) != refused) {
+				refused = rd64(CX_H_SESSION);
+				printf("cortexd: a client of protocol version %u refused (this daemon speaks %u)\n", rd32(CX_H_VERSION), (unsigned)CX_VERSION);
+				fflush(stdout);
+			}
+			return 0;
+		}
 		done = first = CX_CMD_SEQ(rd64(CX_H_CMD));
 		wr64(CX_C_ACK, done);
 		cx_fence();
@@ -404,7 +416,7 @@ static int poll_training(void)
 	if (flags & 2) { if (!(flags_acked & 2)) { flags_acked |= 2; wr64(CX_T_ACK, flags_acked); printf("cortexd: live: stop flag at chunk %ld\n", tchunks); fflush(stdout); } set_state(4); return 0; }
 	if (flags & 4) { set_state(2); return 0; }
 	if (rd64(CX_T_H_CHUNKS) <= (uint64_t)tchunks) { set_state(3); return 0; }
-	const volatile uint16_t *slot = (const volatile uint16_t *)(part + CX_T_SLOT(tchunks));
+	const volatile cx_tok *slot = (const volatile cx_tok *)(part + CX_T_SLOT(tchunks));   /* CX_T_L + 1 u32 ids, the dropout flag at u32 index CX_T_SLOT_MEMOFF */
 	const int mem_on = rd32(CX_T_NG) != 0 && ng_loaded != NULL;   /* the memory trains with the run: the coach serves the ring and gates were loaded */
 	chunk_dropped = mem_on && slot[CX_T_SLOT_MEMOFF] != 0;        /* this chunk without it (the coach's dropout): trained dense, published as consumed by thread 0 */
 	const int ng_run = mem_on && !chunk_dropped;
@@ -455,7 +467,7 @@ static void train_chunk(int k)
 {
 	cx_train *tr = &C.tr[k];
 	const float b1 = 0.9f, b2 = 0.95f;
-	const uint32_t *id = chunk_ids;
+	const cx_tok *id = chunk_ids;
 	tr->ng = C.ng;
 	cl_chunk_begin(&C, k, tchunks);   /* the chunk's inputs into GDDR: the memory's rows (ring slot tchunks & 1), the soft targets of the partial distillation; nothing without either */
 	C.tr[k].ctx_start = C.tr[k].ctx ? C.tr[k].ctx->train_start : 0;   /* stage 3: the training retrieves the stream and the chats alike */

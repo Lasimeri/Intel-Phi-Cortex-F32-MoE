@@ -12,7 +12,7 @@
 #include <stdint.h>
 
 #define CX_MAGIC 0x58545243u       /* "CRTX" */
-#define CX_VERSION 1
+#define CX_VERSION 2               /* 2 since 2026-10-28: the 32-bit command argument (u32 token ids); cortexd refuses a client of another version */
 #define CX_PART_MIB 1344
 #define CX_PART_SIZE (128u << 20)
 
@@ -20,7 +20,7 @@
 #define CX_H_MAGIC 0               /* u32 */
 #define CX_H_VERSION 4             /* u32 */
 #define CX_H_SESSION 8             /* u64 raised by each host open */
-#define CX_H_CMD 64                /* u64 step command: sequence in bits 0-47, argument in bits 48-63 */
+#define CX_H_CMD 64                /* u64 step command: sequence in bits 0-31, argument in bits 32-63 (CX_CMD) */
 
 /* written by the card */
 #define CX_C_SESSION 128           /* u64 the session the card has taken */
@@ -28,10 +28,14 @@
 #define CX_C_ACK 192               /* u64 the last command sequence finished */
 #define CX_C_HEART 256             /* u64 counted up while the card side runs */
 
-#define CX_CMD_SEQ(c) ((c) & 0xFFFFFFFFFFFFull)
-#define CX_CMD_ARG(c) ((uint32_t)((c) >> 48))
-#define CX_CMD(seq, arg) ((uint64_t)(seq) | (uint64_t)(arg) << 48)
-#define CX_CMD_QUIT 0xFFFFFFFFFFFFull   /* sequence value that stops a gate program */
+/* the command word since protocol version 2 (2026-10-28): the sequence in bits 0-31, the argument in bits 32-63, so the
+ * step's token id (CX_OP_STEP) travels as a whole u32 (version 1 had a 48-bit sequence and a 16-bit argument). The
+ * sequence wraps after 2^32 - 1 commands and skips CX_CMD_QUIT (CX_CMD_NEXT); both sides compare it for equality only */
+#define CX_CMD_SEQ(c) ((c) & 0xFFFFFFFFull)
+#define CX_CMD_ARG(c) ((uint32_t)((c) >> 32))
+#define CX_CMD(seq, arg) ((uint64_t)(uint32_t)(seq) | (uint64_t)(uint32_t)(arg) << 32)
+#define CX_CMD_QUIT 0xFFFFFFFFull       /* sequence value that stops a gate program */
+#define CX_CMD_NEXT(s) (CX_CMD_SEQ((s) + 1) == CX_CMD_QUIT ? 0 : CX_CMD_SEQ((s) + 1))
 
 #define CX_DATA (64u << 10)        /* card -> host payload area (Stage 0e gate) */
 
@@ -92,7 +96,7 @@
  * after them: the coach copies the stage to a host file once that word has counted up. Host fields and card fields
  * sit on separate 64-byte lines. */
 #define CX_T_BASE (55u << 20)
-#define CX_T_MAGIC (CX_T_BASE + 0u)         /* u32 "TRNR" while the coach feeds; cleared by the coach to end training (host) */
+#define CX_T_MAGIC (CX_T_BASE + 0u)         /* u32 "TRN2" (CX_T_MAGIC_VAL) while the coach feeds; cleared by the coach to end training (host) */
 #define CX_T_H_CHUNKS (CX_T_BASE + 64u)     /* u64 chunks published into the ring (host) */
 #define CX_T_LR (CX_T_BASE + 128u)          /* f64 base learning rate (host) */
 #define CX_T_SCALE (CX_T_BASE + 192u)       /* f64 learning-rate multiplier, default 1.0 (host) */
@@ -124,36 +128,49 @@
 #define CX_T_MOE (CX_T_BASE + 1664u)        /* u32 1 while the loaded model routes through the pool (LOAD arg bit 1), else 0 (card) */
 #define CX_T_MOE_DISTINCT (CX_T_BASE + 1728u)   /* u32 MoE: experts updated at least once since the pool was filled, written with each report (card) */
 #define CX_T_POOL_ACK (CX_T_BASE + 1792u)   /* u64 the pool request word as completed: for a push written by the DMA after the round's bytes, for a pull after they landed (card) */
-#define CX_T_MAGIC_VAL 0x524e5254u          /* "TRNR" little-endian */
+#define CX_T_MAGIC_VAL 0x324e5254u          /* "TRN2" little-endian: the ring of u32 ids in 256-byte slots and the 68-byte soft records (2026-10-28); a
+                                               daemon of the u16 ring ("TRNR") never sees this word and so never misreads a slot of the new format, and the
+                                               reverse */
+/* ---- token ids: u32 wherever one is stored (2026-10-28 06:10, the user: a token id is a 32-bit value where it is used,
+ * the card's chunk_ids and every lookup, so storing it in 16 bits is wrong). Every token stream is a .u32 file of
+ * little-endian uint32 ids, the ring slots hold u32 ids and the soft records u32 ids; the ids are the same numbers
+ * (0 to 4,095 for the 4,096-id vocabulary), so the n-gram rows (hashed from the ids' values), the checkpoints and the
+ * tables are untouched. tools/ids32.c widens a .u16 stream of before the change. The exception: the stories model's
+ * .ngc count files (host/orchestra.h ngc_bucket) keep their u16 layout, a format of the stories era that the
+ * from-scratch instance never loads. */
+typedef uint32_t cx_tok;
+#define CX_TOK_BYTES 4u
 #define CX_T_L 32                           /* tokens per chunk (the card's CX_LMAX); a slot holds CX_T_L + 1 ids */
 #define CX_T_SLOTS 1024u
-#define CX_T_SLOT_BYTES 128u
-#define CX_T_SLOT_MEMOFF 60                 /* u16 index in a slot (byte 120): 1 = the chunk trains without the n-gram memory (the coach's
+#define CX_T_SLOT_BYTES 256u                /* CX_T_L + 1 = 33 u32 ids (132 B) and the flags: four lines */
+#define CX_T_SLOT_MEMOFF 48                 /* u32 index in a slot (byte 192): 1 = the chunk trains without the n-gram memory (the coach's
                                                --ngram-dropout): the daemon trains it dense and publishes it as consumed with no row gradients */
 #define CX_T_RING (56u << 20)
 #define CX_T_SLOT(c) (CX_T_RING + (uint32_t)((c) % CX_T_SLOTS) * CX_T_SLOT_BYTES)
 /* ---- the partial distillation (docs/DISTIL.md): the teacher's next-token distribution at a student token, mapped
- * onto student ids by tools/soft-align.c: CX_SOFT_K ids (CX_SOFT_NONE = unused) with their probabilities, 48 B a
- * token in the stream's order (a .soft file beside the .u16 stream, one record per token for the token after it).
+ * onto student ids by tools/soft-align.c: CX_SOFT_K u32 ids (CX_SOFT_NONE = unused) with their F32 probabilities and
+ * the F32 loss weight, 68 B a token in the stream's order (a .soft file beside the .u32 stream, one record per token for
+ * the token after it; 48 B with u16 ids until 10-27 22:00, 52 B with u16 ids until 10-28 06:xx).
  * The head's target at the step becomes (1 - sum p_j) onehot(next) + sum_j p_j onehot(id_j): an empty record is the
  * plain one-hot, a record holding lambda times the teacher's distribution the mix. The coach copies a chunk's CX_T_L
  * records into the chunk's slot of the soft ring (CX_T_SOFT_SLOT, the token ring's slot count and order) before
  * publishing the chunk and sets CX_T_SOFT; the daemon DMAs the slot into GDDR before the chunk's forward
  * (card/cluster.h cl_chunk_begin). The reported loss stays the hard cross-entropy. */
 #define CX_SOFT_K 8
-#define CX_SOFT_NONE 0xFFFFu
+#define CX_SOFT_NONE 0xFFFFFFFFu
 /* w: the step's loss weight (1 = plain), by which the step's loss gradient is scaled on the card and in the reference
  * while the reported loss stays unweighted: the driver's --weight-user gives the person's lines less than the
  * speaker's own (21:5x, the student's replies are what coherence is measured on). Every record carries it, with or
  * without a distribution. */
-typedef struct { uint16_t id[CX_SOFT_K]; float p[CX_SOFT_K]; float w; } cx_soft;
-#define CX_SOFT_BYTES 52u
-#define CX_SOFT_CHUNK_BYTES (CX_T_L * CX_SOFT_BYTES)   /* 1,664 = 26 lines */
+typedef struct { cx_tok id[CX_SOFT_K]; float p[CX_SOFT_K]; float w; } cx_soft;
+#define CX_SOFT_BYTES 68u
+_Static_assert(sizeof(cx_soft) == CX_SOFT_BYTES, "a soft record is 8 u32 ids, 8 F32 probabilities and the F32 weight");
+#define CX_SOFT_CHUNK_BYTES (CX_T_L * CX_SOFT_BYTES)   /* 2,176 = 34 lines */
 #define CX_T_SOFT (CX_T_BASE + 640u)        /* u32 1: the coach fills the soft ring for every chunk of the run (host) */
-#define CX_T_SOFT_RING (57u << 20)          /* CX_T_SLOTS slots of CX_SOFT_CHUNK_BYTES: 1.5 MiB */
+#define CX_T_SOFT_RING (57u << 20)          /* CX_T_SLOTS slots of CX_SOFT_CHUNK_BYTES: 2,228,224 B, to 59.125 MiB */
 #define CX_T_SOFT_SLOT(c) (CX_T_SOFT_RING + (uint32_t)((c) % CX_T_SLOTS) * CX_SOFT_CHUNK_BYTES)
 #define CX_T_SOFT_SUM(c) (CX_T_SOFT_RING + CX_T_SLOTS * CX_SOFT_CHUNK_BYTES + (uint32_t)((c) % CX_T_SLOTS) * 8u)   /* u64 the slot's checksum, the sum of its
-                                               192 words, written by the coach after the records (host); the card sums what its DMA brought and trains the chunk on
+                                               272 u64 words, written by the coach after the records (host); the card sums what its DMA brought and trains the chunk on
                                                the hard targets alone when the two differ (a wrong source or a torn copy never trains on noise unseen) */
 #define CX_T_SOFT_BAD (CX_T_BASE + 1984u)   /* u64 chunks of the run whose soft slot failed the checksum (card) */
 #define CX_T_CTX_US (CX_T_BASE + 1856u)     /* f64 the context memory's mean microseconds a step over the last report window, thread 0 (card) */

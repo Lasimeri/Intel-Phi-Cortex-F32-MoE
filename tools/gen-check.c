@@ -3,8 +3,9 @@
  * (120 columns from a checkpoint, the bus live or zero, the n-gram memory from its tables and gates when given) and
  * compares every step's 4096 logits with the ones the daemon produced for the same stream (cortex --ids --dump-logits).
  *
- *   gen-check CKPT IDS.u16 NSTEPS LOGITS.f32 [--bus 0|1] [--ngram TABLES GATES]
+ *   gen-check CKPT IDS.u32 NSTEPS LOGITS.f32 [--bus 0|1] [--ngram TABLES GATES]
  *
+ * IDS.u32: the stream the daemon was stepped through, little-endian u32 ids (lib/cx-proto.h cx_tok).
  * The daemon's STEP s is the forward on ids[s] with the state from steps 0..s-1 (T from zero, the bus from zero), so
  * the reference runs the same NSTEPS forwards in order; with the memory, step s uses the rows of (ids[s-2], ids[s-1],
  * ids[s]) with CX_NG_PAD before the start, as host/cortex.c writes them.
@@ -57,7 +58,7 @@ static int load_memory(cref *C, const char *tables, const char *gates)
 
 int main(int argc, char **argv)
 {
-	if (argc < 5) { fprintf(stderr, "usage: gen-check CKPT IDS.u16 NSTEPS LOGITS.f32 [--bus 0|1] [--ngram TABLES GATES]\n"); return 2; }
+	if (argc < 5) { fprintf(stderr, "usage: gen-check CKPT IDS.u32 NSTEPS LOGITS.f32 [--bus 0|1] [--ngram TABLES GATES]\n"); return 2; }
 	const int nsteps = atoi(argv[3]);
 	int bus = 1;
 	const char *tables = NULL, *gates = NULL;
@@ -73,8 +74,8 @@ int main(int argc, char **argv)
 	/* the stream and the daemon's logits */
 	FILE *f = fopen(argv[2], "rb");
 	if (!f) { perror(argv[2]); return 1; }
-	uint16_t *tok = malloc((size_t)nsteps * 2);
-	if (fread(tok, 2, (size_t)nsteps, f) != (size_t)nsteps) { fprintf(stderr, "gen-check: %s holds fewer than %d ids\n", argv[2], nsteps); return 1; }
+	cx_tok *tok = malloc((size_t)nsteps * sizeof *tok);
+	if (fread(tok, sizeof *tok, (size_t)nsteps, f) != (size_t)nsteps) { fprintf(stderr, "gen-check: %s holds fewer than %d ids\n", argv[2], nsteps); return 1; }
 	fclose(f);
 	f = fopen(argv[4], "rb");
 	if (!f) { perror(argv[4]); return 1; }

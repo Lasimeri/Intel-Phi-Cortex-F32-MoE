@@ -5,8 +5,9 @@
  * 3,833 merges). C only; no count tables are used for generation anywhere, this is the tokenizer.
  *
  *   bpe train  CORPUS SAMPLE_BYTES VOCAB.txt     learn the merges on the first SAMPLE_BYTES of CORPUS (all specials)
- *   bpe encode VOCAB.txt IN OUT.u16 [MAX_BYTES]  tokens as little-endian u16; prints tokens, bytes/token, MB/s
- *   bpe decode VOCAB.txt IN.u16 OUT              bytes back (the check is `cmp` against the original)
+ *   bpe encode VOCAB.txt IN OUT.u32 [MAX_BYTES]  tokens as little-endian u32 (lib/cx-proto.h cx_tok, 4 B a token);
+ *                                                prints tokens, bytes/token, MB/s
+ *   bpe decode VOCAB.txt IN.u32 OUT              bytes back (the check is `cmp` against the original)
  *
  * Pre-tokeniser (after GPT-2's ` ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+`, on bytes): the literal of a
  * special token is one token; a word is an optional single space plus a run of letters (bytes >= 0x80 count as
@@ -21,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "../lib/cx-proto.h"   /* cx_tok: a token id is stored as u32 */
 
 #define VOCAB 4096
 #define EOT 4095
@@ -115,13 +117,23 @@ static word *lookup(const unsigned char *s, int len, int insert)
 static int merge_l[VOCAB], merge_r[VOCAB];   /* for ids 256..VOCAB - nspecial - 1 */
 static int nmerges;
 #define PTAB (1u << 22)
-static uint32_t *pkey;    /* (left << 16 | right) + 1, 0 = empty */
+static uint64_t *pkey;    /* pair_key(left, right) + 1 = ((uint64_t)left << 32 | right) + 1, 0 = empty */
 static int *pval;
+
+/* the probe start of the pair (l, r) in a PTAB table: the multiplicative hash of l << 16 | r in 32 bits, so the
+ * tables' layout is the one the 16-bit-packed key gave; the key compared in the slot is the full 64-bit pair */
+static uint64_t pair_slot(int l, int r)
+{
+	const uint32_t h = (uint32_t)l << 16 | (uint32_t)r;
+	return (uint64_t)((h * 2654435761u) & (PTAB - 1));
+}
+
+static uint64_t pair_key(int l, int r) { return (uint64_t)(uint32_t)l << 32 | (uint32_t)r; }
 
 static int pair_rank(int l, int r)   /* merged id, or -1 */
 {
-	const uint32_t key = (uint32_t)l << 16 | (uint32_t)r;
-	uint64_t i = (key * 2654435761u) & (PTAB - 1);
+	const uint64_t key = pair_key(l, r);
+	uint64_t i = pair_slot(l, r);
 	while (pkey[i]) {
 		if (pkey[i] == key + 1) return pval[i];
 		i = (i + 1) & (PTAB - 1);
@@ -131,15 +143,15 @@ static int pair_rank(int l, int r)   /* merged id, or -1 */
 
 static void pair_set(int l, int r, int id)
 {
-	const uint32_t key = (uint32_t)l << 16 | (uint32_t)r;
-	uint64_t i = (key * 2654435761u) & (PTAB - 1);
+	const uint64_t key = pair_key(l, r);
+	uint64_t i = pair_slot(l, r);
 	while (pkey[i] && pkey[i] != key + 1) i = (i + 1) & (PTAB - 1);
 	pkey[i] = key + 1;
 	pval[i] = id;
 }
 
-/* encode one word's bytes into ids by applying merges lowest id first */
-static int encode_word(const unsigned char *s, int len, uint16_t *out)
+/* encode one word's bytes into ids by applying merges lowest id first; out takes up to WMAX ids */
+static int encode_word(const unsigned char *s, int len, cx_tok *out)
 {
 	int sym[WMAX], n = len;
 	for (int i = 0; i < n; i++) sym[i] = s[i];
@@ -154,7 +166,7 @@ static int encode_word(const unsigned char *s, int len, uint16_t *out)
 		memmove(sym + at + 1, sym + at + 2, (size_t)(n - at - 2) * sizeof *sym);
 		n--;
 	}
-	for (int i = 0; i < n; i++) out[i] = (uint16_t)sym[i];
+	for (int i = 0; i < n; i++) out[i] = (cx_tok)sym[i];
 	return n;
 }
 
@@ -198,8 +210,8 @@ static int train(const char *corpus, long sample, const char *vocab)
 		}
 	pkey = calloc(PTAB, sizeof *pkey);
 	pval = calloc(PTAB, sizeof *pval);
-	/* pair counts: a second table keyed the same way */
-	uint32_t *ckey = calloc(PTAB, sizeof *ckey);
+	/* pair counts: a second table keyed the same way (touched holds slot indices, not ids) */
+	uint64_t *ckey = calloc(PTAB, sizeof *ckey);
 	long *cval = calloc(PTAB, sizeof *cval);
 	uint32_t *touched = malloc(PTAB * sizeof *touched);
 	const double t0 = (double)clock() / CLOCKS_PER_SEC;
@@ -207,19 +219,19 @@ static int train(const char *corpus, long sample, const char *vocab)
 		long nt = 0;
 		for (long w = 0; w < nwords; w++)
 			for (int j = 0; j + 1 < slen[w]; j++) {
-				const uint32_t key = (uint32_t)sym[w][j] << 16 | (uint32_t)sym[w][j + 1];
-				uint64_t i = (key * 2654435761u) & (PTAB - 1);
+				const uint64_t key = pair_key(sym[w][j], sym[w][j + 1]);
+				uint64_t i = pair_slot(sym[w][j], sym[w][j + 1]);
 				while (ckey[i] && ckey[i] != key + 1) i = (i + 1) & (PTAB - 1);
 				if (!ckey[i]) { ckey[i] = key + 1; cval[i] = 0; touched[nt++] = (uint32_t)i; }
 				cval[i] += ws[w].count;
 			}
 		long best = -1;
-		uint32_t bkey = 0;
+		uint64_t bkey = 0;   /* ties go to the lowest (left, right): the 64-bit key orders them as the 16-bit-packed one did */
 		for (long t = 0; t < nt; t++)
 			if (cval[touched[t]] > best || (cval[touched[t]] == best && ckey[touched[t]] < bkey)) { best = cval[touched[t]]; bkey = ckey[touched[t]]; }
 		for (long t = 0; t < nt; t++) ckey[touched[t]] = 0;
 		if (best < 2) { printf("train: no pair left with count >= 2 after %d merges\n", m); break; }
-		const int l = (int)((bkey - 1) >> 16), r = (int)((bkey - 1) & 0xFFFF), id = 256 + m;
+		const int l = (int)((bkey - 1) >> 32), r = (int)((bkey - 1) & 0xFFFFFFFFu), id = 256 + m;
 		merge_l[id] = l;
 		merge_r[id] = r;
 		pair_set(l, r, id);
@@ -270,7 +282,7 @@ static int load_vocab(const char *vocab)
 }
 
 /* ---- encode with a word cache ---- */
-typedef struct { unsigned char *s; int len; int n; uint16_t ids[WMAX]; } centry;
+typedef struct { unsigned char *s; int len; int n; cx_tok ids[WMAX]; } centry;
 static centry *cache;
 
 static int encode(const char *vocab, const char *in, const char *out, long max)
@@ -288,13 +300,13 @@ static int encode(const char *vocab, const char *in, const char *out, long max)
 	cache = calloc(TAB, sizeof *cache);
 	FILE *o = fopen(out, "wb");
 	if (!o) { perror(out); return 1; }
-	uint16_t *obuf = malloc((1 << 20) * sizeof *obuf);
+	cx_tok *obuf = malloc((1 << 20) * sizeof *obuf);
 	long on = 0, tokens = 0, pos = 0, hits = 0, special_tokens = 0;
 	const double t0 = (double)clock() / CLOCKS_PER_SEC;
 	while (pos < n) {
 		int sp;
 		const int len = next_word(buf + pos, n - pos, &sp);
-		if (sp) { obuf[on++] = (uint16_t)sp; tokens++; special_tokens++; }
+		if (sp) { obuf[on++] = (cx_tok)sp; tokens++; special_tokens++; }
 		else {
 			uint64_t i = hash(buf + pos, len) & (TAB - 1);
 			centry *c;
@@ -321,7 +333,7 @@ static int encode(const char *vocab, const char *in, const char *out, long max)
 	fclose(o);
 	const double s = (double)clock() / CLOCKS_PER_SEC - t0;
 	printf("encode: %ld bytes -> %ld tokens (%.3f bytes/token, %ld special), %.1f MB/s, cache hits %ld, %s %ld bytes\n", n, tokens,
-	       (double)n / tokens, special_tokens, n / s / 1e6, hits, out, tokens * 2);
+	       (double)n / tokens, special_tokens, n / s / 1e6, hits, out, tokens * (long)CX_TOK_BYTES);
 	return 0;
 }
 
@@ -345,10 +357,10 @@ static int decode(const char *vocab, const char *in, const char *out)
 	for (int id = 0; id < 256 + nmerges; id++) expand(id);
 	FILE *f = fopen(in, "rb"), *o = fopen(out, "wb");
 	if (!f || !o) { perror(f ? out : in); return 1; }
-	uint16_t t;
+	cx_tok t;
 	long n = 0, bytes = 0;
-	while (fread(&t, 2, 1, f) == 1) {
-		if (t >= 256 + nmerges && !is_special(t)) { fprintf(stderr, "bpe: token %u out of range at %ld\n", t, n); return 1; }
+	while (fread(&t, sizeof t, 1, f) == 1) {
+		if (t >= (cx_tok)(256 + nmerges) && !(t < VOCAB && is_special((int)t))) { fprintf(stderr, "bpe: token %u out of range at %ld\n", t, n); return 1; }
 		fwrite(tok_s[t], 1, (size_t)tok_len[t], o);
 		bytes += tok_len[t];
 		n++;
@@ -365,7 +377,7 @@ int main(int argc, char **argv)
 	if (argc >= 5 && !strcmp(argv[1], "train")) return train(argv[2], atol(argv[3]), argv[4]);
 	if (argc >= 5 && !strcmp(argv[1], "encode")) return encode(argv[2], argv[3], argv[4], argc > 5 ? atol(argv[5]) : 0);
 	if (argc >= 5 && !strcmp(argv[1], "decode")) return decode(argv[2], argv[3], argv[4]);
-	fprintf(stderr, "usage: bpe train CORPUS SAMPLE_BYTES VOCAB | encode VOCAB IN OUT.u16 [MAX_BYTES] | decode VOCAB IN.u16 OUT\n");
+	fprintf(stderr, "usage: bpe train CORPUS SAMPLE_BYTES VOCAB | encode VOCAB IN OUT.u32 [MAX_BYTES] | decode VOCAB IN.u32 OUT\n");
 	return 2;
 }
 #endif

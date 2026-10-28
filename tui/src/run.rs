@@ -544,9 +544,9 @@ mod tests {
     fn a_new_opening_line_starts_a_new_record() {
         let mut r = Run::default();
         r.parse(&LOG.lines().map(String::from).collect::<Vec<_>>());
-        r.take("21:00:00 coach: data/x.u16 chunks 0..9 (10 chunks = 320 tokens), lr 3.000e-03, report every 100, window 300, min gain 0.010, halvings 3, sample every 2000 x 128 tokens, save every 5000, no stop, cmd results/live.cmd, checkpoints data/live-x/, n-gram memory /dev/shm/t.f32 (row lr 0.1, gates ones, tables every 50000), MoE loaded (bias 100 to 0 over 100000 chunks, expert lr 0.05)");
+        r.take("21:00:00 coach: data/x.u32 chunks 0..9 (10 chunks = 320 tokens), lr 3.000e-03, report every 100, window 300, min gain 0.010, halvings 3, sample every 2000 x 128 tokens, save every 5000, no stop, cmd results/live.cmd, checkpoints data/live-x/, n-gram memory /dev/shm/t.f32 (row lr 0.1, gates ones, tables every 50000), MoE loaded (bias 100 to 0 over 100000 chunks, expert lr 0.05)");
         let h = r.header.as_ref().unwrap();
-        assert_eq!(h.file, "data/x.u16");
+        assert_eq!(h.file, "data/x.u32");
         assert_eq!(h.memory.as_deref(), Some("/dev/shm/t.f32: row lr 0.1, gates ones, tables every 50000"));
         assert_eq!(h.moe.as_deref(), Some("loaded: bias 100 to 0 over 100000 chunks, expert lr 0.05"));
         assert!(r.reports.is_empty() && r.windows.is_empty() && r.events.is_empty() && r.sample.is_none());

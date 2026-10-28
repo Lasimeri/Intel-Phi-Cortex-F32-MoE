@@ -19,11 +19,12 @@
  * TURNS.txt: the batch's turns, one a line, in order (jq -r '.messages[1:][] | .content' over the batch's jsonl);
  * LP.tsv: one line per teacher token: base64(token) TAB logprob TAB "base64(alt):logprob ..." (jq over the server's
  * logprobs list; a token with no alternatives has an empty third field); TEXT: the batch as the driver feeds it to
- * the encoder (tools/chat-text --no-think-block --detok); OUT.soft: one 48-byte record per student token of TEXT, in
- * the stream's order: uint16 id[8] (0xFFFF unused) then float p[8]. --empty N writes N empty records (the stream's
- * tokens from before the sidecars). Prints the counts: tokens, turns matched, tokens with a distribution, the mapped
- * mass before lambda, how often the teacher's first choice is the student's hard target. SA_DEBUG in the environment
- * prints every turn's position and its shared boundaries.
+ * the encoder (tools/chat-text --no-think-block --detok); OUT.soft: one 68-byte record (lib/cx-proto.h cx_soft) per
+ * student token of TEXT, in the stream's order: uint32 id[8] (0xFFFFFFFF unused), float p[8], then the float loss
+ * weight w. --empty N writes N empty records (weight 1; the stream's tokens from before the sidecars). Prints the
+ * counts: tokens, turns matched, tokens with a distribution, the mapped mass before lambda, how often the teacher's
+ * first choice is the student's hard target. SA_DEBUG in the environment prints every turn's position and its shared
+ * boundaries.
  */
 #define BPE_NO_MAIN
 #include "bpe.c"
@@ -80,9 +81,9 @@ static int first_id(const unsigned char *s, int len)
 	int sp;
 	const int wl = next_word(s, len, &sp);
 	if (sp) return sp;
-	uint16_t ids[WMAX + 1];
+	cx_tok ids[WMAX + 1];
 	const int m = encode_word(s, wl, ids);
-	return m > 0 ? ids[0] : -1;
+	return m > 0 ? (int)ids[0] : -1;
 }
 
 static const unsigned char *find_from(const unsigned char *hay, long hn, long from, const unsigned char *needle, long nn)
@@ -93,7 +94,7 @@ static const unsigned char *find_from(const unsigned char *hay, long hn, long fr
 
 static void empty_rec(cx_soft *r)
 {
-	for (int k = 0; k < CX_SOFT_K; k++) { r->id[k] = (uint16_t)CX_SOFT_NONE; r->p[k] = 0; }
+	for (int k = 0; k < CX_SOFT_K; k++) { r->id[k] = CX_SOFT_NONE; r->p[k] = 0; }
 	r->w = 1.0f;
 }
 
@@ -131,15 +132,15 @@ int main(int argc, char **argv)
 	long tn;
 	unsigned char *text = read_all(argv[4], &tn);
 	if (!text) return 1;
-	uint16_t *sid = malloc((size_t)(tn + 1) * sizeof *sid);
+	cx_tok *sid = malloc((size_t)(tn + 1) * sizeof *sid);
 	long *sen = malloc((size_t)(tn + 1) * sizeof *sen);
 	long ns = 0, pos = 0;
 	while (pos < tn) {
 		int sp;
 		const int len = next_word(text + pos, tn - pos, &sp);
-		if (sp) { sid[ns] = (uint16_t)sp; sen[ns] = pos + len; ns++; }
+		if (sp) { sid[ns] = (cx_tok)sp; sen[ns] = pos + len; ns++; }
 		else {
-			uint16_t ids[WMAX + 1];
+			cx_tok ids[WMAX + 1];
 			const int m = encode_word(text + pos, len, ids);
 			long off = pos;
 			for (int k = 0; k < m; k++) { sid[ns] = ids[k]; off += tok_len[ids[k]]; sen[ns] = off; ns++; }
@@ -267,7 +268,7 @@ int main(int argc, char **argv)
 				const int keep = m < top ? m : top;
 				double kept = 0;
 				for (k = 0; k < keep; k++) kept += ps[k];
-				for (k = 0; k < keep; k++) { rec.id[k] = (uint16_t)ids[k]; rec.p[k] = (float)(lambda * ps[k] / kept); }   /* the kept ids renormalised, then lambda */
+				for (k = 0; k < keep; k++) { rec.id[k] = (cx_tok)ids[k]; rec.p[k] = (float)(lambda * ps[k] / kept); }   /* the kept ids renormalised, then lambda */
 				covered++;
 				mass += sum;
 				if (t->nalt && first_id(t->a[0].s, t->a[0].len) == h) agree++;

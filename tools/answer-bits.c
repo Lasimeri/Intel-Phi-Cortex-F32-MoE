@@ -6,10 +6,11 @@
  * the same tokens in both, so their losses pair one to one; the mean loss of the speaker's tokens in B minus in A is
  * the information, in bits per answer token, that the true question gives the model about its answer. A model that
  * reads only the last two tokens (an n-gram) scores about 0; a model that answers the question scores well above 0.
- *   answer-bits A.u16 A.f32 B.u16 B.f32 [--first K]
- * A.f32, B.f32: ref-loss --dump of the streams (F32 nats, the loss of the prediction of token s + 1 at index s). A
- * token counts when it lies inside the speaker's line: after <|assistant|> (4092) and before the <|end|> (4091) that
- * closes it, the <|end|> itself included (where the answer stops is part of the answer). --first K (default 5) also
+ *   answer-bits A.u32 A.f32 B.u32 B.f32 [--first K]
+ * A.u32, B.u32: the streams, little-endian u32 ids (lib/cx-proto.h cx_tok); A.f32, B.f32: ref-loss --dump of them (F32
+ * nats, the loss of the prediction of token s + 1 at index s). A token counts when it lies inside the speaker's line:
+ * after <|assistant|> (4092) and before the <|end|> (4091) that closes it, the <|end|> itself included (where the
+ * answer stops is part of the answer). --first K (default 5) also
  * reports the first K tokens of every answer apart, where the question's influence is strongest. Prints the token
  * counts, the mean loss of A and B over the answers in bits per token, the difference with its standard error over
  * the answers (each answer's mean difference is one sample), the same for the first K tokens, and the share of
@@ -21,20 +22,21 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include "../lib/cx-proto.h"
 
 #define T_ASSISTANT 4092
 #define T_END 4091
 
-typedef struct { uint16_t *tok; float *nll; long n; } stream;
+typedef struct { cx_tok *tok; float *nll; long n; } stream;
 
 static int load(stream *s, const char *tp, const char *lp)
 {
 	struct stat st;
 	FILE *f = fopen(tp, "rb");
 	if (!f || fstat(fileno(f), &st)) { perror(tp); return -1; }
-	s->n = st.st_size / 2;
-	s->tok = malloc((size_t)s->n * 2);
-	if (fread(s->tok, 2, (size_t)s->n, f) != (size_t)s->n) { perror(tp); return -1; }
+	s->n = st.st_size / (long)CX_TOK_BYTES;
+	s->tok = malloc((size_t)s->n * sizeof *s->tok);
+	if (fread(s->tok, sizeof *s->tok, (size_t)s->n, f) != (size_t)s->n) { perror(tp); return -1; }
 	fclose(f);
 	f = fopen(lp, "rb");
 	if (!f || fstat(fileno(f), &st)) { perror(lp); return -1; }
@@ -47,14 +49,14 @@ static int load(stream *s, const char *tp, const char *lp)
 
 /* the answers of a stream: for every answer token (in order) its id, its loss (of its prediction) and its answer's
  * index and position in the answer */
-typedef struct { uint16_t id; float nll; int ans, pos; } atok;
+typedef struct { cx_tok id; float nll; int ans, pos; } atok;
 
 static long answers(const stream *s, atok *out, int *nans)
 {
 	long m = 0;
 	int a = -1, in = 0, pos = 0;
 	for (long i = 0; i + 1 < s->n; i++) {
-		const uint16_t t = s->tok[i], next = s->tok[i + 1];
+		const cx_tok t = s->tok[i], next = s->tok[i + 1];
 		if (t == T_ASSISTANT) { in = 1; a++; pos = 0; }
 		if (in) {
 			out[m].id = next;
@@ -71,7 +73,7 @@ static long answers(const stream *s, atok *out, int *nans)
 
 int main(int argc, char **argv)
 {
-	if (argc < 5) { fprintf(stderr, "usage: answer-bits A.u16 A.f32 B.u16 B.f32 [--first K]\n"); return 2; }
+	if (argc < 5) { fprintf(stderr, "usage: answer-bits A.u32 A.f32 B.u32 B.f32 [--first K]\n"); return 2; }
 	int first = 5;
 	for (int i = 5; i < argc; i++) {
 		if (!strcmp(argv[i], "--first") && i + 1 < argc) first = atoi(argv[++i]);

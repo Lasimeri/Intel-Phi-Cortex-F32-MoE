@@ -1,12 +1,17 @@
 /* ngram-base: n-gram baselines for the Cortex's held-out loss, in bits per token.
  *
- *   ngram-base TRAIN.u16 VALID.u16 NTOK [MAXTRAIN]
+ *   ngram-base TRAIN.u32 VALID.u32 NTOK [MAXTRAIN]
  *
- * Counts unigrams, bigrams and trigrams over TRAIN (uint16 token ids of the 4,096-id vocabulary; the first MAXTRAIN
- * tokens if given), then scores VALID[0..NTOK) exactly as tools/ref-loss.c scores a checkpoint: the NTOK - 1
- * predictions of ids 1..NTOK-1, each conditioned on what precedes it, averaged in bits per token. The three numbers
- * are the floor a model has to beat before it has learned anything beyond token frequencies (unigram), the previous
- * token (bigram) or the previous two (trigram).
+ * Counts unigrams, bigrams and trigrams over TRAIN (u32 token ids of the 4,096-id vocabulary, lib/cx-proto.h cx_tok,
+ * 4 B a token; the first MAXTRAIN tokens if given), then scores VALID[0..NTOK) exactly as tools/ref-loss.c scores a
+ * checkpoint: the NTOK - 1 predictions of ids 1..NTOK-1, each conditioned on what precedes it, averaged in bits per
+ * token. The three numbers are the floor a model has to beat before it has learned anything beyond token frequencies
+ * (unigram), the previous token (bigram) or the previous two (trigram).
+ *
+ * A .u16 stream of before 2026-10-28 is widened by tools/ids32 first. A file that is not a whole number of u32 ids,
+ * or holds an id at 4,096 or above (a .u16 stream read as u32 pairs two ids into one), is refused. With every id
+ * below 4,096 the trigram key (16 bits an id) and its hash are bit-identical to the .u16 build's, so a widened stream
+ * gives the same numbers.
  *
  * Smoothing: add-one on the unigram; the bigram and the trigram are interpolated with the next lower order
  * (Jelinek-Mercer, one lambda per order), and the best lambda of the grid {0.3, 0.5, 0.6, 0.7, 0.8, 0.9} is reported.
@@ -15,8 +20,10 @@
  *
  * Memory: 64 MB of bigram counts, 64 MB of trigram context counts and a 2^26-slot open-addressing hash of trigram
  * counts (768 MB); the hash holds 47M distinct trigrams before it refuses, enough for about 100M training tokens.
+ * Both streams are read whole, 4 B a token (126.2 MB for 31.55M tokens).
  *
- * Measured 2026-10-27 01:2x on the desktop (results in docs/CHAT.md, "Baselines"):
+ * Measured 2026-10-27 01:2x on the desktop with the u16 build, on the .u16 streams of the time (results in
+ * docs/CHAT.md, "Baselines"):
  *   data/chat-scratch/train.u16 (31.55M tokens) -> data/chat-scratch/valid.u16[0..27447):
  *     unigram 9.9789, bigram 6.9650 (lambda 0.9), trigram 6.1843 (lambda 0.7) bits/token, 1.24 s
  *   the first 31.55M tokens of data/bpe/train.u16 -> data/bpe/valid.u16[0..20000):
@@ -27,6 +34,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "../lib/cx-proto.h"
 
 #define V 4096
 #define HBITS 26
@@ -40,21 +48,36 @@ static uint64_t *hkey;
 static uint32_t *hval;
 static unsigned long hfill;
 
-static uint16_t *load(const char *path, long *n)
+/* every id below 4,096: the OR of all ids has no bit at 12 or above (one vectorised pass, as tools/conv-pos.c) */
+static void ids_check(const char *path, const cx_tok *t, long n)
+{
+	cx_tok m = 0;
+	for (long i = 0; i < n; i++) m |= t[i];
+	if (!(m >> 12)) return;
+	long i = 0;
+	while (t[i] < V) i++;
+	fprintf(stderr, "ngram-base: %s: id %u at token %ld is outside the 4,096-id vocabulary (a .u16 stream? tools/ids32 widens one)\n", path, t[i], i);
+	exit(1);
+}
+
+static cx_tok *load(const char *path, long *n)
 {
 	FILE *f = fopen(path, "rb");
 	if (!f) { perror(path); exit(1); }
 	fseek(f, 0, SEEK_END);
 	long bytes = ftell(f);
 	fseek(f, 0, SEEK_SET);
-	uint16_t *p = malloc((size_t)bytes);
+	if (bytes % CX_TOK_BYTES) { fprintf(stderr, "ngram-base: %s is %ld B, not a whole number of u32 ids\n", path, bytes); exit(1); }
+	cx_tok *p = malloc((size_t)bytes);
 	if (!p || fread(p, 1, (size_t)bytes, f) != (size_t)bytes) { perror(path); exit(1); }
 	fclose(f);
-	*n = bytes / 2;
+	*n = bytes / CX_TOK_BYTES;
+	ids_check(path, p, *n);
 	return p;
 }
 
-static uint64_t tri_key(uint16_t a, uint16_t b, uint16_t c)
+/* the trigram's key: the three ids in 16-bit fields (ids below 4,096, ids_check), the key of the .u16 build */
+static uint64_t tri_key(cx_tok a, cx_tok b, cx_tok c)
 {
 	return ((uint64_t)a << 32) | ((uint64_t)b << 16) | c;
 }
@@ -93,10 +116,10 @@ static uint32_t hget(uint64_t k)
 
 int main(int argc, char **argv)
 {
-	if (argc != 4 && argc != 5) { fprintf(stderr, "usage: ngram-base TRAIN.u16 VALID.u16 NTOK [MAXTRAIN]\n"); return 2; }
+	if (argc != 4 && argc != 5) { fprintf(stderr, "usage: ngram-base TRAIN.u32 VALID.u32 NTOK [MAXTRAIN]\n"); return 2; }
 	long nt, nv;
-	uint16_t *t = load(argv[1], &nt);
-	uint16_t *v = load(argv[2], &nv);
+	cx_tok *t = load(argv[1], &nt);
+	cx_tok *v = load(argv[2], &nv);
 	long n = atol(argv[3]);
 	if (n < 3 || n > nv) { fprintf(stderr, "ngram-base: NTOK must be 3..%ld\n", nv); return 2; }
 	if (argc == 5) { long m = atol(argv[4]); if (m > 0 && m < nt) nt = m; }

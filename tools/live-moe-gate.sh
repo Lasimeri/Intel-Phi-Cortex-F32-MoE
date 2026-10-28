@@ -5,8 +5,9 @@
 # regions). Run from the MoE tree with the card free of the daemon (cortex --stop first): the reference runs alone,
 # then the script starts the daemon from build/card/cortexd (DMA channel 3) and runs the live half, and leaves the
 # daemon serving the live MoE model.
-#   bash tools/live-moe-gate.sh CKPT SLICE.u16 VALID.u16 [BIAS [EXPERT_LR]]
-# CKPT = the starting dense checkpoint, SLICE.u16 = 64,001 tokens (2,000 chunks), VALID.u16 a validation stream;
+#   bash tools/live-moe-gate.sh CKPT SLICE.u32 VALID.u32 [BIAS [EXPERT_LR]]
+# CKPT = the starting dense checkpoint, SLICE.u32 = 64,001 tokens (2,000 chunks), VALID.u32 a validation stream, both
+# little-endian u32 ids (4 bytes a token; a .u16 of before 2026-10-28 06:1x is widened by tools/ids32.c first);
 # the copies go to /tmp/cortex on the card. BIAS (default 100) and EXPERT_LR (default 0.05) are the run's knobs.
 set -u
 cd "$(dirname "$0")/.." || exit 1
@@ -21,12 +22,12 @@ losses_of() { /usr/bin/grep -aE "^.{8} report chunk" "$1" | awk '{print $4, $8}'
 say "=== live MoE gate $(date '+%F %T'): $ckpt, slice $slice (2,000 chunks), home bonus $bias, expert lr $exlr"
 say "--- the card: the batch binary and the data"
 phi put build/card/cluster-gate-moe /tmp/cortex/cluster-gate-moe | tail -1
-phi put "$slice" /tmp/cortex/lm-slice.u16 | tail -1
-phi put "$valid" /tmp/cortex/lm-valid.u16 | tail -1
+phi put "$slice" /tmp/cortex/lm-slice.u32 | tail -1
+phi put "$valid" /tmp/cortex/lm-valid.u32 | tail -1
 phi put "$ckpt" /tmp/cortex/lm-init.bin | tail -1
 
 say "--- reference: cluster-gate-moe run, the card without the daemon"
-phi run sh -c "cd /tmp/cortex && rm -rf lmref && mkdir -p lmref && CX_BUS=0 CX_INIT=/tmp/cortex/lm-init.bin CX_MOE=1 CX_MOE_BIAS=$bias CX_MOE_LR=$exlr ./cluster-gate-moe run lm-slice.u16 lmref 32 64000 0.003 lm-valid.u16 3200 100 2>&1; md5sum /tmp/cortex/lmref/ckpt.bin" > "$out/ref.log" 2>&1
+phi run sh -c "cd /tmp/cortex && rm -rf lmref && mkdir -p lmref && CX_BUS=0 CX_INIT=/tmp/cortex/lm-init.bin CX_MOE=1 CX_MOE_BIAS=$bias CX_MOE_LR=$exlr ./cluster-gate-moe run lm-slice.u32 lmref 32 64000 0.003 lm-valid.u32 3200 100 2>&1; md5sum /tmp/cortex/lmref/ckpt.bin" > "$out/ref.log" 2>&1
 /usr/bin/grep -E "^run:|^moe:|^chunk +(100|1000|2000) |^valid:|^[0-9a-f]{32}" "$out/ref.log" | tee -a "$log"
 /usr/bin/grep -E "^chunk" "$out/ref.log" | awk '{print $2, $6}' > "$out/ref.losses"
 ref_md5=$(awk '/^[0-9a-f]{32}  / {print $1}' "$out/ref.log" | tail -1)

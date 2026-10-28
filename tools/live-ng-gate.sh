@@ -4,10 +4,11 @@
 # the MoE tree. The reference (cluster-gate with CX_NG=1 plus ngserve) needs the card free of the daemon, the live
 # half needs the daemon serving; the script handles both: it runs the reference first (the daemon must be stopped
 # before: cortex --stop), then starts the daemon from build/card/cortexd on DMA channel 3 and runs the live half.
-#   bash tools/live-ng-gate.sh CKPT CARD_CKPT SLICE.u16 CARD_SLICE VALID.u16 CARD_VALID
-# CKPT = the starting checkpoint on the host, CARD_CKPT its copy on the card (phi put first); SLICE.u16 = 64,001
-# tokens (2,000 chunks of 32 plus the next), CARD_SLICE its copy; VALID.u16 a validation stream, CARD_VALID its copy
-# (the batch trainer's validation pass takes 100 chunks of rows from the ring too).
+#   bash tools/live-ng-gate.sh CKPT CARD_CKPT SLICE.u32 CARD_SLICE VALID.u32 CARD_VALID
+# CKPT = the starting checkpoint on the host, CARD_CKPT its copy on the card (phi put first); SLICE.u32 = 64,001
+# tokens (2,000 chunks of 32 plus the next), CARD_SLICE its copy; VALID.u32 a validation stream, CARD_VALID its copy
+# (the batch trainer's validation pass takes 100 chunks of rows from the ring too). The streams and their card copies
+# are little-endian u32 ids, 4 bytes a token (a .u16 of before 2026-10-28 06:1x is widened by tools/ids32.c first).
 # Compared: the 20 per-report losses, the final checkpoint (md5), the gates (cmp) and the tables (cmp, 2 GiB).
 set -u
 cd "$(dirname "$0")/.." || exit 1

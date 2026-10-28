@@ -1,17 +1,18 @@
 /*
  * mixstream: a training stream that recurs a small set of conversations inside the base stream: one conversation of
- * SET.u16 (cycled), then RATIO whole conversations of BASE.u16 from START (moved up to the next conversation
- * boundary), again, until OUT.u16 holds at least CHUNKS x 32 tokens of whole conversations (the coach drops a
- * partial last chunk). The identity fine-tune loop (tools/identity-loop.sh) feeds the coach this stream, so the set
+ * SET.u32 (cycled), then RATIO whole conversations of BASE.u32 from START (moved up to the next conversation
+ * boundary), again, until OUT.u32 holds at least CHUNKS x 32 tokens of whole conversations (the coach drops a
+ * partial last chunk). The streams are little-endian u32 ids (lib/cx-proto.h cx_tok, 4 B a token, 128 B a chunk).
+ * The identity fine-tune loop (tools/identity-loop.sh) feeds the coach this stream, so the set
  * is seen every RATIO + 1 conversations while the base keeps flowing. A conversation ends at the end marker (id
  * EOT, default 4095); the newline token (id 10) after it opens the next one, and a set conversation cycled back to
  * the stream's first gets one too.
- *   mixstream SET.u16 BASE.u16 START RATIO CHUNKS OUT.u16 [EOT] [--soft BASE.soft OUT.soft [--set-soft SET.soft]]
- * --set-soft gives the set's own records (one per token of SET.u16: the reward set's weights, tools/reward-soft.c), in
+ *   mixstream SET.u32 BASE.u32 START RATIO CHUNKS OUT.u32 [EOT] [--soft BASE.soft OUT.soft [--set-soft SET.soft]]
+ * --set-soft gives the set's own records (one per token of SET.u32: the reward set's weights, tools/reward-soft.c), in
  * place of empty ones; the newline inserted before a cycled set conversation still gets an empty record.
- * --soft mirrors the stream in the soft-target records of the partial distillation (lib/cx-proto.h cx_soft, 48 B a
- * token, one per token of BASE.u16 in BASE.soft): every base token copied carries its record, every set token and
- * every inserted newline an empty one, so OUT.soft has one record per token of OUT.u16.
+ * --soft mirrors the stream in the soft-target records of the partial distillation (lib/cx-proto.h cx_soft, 68 B a
+ * token, one per token of BASE.u32 in BASE.soft): every base token copied carries its record, every set token and
+ * every inserted newline an empty one (ids CX_SOFT_NONE, weight 1), so OUT.soft has one record per token of OUT.u32.
  * Prints the set's conversations and tokens and how often they recur, the base conversations and tokens used and
  * where they came from, the stream's length and the set's share of it.
  */
@@ -66,24 +67,24 @@ static void mirror_empty(mirror *m, long n)
 
 int main(int argc, char **argv)
 {
-	if (argc < 7) { fprintf(stderr, "usage: mixstream SET.u16 BASE.u16 START RATIO CHUNKS OUT.u16 [EOT] [--soft BASE.soft OUT.soft]\n"); return 2; }
+	if (argc < 7) { fprintf(stderr, "usage: mixstream SET.u32 BASE.u32 START RATIO CHUNKS OUT.u32 [EOT] [--soft BASE.soft OUT.soft [--set-soft SET.soft]]\n"); return 2; }
 	const long start = atol(argv[3]), chunks = atol(argv[5]);
 	const int ratio = atoi(argv[4]);
-	uint16_t eot = 4095;
+	cx_tok eot = 4095;
 	const char *soft_in = NULL, *soft_out = NULL, *set_soft = NULL;
 	for (int i = 7; i < argc; i++) {
 		if (!strcmp(argv[i], "--soft") && i + 2 < argc) { soft_in = argv[++i]; soft_out = argv[++i]; }
 		else if (!strcmp(argv[i], "--set-soft") && i + 1 < argc) set_soft = argv[++i];
-		else if (argv[i][0] >= '0' && argv[i][0] <= '9') eot = (uint16_t)atoi(argv[i]);
+		else if (argv[i][0] >= '0' && argv[i][0] <= '9') eot = (cx_tok)atoi(argv[i]);
 		else { fprintf(stderr, "mixstream: unknown argument %s\n", argv[i]); return 2; }
 	}
 	if (ratio < 0 || chunks <= 0) { fprintf(stderr, "mixstream: RATIO >= 0 and CHUNKS > 0\n"); return 2; }
 	long nset, nbase, sbytes;
-	const uint16_t *set = map_file(argv[1], &nset), *base = map_file(argv[2], &nbase);
-	nset /= 2;
-	nbase /= 2;
+	const cx_tok *set = map_file(argv[1], &nset), *base = map_file(argv[2], &nbase);
+	nset /= (long)sizeof *set;
+	nbase /= (long)sizeof *base;
 	mirror m = { 0 };
-	for (int k = 0; k < CX_SOFT_K; k++) { m.empty.id[k] = (uint16_t)CX_SOFT_NONE; m.empty.p[k] = 0; }
+	for (int k = 0; k < CX_SOFT_K; k++) { m.empty.id[k] = CX_SOFT_NONE; m.empty.p[k] = 0; }
 	m.empty.w = 1.0f;
 	if (soft_in) {
 		m.base = map_file(soft_in, &sbytes);
@@ -110,7 +111,7 @@ int main(int argc, char **argv)
 	if (!out) { perror(argv[6]); return 1; }
 	const long need = chunks * 32;
 	long written = 0, set_convs = 0, base_convs = 0, base_tokens = 0, k = 0;
-	const uint16_t nl = NL;
+	const cx_tok nl = NL;
 	while (written < need && p < nbase) {
 		const long a = from[k], b = to[k];
 		if (written > 0 && set[a] != NL) { fwrite(&nl, sizeof nl, 1, out); mirror_empty(&m, 1); written++; }

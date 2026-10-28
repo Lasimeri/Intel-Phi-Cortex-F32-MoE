@@ -28,6 +28,8 @@
 #define CL_GSIZE 10
 #define CL_BUS (CX_DB * CX_NBUS)   /* floats per bus matrix */
 #define CL_MAXBLK 3
+_Static_assert(CX_SOFT_CHUNK_BYTES % 64 == 0, "a soft slot (32 records of 8 u32 ids, 8 F32 probabilities, the F32 weight) is whole lines: "
+               "the DMA, the evictions and the u64 checksum cover it exactly");
 
 typedef struct {
 	/* shared */
@@ -168,7 +170,7 @@ static inline void cl_chunk_begin(cluster *C, int k, long ch)
 	cl_wait(C, k);
 }
 
-static inline void cl_fwd_step(cluster *C, int k, int t, uint32_t id, uint32_t id_next, uint32_t tgt)
+static inline void cl_fwd_step(cluster *C, int k, int t, cx_tok id, cx_tok id_next, cx_tok tgt)
 {
 	cx_train *tr = &C->tr[k];
 	const int L = C->L;
@@ -269,7 +271,7 @@ static inline void cl_fwd_step(cluster *C, int k, int t, uint32_t id, uint32_t i
 		__m512 d = _mm512_mul_ps(_mm512_load_ps(lg + 16 * b), scale);
 		if (C->blk[k][b] == (int)(tgt >> 4)) d = _mm512_mask_sub_ps(d, (__mmask16)(1u << (tgt & 15)), d, wtgt);
 		if (sr) for (int j = 0; j < CX_SOFT_K; j++) {
-			const uint32_t id = sr->id[j];
+			const cx_tok id = sr->id[j];
 			if (id != CX_SOFT_NONE && C->blk[k][b] == (int)(id >> 4)) d = _mm512_mask_sub_ps(d, (__mmask16)(1u << (id & 15)), d, _mm512_mul_ps(_mm512_set1_ps(sr->p[j]), invLw));
 		}
 		_mm512_store_ps(lg + 16 * b, d);
@@ -299,8 +301,8 @@ static inline void cl_moe_update_step(cluster *C, int k, int t)
 }
 #endif
 
-/* the chunk backward for thread k; ids[0..L] (ids[t] the input of step t) */
-static inline void cl_bwd_chunk(cluster *C, int k, const uint32_t *ids, float b1, float b2, float lr_t, float eps_t)
+/* the chunk backward for thread k; ids[0..L] (ids[t] the input of step t, u32 ids) */
+static inline void cl_bwd_chunk(cluster *C, int k, const cx_tok *ids, float b1, float b2, float lr_t, float eps_t)
 {
 	cx_train *tr = &C->tr[k];
 	const int L = C->L;

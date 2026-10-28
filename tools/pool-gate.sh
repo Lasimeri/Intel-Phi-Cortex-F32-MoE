@@ -2,7 +2,9 @@
 # pool-gate.sh: the MoE pool's way out of and back into the daemon (lib/cx-proto.h CX_T_POOL, docs/LIVE.md "The MoE
 # model in the live loop"), and the host evaluator's reading of it (tools/ref-loss.c --moe). Run from the MoE tree
 # with the daemon serving (build/card/cortexd of 2026-10-27 07:4x or later) and no run going.
-#   bash tools/pool-gate.sh CKPT SLICE.u16
+#   bash tools/pool-gate.sh CKPT SLICE.u32
+# SLICE.u32: a token stream of little-endian u32 ids, 4 bytes a token (a .u16 of before 2026-10-28 06:1x is widened by
+# tools/ids32.c first).
 # Steps (results/pool-gate.log, files in results/pool-gate/, 3 x 4 GiB):
 #   0 a paused run stopped at once from CKPT with --moe: P0 = the pool as the LOAD filled it; the evaluator with P0 and
 #     the bonus at 100 must equal the dense reading of CKPT (every head home: expert k = column k's MLP)

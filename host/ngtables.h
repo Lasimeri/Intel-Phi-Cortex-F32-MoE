@@ -10,6 +10,10 @@
  * host/ngserve.c applied in the batch runs (it uses this header too), so a live run and a batch run from the same
  * tables and tokens stay bit-identical: the live memory's gate (tools/live-ng-gate.sh). Both are built with
  * -ffp-contract=off so no compiler fuses the multiply and the subtract.
+ *
+ * The streams are u32 ids (lib/cx-proto.h cx_tok, .u32 files since 2026-10-28; u16 before). The row hash takes the ids
+ * by value (uint32_t), so the same ids address the same rows whatever width they were stored at: tables trained on
+ * the u16 streams keep their addressing.
  */
 #ifndef CX_NGTABLES_H
 #define CX_NGTABLES_H
@@ -25,6 +29,7 @@
 #include <sys/statfs.h>
 #include <unistd.h>
 #include "../lib/cx-col.h"
+#include "../lib/cx-proto.h"
 
 #define NG_TABLE_FLOATS ((size_t)CX_NG_ROWS * CX_DE)
 #define NG_FILE_BYTES ((size_t)CX_NG_ORDERS * NG_TABLE_FLOATS * sizeof(float))
@@ -37,8 +42,8 @@ typedef struct {
 	long rows_zeroed;         /* rows found non-finite at a gather and zeroed (a RAM fault, a divergence) */
 } ngtables;
 
-/* the id at stream position i; CX_NG_PAD before the stream's start */
-static inline uint32_t ng_at(const uint16_t *s, long n, long i) { return i >= 0 && i < n ? s[i] : CX_NG_PAD; }
+/* the id at stream position i, by value; CX_NG_PAD before the stream's start */
+static inline uint32_t ng_at(const cx_tok *s, long n, long i) { return i >= 0 && i < n ? s[i] : CX_NG_PAD; }
 
 /* the row of order o (0 = order 2, 1 = order 3) for the suffix (p2, p1, id) */
 static inline float *ng_row(const ngtables *N, int o, uint32_t id, uint32_t p1, uint32_t p2)
@@ -108,7 +113,7 @@ static inline void ng_step_rows(ngtables *N, uint32_t id, uint32_t p1, uint32_t 
 }
 
 /* chunk c of a stream s of n ids (its steps at positions c * L + t) gathered into a row slot (L x 2 x 128 F32) */
-static inline void ng_gather(ngtables *N, const uint16_t *s, long n, long c, int L, float *slot)
+static inline void ng_gather(ngtables *N, const cx_tok *s, long n, long c, int L, float *slot)
 {
 	for (int t = 0; t < L; t++) {
 		const long pos = c * L + t;
@@ -117,7 +122,7 @@ static inline void ng_gather(ngtables *N, const uint16_t *s, long n, long c, int
 }
 
 /* the chunk's row gradients (L x 2 x 128 F32, as the card lays them out) applied: row -= lr * g */
-static inline void ng_apply(ngtables *N, const uint16_t *s, long n, long c, int L, const float *grad, float lr)
+static inline void ng_apply(ngtables *N, const cx_tok *s, long n, long c, int L, const float *grad, float lr)
 {
 	for (int t = 0; t < L; t++) {
 		const long pos = c * L + t;

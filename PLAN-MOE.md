@@ -733,3 +733,11 @@ own in all ten windows (1862, 1817, 1864, 1724, 1757, 1799, 1751, 1853, 2005, 16
 corpus gives 52 to 63 % of the steps a distribution. The memory's own step time measured for the first time: 289
 to 507 us a step over a filling ring (docs/CONTEXT.md). The held-out after one soft round: 4.6594 bits/token
 (4.6361 before). docs/DISTIL.md.
+
+## 06:10 (10-28): token ids stored as u32
+
+The user's request as relayed: "Storing an F32 value as F32 is innaproriate and you need to change that"; read
+(lib/cx-proto.h `cx_tok`) as: a token id is a 32-bit value where it is used, so every place one is stored becomes
+32-bit: the streams are .u32 files, a ring slot 256 B with 33 u32 ids, a soft record 68 B with CX_SOFT_NONE
+0xFFFFFFFF; the ids keep their values, so the n-gram rows (hashed from the values), the checkpoints, the pool and
+the tables are untouched. The contract and its numbers: docs/DISTIL.md "Token ids are u32 (10-28)".

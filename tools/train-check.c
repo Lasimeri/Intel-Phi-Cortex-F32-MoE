@@ -1,5 +1,6 @@
 /*
- * train-check: Stage 3, host side. usage: train-check fwd|bwd DIR TOKENS.u16 L WARM
+ * train-check: Stage 3, host side. usage: train-check fwd|bwd DIR TOKENS.u32 L WARM
+ * TOKENS.u32: the slice the card ran, little-endian u32 ids (lib/cx-proto.h cx_tok).
  * Replays the card's run (tools/train-gate.c) through tools/ref.h in double. fwd: compares DIR/fwd-loss.f32,
  * fwd-dl.f32, fwd-hc.f32. bwd: also gprm.f32 (per parameter group), gcg.f32, get.f32 (ETB layout) and dhc.f32:
  * largest absolute error and the error relative to the largest reference magnitude in that group.
@@ -34,7 +35,7 @@ static void cmp(const char *name, const float *card, const double *ref, long n, 
 
 int main(int argc, char **argv)
 {
-	if (argc < 6 || (strcmp(argv[1], "fwd") && strcmp(argv[1], "bwd"))) { fprintf(stderr, "usage: train-check fwd|bwd DIR TOKENS.u16 L WARM\n"); return 2; }
+	if (argc < 6 || (strcmp(argv[1], "fwd") && strcmp(argv[1], "bwd"))) { fprintf(stderr, "usage: train-check fwd|bwd DIR TOKENS.u32 L WARM\n"); return 2; }
 	const int bwd = !strcmp(argv[1], "bwd");
 	const char *dir = argv[2];
 	const int L = atoi(argv[4]), warm = atoi(argv[5]);
@@ -43,11 +44,9 @@ int main(int argc, char **argv)
 	rparams_init(&P, 0);
 	FILE *f = fopen(argv[3], "rb");
 	if (!f) { perror(argv[3]); return 1; }
-	uint16_t *tok = malloc((size_t)(warm + L + 1) * 2);
-	if (fread(tok, 2, (size_t)(warm + L + 1), f) != (size_t)(warm + L + 1)) return 1;
+	cx_tok *ids = malloc((size_t)(warm + L + 1) * sizeof *ids);
+	if (fread(ids, sizeof *ids, (size_t)(warm + L + 1), f) != (size_t)(warm + L + 1)) return 1;
 	fclose(f);
-	uint32_t *ids = malloc((size_t)(warm + L + 1) * 4);
-	for (int t = 0; t < warm + L + 1; t++) ids[t] = tok[t];
 	float *ring = malloc((long)CX_RING * CX_DB * CX_NBUS * 4);
 	uint32_t dummy[CX_RING];
 	cx_in_init(dummy, CX_RING, ring, 0);

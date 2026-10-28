@@ -18,8 +18,8 @@ const T_LEN: usize = 1792 + 8;
 pub const EXPERTS: u32 = 61_440;
 /// CX_EX_POOL_ROUNDS (lib/cx-moe.h): the rounds a pool transfer takes through the stage.
 pub const POOL_ROUNDS: u32 = 187;
-/// CX_T_MAGIC_VAL "TRNR".
-const T_MAGIC_VAL: u32 = 0x524e_5254;
+/// CX_T_MAGIC_VAL "TRN2" (the ring of u32 token ids in 256-byte slots, 2026-10-28; "TRNR" before).
+const T_MAGIC_VAL: u32 = 0x324e_5254;
 /// Through CX_C_HEART (256, u64).
 const MBOX_LEN: usize = 264;
 const LIVE_POLL: Duration = Duration::from_millis(250);

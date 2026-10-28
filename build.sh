@@ -78,10 +78,16 @@ cc "${flags[@]}" -O2 -Wno-unused-function -o "$out/host/ref-loss" "$here/tools/r
 cc "${flags[@]}" -O2 -o "$out/host/answer-bits" "$here/tools/answer-bits.c" -lm
 cc "${flags[@]}" -O2 -o "$out/host/soft-check" "$here/tools/soft-check.c"
 # the stream tools the from-scratch driver runs (tools/teacher-scratch.sh): without these rules a stale mixstream wrote
-# 48-byte soft records into a 52-byte run on 2026-10-28 05:19 (soft-check refused the round)
+# 48-byte soft records into a 52-byte run on 2026-10-28 05:19 (soft-check refused the round); reward-soft writes the
+# reward set's soft records (68 B since the u32 ids of 10-28 06:10)
 cc "${flags[@]}" -O2 -o "$out/host/mixstream" "$here/tools/mixstream.c"
 cc "${flags[@]}" -O2 -o "$out/host/init-ckpt" "$here/tools/init-ckpt.c" -lm
 cc "${flags[@]}" -O2 -o "$out/host/ngram-base" "$here/tools/ngram-base.c" -lm
+cc "${flags[@]}" -O2 -o "$out/host/reward-soft" "$here/tools/reward-soft.c"
+# the u32 token ids (2026-10-28 06:10, lib/cx-proto.h cx_tok): the converter of the .u16 streams and 48/52-byte soft
+# records of before, and the resume position across re-encodings (tools/base-format.sh), which reads u32 streams now
+cc "${flags[@]}" -O2 -o "$out/host/ids32" "$here/tools/ids32.c"
+cc "${flags[@]}" -O2 -o "$out/host/conv-pos" "$here/tools/conv-pos.c"
 # live training: the host coach (feeder, reports, policy, samples through the client, commands, the memory's ring
 # thread); -ffp-contract=off keeps the rows' SGD step the batch server's arithmetic (host/ngtables.h)
 cc "${flags[@]}" -O2 -ffp-contract=off -pthread "${hostq[@]}" -o "$out/host/coach" "$here/host/coach.c"

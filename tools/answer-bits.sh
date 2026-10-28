@@ -1,11 +1,12 @@
 #!/bin/bash
 # answer-bits.sh: the bits a checkpoint's answers draw from the person's question (tools/answer-bits.c; docs/REASON.md).
-# The held-out conversations (the batches the driver sent to valid.u16: every VALID_EVERY-th line of
+# The held-out conversations (the batches the driver sent to valid.u32: every VALID_EVERY-th line of
 # DIR/work/encoded.txt, the newest first, up to --convs conversations) are written twice: A as they are, B with every
 # person's line replaced by the person's line of the same turn in the conversation --shift places later (cyclic; the
 # first person's line of that conversation when it has fewer turns). Both go through the stream's own conversion
-# (tools/chat-text --no-think-block --detok) and encoding (the instance's vocabulary), are read by tools/ref-loss with
-# the n-gram memory and the context memory (--dump), and tools/answer-bits pairs the speaker's tokens.
+# (tools/chat-text --no-think-block --detok) and encoding (the instance's vocabulary, PREFIX-A.u32 and PREFIX-B.u32 of
+# little-endian u32 ids, 4 bytes a token), are read by tools/ref-loss with the n-gram memory and the context memory
+# (--dump), and tools/answer-bits pairs the speaker's tokens.
 #   tools/answer-bits.sh DIR CKPT GATES TABLES [--convs N] [--shift S] [--valid-every K] [--out PREFIX] [--set FILE]
 # DIR: the instance (data/live-teacher2); CKPT, GATES, TABLES: a round's checkpoint, its 1,536-B gates and its tables
 # (round-R-ckpt.bin, round-R-ckpt-gates.f32, round-R-tables.f32, or the live /dev/shm tables right after a round).
@@ -47,9 +48,9 @@ jq -s -c --argjson s "$sh" '. as $all | ($all | length) as $n | [range(0; $n)] |
 		if $m.role == "user" then { role: "user", content: (($ou[.] // $ou[0]).content) } else $m end)])) | .[]' "$out-A.jsonl" > "$out-B.jsonl"
 for v in A B; do
 	build/host/chat-text "$out-$v.jsonl" "$out-$v.txt" --no-think-block --detok > /dev/null 2>&1 || { echo "answer-bits: chat-text failed on $v" >&2; exit 1; }
-	build/host/bpe encode "$vocab" "$out-$v.txt" "$out-$v.u16" > /dev/null 2>&1 || { echo "answer-bits: encoding failed on $v" >&2; exit 1; }
-	nt=$(( $(stat -c %s "$out-$v.u16") / 2 ))
-	build/host/ref-loss "$ckpt" "$out-$v.u16" "$nt" --ngram "$tables" "$gates" --ctx --dump "$out-$v.f32" > "$out-$v.ref" 2>&1 || { echo "answer-bits: ref-loss failed on $v: $(tail -n 1 "$out-$v.ref")" >&2; exit 1; }
+	build/host/bpe encode "$vocab" "$out-$v.txt" "$out-$v.u32" > /dev/null 2>&1 || { echo "answer-bits: encoding failed on $v" >&2; exit 1; }
+	nt=$(( $(stat -c %s "$out-$v.u32") / 4 ))
+	build/host/ref-loss "$ckpt" "$out-$v.u32" "$nt" --ngram "$tables" "$gates" --ctx --dump "$out-$v.f32" > "$out-$v.ref" 2>&1 || { echo "answer-bits: ref-loss failed on $v: $(tail -n 1 "$out-$v.ref")" >&2; exit 1; }
 done
-echo "answer-bits: $n held-out conversations, swapped by $sh; A $(( $(stat -c %s "$out-A.u16") / 2 )) tokens, B $(( $(stat -c %s "$out-B.u16") / 2 ))"
-build/host/answer-bits "$out-A.u16" "$out-A.f32" "$out-B.u16" "$out-B.f32"
+echo "answer-bits: $n held-out conversations, swapped by $sh; A $(( $(stat -c %s "$out-A.u32") / 4 )) tokens, B $(( $(stat -c %s "$out-B.u32") / 4 ))"
+build/host/answer-bits "$out-A.u32" "$out-A.f32" "$out-B.u32" "$out-B.f32"

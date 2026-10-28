@@ -1,7 +1,8 @@
 /*
  * train-ref: Stage 3a. Finite-difference check of tools/ref.h (the host double reference of one column's training
  * step) on sampled parameters of every group. usage: train-ref [L] [WARMUP] [SAMPLES]
- * Tokens come from data/bpe/valid.u16 (first WARMUP + L + 1 tokens); the bus inputs from the Stage 1 ring (column 0).
+ * Tokens come from data/bpe/valid.u32 (little-endian u32 ids, lib/cx-proto.h cx_tok; first WARMUP + L + 1 tokens);
+ * the bus inputs from the Stage 1 ring (column 0).
  * Prints, per group, the largest |fd - grad| / max(|fd|, |grad|, 1e-10) over SAMPLES entries, the largest |grad|,
  * and the loss. Central differences with h = 1e-6 in double.
  */
@@ -36,13 +37,11 @@ int main(int argc, char **argv)
 	rgrads G;
 	rgrads_alloc(&G);
 
-	FILE *f = fopen("data/bpe/valid.u16", "rb");
-	if (!f) { perror("data/bpe/valid.u16"); return 1; }
-	uint16_t *tok = malloc((size_t)(warm + L + 1) * 2);
-	if (fread(tok, 2, (size_t)(warm + L + 1), f) != (size_t)(warm + L + 1)) return 1;
+	FILE *f = fopen("data/bpe/valid.u32", "rb");
+	if (!f) { perror("data/bpe/valid.u32"); return 1; }
+	cx_tok *ids = malloc((size_t)(warm + L + 1) * sizeof *ids);
+	if (fread(ids, sizeof *ids, (size_t)(warm + L + 1), f) != (size_t)(warm + L + 1)) return 1;
 	fclose(f);
-	uint32_t *ids = malloc((size_t)(warm + L + 1) * 4);
-	for (int t = 0; t < warm + L + 1; t++) ids[t] = tok[t];
 
 	float *ring = malloc((long)CX_RING * CX_DB * CX_NBUS * 4);
 	uint32_t *dummy = malloc(4 * 64);

@@ -18,7 +18,7 @@
 # one value per round (the last repeats), e.g. 3,2,1: the base's share of the stream falls round by round while it
 # keeps the language, and the memory's rows hold the identity's own chunks.
 #
-#   tools/identity-loop.sh IDENT.jsonl PERSONA.txt "PROMPT" REF.txt CKPT [--pool FILE] [--base STREAM.u16]
+#   tools/identity-loop.sh IDENT.jsonl PERSONA.txt "PROMPT" REF.txt CKPT [--pool FILE] [--base STREAM.u32]
 #                          [--base-start TOKEN] [--ratio R[,R2,...]] [--chunks N] [--every E] [--lr X]
 #                          [--max-rounds M] [--stable K] [--ckdir DIR] [--vocab FILE] [--tables FILE] [--lcs X]
 #                          [--ngen N] [--judge]
@@ -28,18 +28,20 @@
 # "-". The verdict and the teacher's reason go to the log with the reply.
 #
 # PERSONA.txt is the system message of the test (the set's persona for that conversation), PROMPT its user turn,
-# REF.txt its accepted answers (one per line). Defaults: the base data/chat-base2/train.u16 from token 0, ratios
+# REF.txt its accepted answers (one per line). Defaults: the base data/chat-base2/train.u32 from token 0, ratios
 # 3,2,1, 20,000 chunks per round, a test every 500 chunks, lr 2.5e-4, 5 rounds, 2 consecutive matches, --ckdir
 # data/live-identity, the chat base's vocabulary, the tables /dev/shm/cortex-identity-tables.f32, an exact match,
 # 48 tokens of reply. Every test goes to results/identity-loop.log with its reply and score; the run's own log is
-# results/live.log.
+# results/live.log. Every stream (the base, LOOP/ident.u32, LOOP/mix.u32) is a .u32 file of little-endian u32 ids,
+# 4 bytes a token (lib/cx-proto.h cx_tok; .u16 until 2026-10-28 06:1x: a base of before then is widened by
+# tools/ids32.c first); --base-start counts tokens.
 set -u
 cd "$(dirname "$0")/.." || exit 1
 usage() { sed -n '21,24p' "$0" | sed 's/^# *//' >&2; exit 2; }
 [ $# -ge 5 ] || usage
 ident=$1; persona=$2; prompt=$3; ref=$4; ckpt=$5
 shift 5
-pool=""; base=data/chat-base2/train.u16; base_start=0; ratio=3,2,1; chunks=20000; every=500; lr=0.00025; max_rounds=5; stable=2
+pool=""; base=data/chat-base2/train.u32; base_start=0; ratio=3,2,1; chunks=20000; every=500; lr=0.00025; max_rounds=5; stable=2
 ckdir=data/live-identity; vocab=data/chat-base2/vocab-base4096.txt; tables=/dev/shm/cortex-identity-tables.f32; lcs=2; ngen=48; judge=0
 while [ $# -gt 0 ]; do
 	case "$1" in
@@ -71,7 +73,7 @@ say() { echo "$(date +%T) $*" | tee -a "$log"; }
 ratios=(${ratio//,/ })
 say "=== identity loop: set $ident, test persona $persona, prompt \"$prompt\", $([ "$judge" -eq 1 ] && echo "the teacher judges (tools/teacher-judge.sh)" || echo "reference $ref"), from $ckpt${pool:+ + $pool}; ratios ${ratios[*]} (the mix collapses round by round), $chunks chunks a round, a test every $every chunks, $stable consecutive matches, lr $lr, memory $tables, $max_rounds rounds at most"
 build/host/chat-text "$ident" "$W/ident.txt" --no-think-block --detok > "$W/chat-text.out" 2>&1 || { say "chat-text failed: $(tail -n 1 "$W/chat-text.out")"; exit 1; }
-build/host/bpe encode "$vocab" "$W/ident.txt" "$W/ident.u16" > "$W/encode.out" 2>&1 || { say "encode failed: $(tail -n 1 "$W/encode.out")"; exit 1; }
+build/host/bpe encode "$vocab" "$W/ident.txt" "$W/ident.u32" > "$W/encode.out" 2>&1 || { say "encode failed: $(tail -n 1 "$W/encode.out")"; exit 1; }
 say "the set: $(tail -n 1 "$W/chat-text.out" | cut -c1-140)"
 say "encoded: $(tail -n 1 "$W/encode.out" | cut -c1-100)"
 prompt_text=$(printf '<|system|>%s<|end|>\n<|user|>%s<|end|>\n<|assistant|>' "$(cat "$persona")" "$prompt")
@@ -97,13 +99,13 @@ while [ "$round" -lt "$max_rounds" ] && [ "$matched" -eq 0 ]; do
 	round=$((round + 1))
 	i=$((round - 1)); [ "$i" -ge "${#ratios[@]}" ] && i=$((${#ratios[@]} - 1))
 	r_now=${ratios[$i]}
-	build/host/mixstream "$W/ident.u16" "$base" "$bstart" "$r_now" "$chunks" "$W/mix.u16" | tee -a "$log" || exit 1
+	build/host/mixstream "$W/ident.u32" "$base" "$bstart" "$r_now" "$chunks" "$W/mix.u32" | tee -a "$log" || exit 1
 	poolopt=()
 	[ -n "$cur_pool" ] && poolopt=(--pool "$cur_pool")
 	gates=ones   # the memory's gates continue from the checkpoint's own when it has them
 	[ -f "${cur_ckpt%.bin}-gates.f32" ] && gates=${cur_ckpt%.bin}-gates.f32
-	say "round $round (ratio $r_now): the coach from $cur_ckpt${cur_pool:+ with $cur_pool} on $W/mix.u16 (base from token $bstart, gates $gates)"
-	setsid nohup build/host/coach "$W/mix.u16" --ckpt "$cur_ckpt" "${poolopt[@]}" --start 0 --lr "$lr" --every 100 --window 300 --halvings 0 --no-stop \
+	say "round $round (ratio $r_now): the coach from $cur_ckpt${cur_pool:+ with $cur_pool} on $W/mix.u32 (base from token $bstart, gates $gates)"
+	setsid nohup build/host/coach "$W/mix.u32" --ckpt "$cur_ckpt" "${poolopt[@]}" --start 0 --lr "$lr" --every 100 --window 300 --halvings 0 --no-stop \
 		--save-every 5000 --sample-every 0 --vocab "$vocab" --cmd results/live.cmd --log results/live.log --ckdir "$ckdir" \
 		--moe --moe-bias 100 --expert-lr 0.05 --ngram "$tables" --row-lr 0.1 --gates "$gates" > "$W/coach-$round.out" 2>&1 < /dev/null &
 	cpid=$!

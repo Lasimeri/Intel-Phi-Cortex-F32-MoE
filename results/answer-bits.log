@@ -2,3 +2,14 @@
 05:51:57 round 16: answer loss 5.0556 b/t with the true question, 5.5697 swapped: the question gives 0.5141 b/t (per answer 0.5928 +- 0.0399); first 5 tokens 1.0061 b/t; easier with the true question 237 of 280
 05:56:33 round 8: answer loss 5.0961 b/t with the true question, 5.4937 swapped: the question gives 0.3976 b/t (per answer 0.4509 +- 0.0359); first 5 tokens 0.7858 b/t; easier with the true question 215 of 280
 05:56:33 round 7: answer loss 5.3855 b/t with the true question, 5.6800 swapped: the question gives 0.2945 b/t (per answer 0.3315 +- 0.0292); first 5 tokens 0.5830 b/t; easier with the true question 214 of 280
+06:02:16 round 9: answer loss 5.1987 b/t with the true question, 5.5817 swapped: the question gives 0.3830 b/t (per answer 0.4490 +- 0.0345); first 5 tokens 0.7572 b/t; easier with the true question 229 of 280
+06:02:19 round 10: answer loss 5.1349 b/t with the true question, 5.5320 swapped: the question gives 0.3971 b/t (per answer 0.4529 +- 0.0328); first 5 tokens 0.7730 b/t; easier with the true question 230 of 280
+06:07:13 round 12: answer loss 5.0824 b/t with the true question, 5.5465 swapped: the question gives 0.4641 b/t (per answer 0.5250 +- 0.0370); first 5 tokens 0.9252 b/t; easier with the true question 235 of 280
+06:07:17 round 11: answer loss 5.3417 b/t with the true question, 5.7643 swapped: the question gives 0.4226 b/t (per answer 0.4707 +- 0.0345); first 5 tokens 0.8218 b/t; easier with the true question 228 of 280
+06:11:33 round 14: answer loss 5.1251 b/t with the true question, 5.6050 swapped: the question gives 0.4800 b/t (per answer 0.5383 +- 0.0382); first 5 tokens 0.9369 b/t; easier with the true question 231 of 280
+06:11:34 round 13: answer loss 5.2281 b/t with the true question, 5.7158 swapped: the question gives 0.4877 b/t (per answer 0.5526 +- 0.0406); first 5 tokens 0.9828 b/t; easier with the true question 221 of 280
+06:15:53 round 17: answer loss 5.4667 b/t with the true question, 6.0148 swapped: the question gives 0.5481 b/t (per answer 0.6283 +- 0.0463); first 5 tokens 1.0808 b/t; easier with the true question 218 of 280
+06:15:56 round 15: answer loss 5.2811 b/t with the true question, 5.8369 swapped: the question gives 0.5558 b/t (per answer 0.6294 +- 0.0464); first 5 tokens 1.0888 b/t; easier with the true question 221 of 280
+06:19:27 round 18: answer loss 5.1036 b/t with the true question, 5.6231 swapped: the question gives 0.5194 b/t (per answer 0.5927 +- 0.0434); first 5 tokens 1.0260 b/t; easier with the true question 226 of 280
+06:50:56 round 19: answer loss 5.3246 b/t with the true question, 5.9044 swapped: the question gives 0.5798 b/t (per answer 0.6611 +- 0.0469); first 5 tokens 1.1443 b/t; easier with the true question 235 of 280
+07:21:16 round 20: answer loss 5.2030 b/t with the true question, 5.7212 swapped: the question gives 0.5182 b/t (per answer 0.5879 +- 0.0403); first 5 tokens 1.0092 b/t; easier with the true question 238 of 280

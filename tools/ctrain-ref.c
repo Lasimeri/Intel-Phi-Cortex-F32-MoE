@@ -1,6 +1,7 @@
 /*
  * ctrain-ref: Stage 4a (host). Finite-difference check of the cluster reference (tools/cref.h) with an external bus
  * (stop-gradient exact), then the size of the gradient path the live bus drops. usage: ctrain-ref [N] [L] [WARM] [SAMPLES]
+ * Tokens come from data/bpe/valid.u32 (little-endian u32 ids, lib/cx-proto.h cx_tok; first WARM + L + 1 tokens).
  */
 #include "cref.h"
 
@@ -20,13 +21,11 @@ int main(int argc, char **argv)
 	cgrads G;
 	cgrads_alloc(&G, N);
 
-	FILE *f = fopen("data/bpe/valid.u16", "rb");
-	if (!f) { perror("data/bpe/valid.u16"); return 1; }
-	uint16_t *tok = malloc((size_t)(warm + L + 1) * 2);
-	if (fread(tok, 2, (size_t)(warm + L + 1), f) != (size_t)(warm + L + 1)) return 1;
+	FILE *f = fopen("data/bpe/valid.u32", "rb");
+	if (!f) { perror("data/bpe/valid.u32"); return 1; }
+	cx_tok *ids = malloc((size_t)(warm + L + 1) * sizeof *ids);
+	if (fread(ids, sizeof *ids, (size_t)(warm + L + 1), f) != (size_t)(warm + L + 1)) return 1;
 	fclose(f);
-	uint32_t *ids = malloc((size_t)(warm + L + 1) * 4);
-	for (int t = 0; t < warm + L + 1; t++) ids[t] = tok[t];
 	float *ring = malloc((long)CX_RING * CX_DB * CX_NBUS * 4);
 	uint32_t dummy[CX_RING];
 	cx_in_init(dummy, CX_RING, ring, 0);
