@@ -33,6 +33,10 @@
  *     --soft FILE          the partial distillation (docs/DISTIL.md): FILE holds one 48-byte record per token of the
  *                          stream (tools/soft-align.c, the teacher's distribution mapped onto the student's ids); each
  *                          chunk's records go into the soft ring with it and the daemon mixes them into the target
+ *     --ngram-dropout P    with --ngram: the share of chunks trained without the memory, chosen by a hash of the chunk's
+ *                          stream position (the slot carries the flag, lib/cx-proto.h CX_T_SLOT_MEMOFF): the daemon
+ *                          trains them dense and the ring thread skips their row gradients, so the columns learn to
+ *                          predict on their own (21:5x: the dense reading sat at 5.15 bits against 2.76 with the memory)
  *     --ngram FILE         the n-gram memory (MoE stage 1) trains with the run: FILE holds the tables (host/ngtables.h:
  *                          2 orders x CX_NG_ROWS rows x 128 F32, 2 GiB, created zeroed when absent; keep it in
  *                          /dev/shm), mapped shared and trained in place. A thread serves the daemon's row ring in the
@@ -106,6 +110,19 @@ static int sample_tokens = 128, every = 100, window = 10, max_halvings = 3, star
 static double lr = 3e-3, min_gain = 0.01, rep4_rise = 0.1;
 static const char *ng_path, *gates_spec = "ones";   /* --ngram: the memory trains with the run; --gates: staged with --ckpt */
 static double row_lr = 0.1;
+static double ngram_dropout;                        /* --ngram-dropout: the share of chunks trained without the memory */
+
+/* the dropout's choice for chunk c of the run: a hash of its stream position, so a restart from the same --start makes
+ * the same choice and the host and the card agree without a word between them */
+static int chunk_dropped(long c)
+{
+	if (ngram_dropout <= 0) return 0;
+	uint64_t h = (uint64_t)(start_chunk + c) * 0x9E3779B97F4A7C15ull + 0x632BE59BD9B4E019ull;
+	h ^= h >> 29;
+	h *= 0xBF58476D1CE4E5B9ull;
+	h ^= h >> 32;
+	return (double)(h % 1000000u) < ngram_dropout * 1e6;
+}
 static long tables_every = 100000;
 static int moe, moe_knobs_given;                   /* --moe: the LOAD fills the pool; the knobs are written when given or with --moe */
 static double moe_bias = CX_EX_HOME_BIAS, expert_lr = CX_EX_LR;
@@ -147,6 +164,7 @@ static void feed(void)
 		volatile uint16_t *slot = (volatile uint16_t *)(part + CX_T_SLOT(fed));
 		const uint16_t *src = tok + (start_chunk + fed) * CX_T_L;
 		for (int t = 0; t <= CX_T_L; t++) slot[t] = src[t];
+		slot[CX_T_SLOT_MEMOFF] = (uint16_t)(ng_path && chunk_dropped(fed));   /* the memory dropout's flag for the chunk */
 		if (soft) {   /* the chunk's soft records into its slot of the soft ring, 64-bit stores into the uncached part */
 			volatile uint64_t *ss = (volatile uint64_t *)(part + CX_T_SOFT_SLOT(fed));
 			const uint64_t *sr = (const uint64_t *)(soft + (start_chunk + fed) * CX_T_L);
@@ -176,7 +194,7 @@ static void *ng_serve(void *arg)
 	(void)arg;
 	for (long c = 0; c < total_chunks; c++) {
 		while (LD64(CX_NGR_C_SEQ) < (uint64_t)c + 1) { if (ng_stop) return NULL; usleep(50); }
-		ng_apply(&NG, tok, ntok, start_chunk + c, CX_T_L, (const float *)(part + CX_NGR_GRAD(c & 1)), (float)row_lr);
+		if (!chunk_dropped(c)) ng_apply(&NG, tok, ntok, start_chunk + c, CX_T_L, (const float *)(part + CX_NGR_GRAD(c & 1)), (float)row_lr);   /* a dropped chunk sent no gradients: its slot is stale */
 		ng_served = c + 1;
 		if (c + 2 < total_chunks) {
 			ng_gather(&NG, tok, ntok, start_chunk + c + 2, CX_T_L, (float *)(part + CX_NGR_ROWS(c & 1)));
@@ -436,6 +454,7 @@ int main(int argc, char **argv)
 		else if (!strcmp(argv[i], "--vocab") && i + 1 < argc) vocab = argv[++i];
 		else if (!strcmp(argv[i], "--ngram") && i + 1 < argc) ng_path = argv[++i];
 		else if (!strcmp(argv[i], "--row-lr") && i + 1 < argc) row_lr = atof(argv[++i]);
+		else if (!strcmp(argv[i], "--ngram-dropout") && i + 1 < argc) ngram_dropout = atof(argv[++i]);
 		else if (!strcmp(argv[i], "--gates") && i + 1 < argc) gates_spec = argv[++i];
 		else if (!strcmp(argv[i], "--tables-every") && i + 1 < argc) tables_every = atol(argv[++i]);
 		else if (!strcmp(argv[i], "--moe")) moe = 1;
@@ -526,7 +545,9 @@ int main(int argc, char **argv)
 	feed();
 	__atomic_thread_fence(__ATOMIC_SEQ_CST);
 	ST32(CX_T_MAGIC, CX_T_MAGIC_VAL);
-	logline("coach: live (magic set, %ld chunks in the ring%s)", fed, ng_path ? ", the memory's rows of chunks 0 and 1 published" : "");
+	char dropnote[64] = "";
+	if (ng_path && ngram_dropout > 0) snprintf(dropnote, sizeof dropnote, ", memory dropout %.2f", ngram_dropout);
+	logline("coach: live (magic set, %ld chunks in the ring%s%s)", fed, ng_path ? ", the memory's rows of chunks 0 and 1 published" : "", dropnote);
 
 	uint64_t last_report = report0;
 	double win_sum = 0, prev_mean = 0;

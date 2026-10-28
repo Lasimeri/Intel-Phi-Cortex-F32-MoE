@@ -33,10 +33,14 @@
 #   5. until CORPUS_DIR/stop exists and no untrained chunk is left.
 #   tools/teacher-scratch.sh CORPUS_DIR PERSONA.txt [--ckdir DIR] [--tables FILE] [--vocab-bytes B]
 #                            [--round-chunks N] [--lr X] [--prompt "..."] [--valid-every K] [--corrections K]
-#                            [--ratio R] [--keep-rounds M] [--lambda X]
+#                            [--ratio R] [--keep-rounds M] [--lambda X] [--replay|--no-replay] [--mem-dropout P]
+#                            [--probe QUESTIONS.jsonl]
 # Defaults: --ckdir data/live-teacher, --tables /dev/shm/cortex-teacher-tables.f32, --vocab-bytes 300000,
 # --round-chunks 1000, --lr 0.003, --prompt "Introduce yourself", --valid-every 20, --corrections 20 (0 turns the
-# loop off), --ratio 6, --keep-rounds 3, --lambda 0.5 (0 trains on the hard targets alone). DIR/state.txt carries the round, the trained chunk count and the state: a
+# loop off), --ratio 6, --keep-rounds 3, --lambda 0.5 (0 trains on the hard targets alone), --replay (an epoch round
+# over the whole stream whenever fewer than --round-chunks new chunks wait; --no-replay waits for the writer),
+# --mem-dropout 0 (the share of chunks the coach trains without the n-gram memory, host/coach.c --ngram-dropout),
+# --probe data/probe/questions.jsonl (the reasoning probe after every round, tools/teacher-probe.sh). DIR/state.txt carries the round, the trained chunk count and the state: a
 # restart resumes from it. The vocabulary lands in DIR/vocab-teacher4096.txt; the clients and the TUIs take it with
 # --vocab.
 set -u
@@ -44,7 +48,7 @@ cd "$(dirname "$0")/.." || exit 1
 [ $# -ge 2 ] || { echo "usage: tools/teacher-scratch.sh CORPUS_DIR PERSONA.txt [--ckdir DIR] [--tables FILE] [--vocab-bytes B] [--round-chunks N] [--lr X] [--prompt \"...\"] [--valid-every K] [--corrections K] [--ratio R] [--keep-rounds M] [--lambda X]" >&2; exit 2; }
 corpus=$1; persona=$2
 shift 2
-ckdir=data/live-teacher; tables=/dev/shm/cortex-teacher-tables.f32; vocab_bytes=300000; round_chunks=1000; lr=0.003; prompt="Introduce yourself"; valid_every=20; corrections=20; ratio=6; keep_rounds=3; lambda=0.5
+ckdir=data/live-teacher; tables=/dev/shm/cortex-teacher-tables.f32; vocab_bytes=300000; round_chunks=1000; lr=0.003; prompt="Introduce yourself"; valid_every=20; corrections=20; ratio=6; keep_rounds=3; lambda=0.5; replay=1; mem_dropout=0; probe=data/probe/questions.jsonl
 while [ $# -gt 0 ]; do
 	case "$1" in
 	--ckdir) ckdir=$2; shift 2 ;;
@@ -58,6 +62,10 @@ while [ $# -gt 0 ]; do
 	--ratio) ratio=$2; shift 2 ;;
 	--keep-rounds) keep_rounds=$2; shift 2 ;;
 	--lambda) lambda=$2; shift 2 ;;
+	--replay) replay=1; shift ;;
+	--no-replay) replay=0; shift ;;
+	--mem-dropout) mem_dropout=$2; shift 2 ;;
+	--probe) probe=$2; shift 2 ;;
 	*) echo "teacher-scratch: unknown option $1" >&2; exit 2 ;;
 	esac
 done
@@ -147,10 +155,20 @@ while true; do
 	encode_new
 	have=$(( $(stat -c %s "$train") / 64 ))
 	untrained=$((have - trained))
+	epoch=0
 	if [ "$untrained" -lt "$round_chunks" ]; then
 		if [ -f "$corpus/stop" ] && [ "$untrained" -le 0 ]; then say "=== the corpus ended and every chunk is trained: $have chunks, $round rounds; the state is $cur_ckpt${cur_pool:+ + $cur_pool}"; exit 0; fi
-		sleep 30
-		continue
+		# too few new chunks for a round: with --replay the idle time trains another pass over the whole stream (an epoch
+		# round from token 0: the model had seen each token once at 21:4x and sat between the bigram and the trigram
+		# floors, docs/REASON.md); without it, wait for the writer
+		if [ "$replay" -eq 1 ] && [ "$have" -ge "$round_chunks" ] && [ -n "$cur_ckpt" ]; then
+			epoch=1
+			trained=0
+			untrained=$have
+		else
+			sleep 30
+			continue
+		fi
 	fi
 	round=$((round + 1))
 	if [ -z "$cur_ckpt" ]; then
@@ -174,10 +192,11 @@ while true; do
 	fi
 	poolopt=(); [ -n "$cur_pool" ] && [ -f "$cur_pool" ] && poolopt=(--pool "$cur_pool")
 	gates=ones; [ -f "${cur_ckpt%.bin}-gates.f32" ] && gates=${cur_ckpt%.bin}-gates.f32
-	say "round $round: $untrained untrained chunks of $have; the coach from $cur_ckpt${cur_pool:+ with $cur_pool} on $stream ($mixnote; gates $gates)"
+	dropopt=(); [ "$(awk -v d="$mem_dropout" 'BEGIN { print (d > 0) }')" = 1 ] && dropopt=(--ngram-dropout "$mem_dropout")
+	say "round $round${epoch:+$([ "$epoch" -eq 1 ] && echo " (an epoch: the whole stream again)")}: $untrained untrained chunks of $have; the coach from $cur_ckpt${cur_pool:+ with $cur_pool} on $stream ($mixnote; gates $gates${dropopt:+; memory dropout $mem_dropout})"
 	setsid nohup build/host/coach "$stream" --soft "${stream%.u16}.soft" --ckpt "$cur_ckpt" "${poolopt[@]}" --start 0 --lr "$lr" --every 100 --window 300 --halvings 0 --no-stop \
 		--save-every 5000 --sample-every 0 --vocab "$vocab" --cmd results/live.cmd --log results/live.log --ckdir "$ckdir" \
-		--moe --moe-bias 100 --expert-lr 0.05 --ngram "$tables" --row-lr 0.1 --gates "$gates" > "$W/coach-$round.out" 2>&1 < /dev/null &
+		--moe --moe-bias 100 --expert-lr 0.05 --ngram "$tables" --row-lr 0.1 --gates "$gates" "${dropopt[@]}" > "$W/coach-$round.out" 2>&1 < /dev/null &
 	cpid=$!
 	while kill -0 "$cpid" 2>/dev/null; do sleep 5; done
 	fin=$(/usr/bin/grep -a -E 'checkpoint \(final\)' results/live.log | tail -n 1 | sed -E 's/.*(data\/[^ ,]+\/ckpt-[0-9]+\.bin).*/\1/')
@@ -191,13 +210,20 @@ while true; do
 	if [ -f "$fpool" ]; then mv "$fpool" "$ckdir/round-$round-pool.f32"; cur_pool=$ckdir/round-$round-pool.f32; fi
 	trained=$trained_after
 	echo "$round $trained $cur_ckpt $cur_pool" > "$ckdir/state.txt"
-	# the held-out loss on what the held-out holds, up to 5,000 tokens
-	held=""; vt=$(( $(stat -c %s "$valid") / 2 )); ntok=$((vt - 64)); [ "$ntok" -gt 5001 ] && ntok=5001
-	[ "$ntok" -ge 1000 ] && held=$(build/host/ref-loss "$cur_ckpt" "$valid" "$ntok" 2>/dev/null | tail -n 1 | sed -E 's/.*: ([0-9.]+ nats = [0-9.]+ bits\/token).*/\1/')
-	say "round $round ended: $cur_ckpt $cur_pool; trained $trained chunks of the stream; held-out ${held:-not yet} ($ntok tokens, dense reading)"
+	# the held-out loss on what the held-out holds, up to 5,000 tokens: the memory reading first (the checkpoint with its
+	# n-gram memory, the configuration it trains and answers in: 2.76 bits/token at round 6 against the dense 5.15, the
+	# bigram floor 3.06 and the trigram floor 2.58 on this corpus, 21:4x), then the dense reading for the columns alone
+	held=""; heldd=""; vt=$(( $(stat -c %s "$valid") / 2 )); ntok=$((vt - 64)); [ "$ntok" -gt 5001 ] && ntok=5001
+	if [ "$ntok" -ge 1000 ]; then
+		[ -f "${cur_ckpt%.bin}-gates.f32" ] && held=$(build/host/ref-loss "$cur_ckpt" "$valid" "$ntok" --ngram "$tables" "${cur_ckpt%.bin}-gates.f32" 2>/dev/null | tail -n 1 | sed -E 's/.*: ([0-9.]+ nats = [0-9.]+ bits\/token).*/\1/')
+		heldd=$(build/host/ref-loss "$cur_ckpt" "$valid" "$ntok" 2>/dev/null | tail -n 1 | sed -E 's/.*: ([0-9.]+ nats = [0-9.]+ bits\/token).*/\1/')
+	fi
+	say "round $round ended: $cur_ckpt $cur_pool; trained $trained chunks of the stream; held-out ${held:-not yet} ($ntok tokens, memory reading; dense ${heldd:-not yet})"
 	build/host/cortex --live "$prompt_text" 48 --no-echo --stop-eot --greedy --vocab "$vocab" --ngram "$tables" --stop '<|end|>' --stop '<|user|>' --stop '<|system|>' --stop '<|assistant|>' 2> /dev/null | tr '\n' ' ' | sed -E 's/<\|(end|user|system|assistant|endoftext)\|>.*//' > "$W/reply.txt"
 	verdict=$(tools/teacher-judge.sh "$persona" "$prompt" "$(cat "$W/reply.txt")" 2>/dev/null)
 	say "round $round chunk $trained: $verdict (matches in a row 0) | $(cut -c1-300 "$W/reply.txt")"
+	# the reasoning probe: twenty fixed questions with known answers, the teacher scores the live weights (docs/REASON.md)
+	[ -s "$probe" ] && tools/teacher-probe.sh "$probe" "$persona" "$vocab" "$round" "$trained" --tables "$tables" --log "$log" > "$W/probe-$round.out" 2>&1
 	# the correction pass: the teacher grades and rewrites the student's answers; the rewrites recur in the next round
 	if [ "$corrections" -gt 0 ]; then
 		cj=$ckdir/corrections-round-$round.jsonl

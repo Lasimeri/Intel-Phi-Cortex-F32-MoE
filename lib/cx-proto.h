@@ -128,6 +128,8 @@
 #define CX_T_L 32                           /* tokens per chunk (the card's CX_LMAX); a slot holds CX_T_L + 1 ids */
 #define CX_T_SLOTS 1024u
 #define CX_T_SLOT_BYTES 128u
+#define CX_T_SLOT_MEMOFF 60                 /* u16 index in a slot (byte 120): 1 = the chunk trains without the n-gram memory (the coach's
+                                               --ngram-dropout): the daemon trains it dense and publishes it as consumed with no row gradients */
 #define CX_T_RING (56u << 20)
 #define CX_T_SLOT(c) (CX_T_RING + (uint32_t)((c) % CX_T_SLOTS) * CX_T_SLOT_BYTES)
 /* ---- the partial distillation (docs/DISTIL.md): the teacher's next-token distribution at a student token, mapped

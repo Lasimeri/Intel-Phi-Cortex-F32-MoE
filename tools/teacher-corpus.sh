@@ -106,13 +106,19 @@ writer() {
 			file=$out/batch-$stamp-w$w.jsonl
 			tmp=$out/.w$w
 			t0=$(date +%s.%N)
+			# every third call asks for question-and-answer conversations (21:5x, user: "refining the student model's
+			# coherence and reasoning capacity"): the person asks or sets a small task each turn and the speaker answers
+			# what was asked, with the reason, the count, the choice or the yes/no first, so the stream carries answers
+			# that depend on their questions
+			local task="Write $per conversations about the topic, $exch exchanges each."
+			if [ $((n % 3)) -eq 0 ]; then task="Write $per conversations about the topic, $exch exchanges each, in which every line of the person is a question or a small task (about the topic, about something in plain sight, or about the speaker itself) and every reply of the speaker answers exactly what was asked, using words of the question: yes or no first when the question asks yes or no, the number when it asks how many, the chosen thing when it offers two things, and the reason with because when it asks why or whether. The speaker never changes the subject and never answers a question that was not asked."; fi
 			if ! tools/teacher.sh "$out/system.txt" "The persona:
 $(cat "$persona")
 
 The topic: $topic
 The person is $mood.
 The three words to use: $words.
-Write $per conversations about the topic, $exch exchanges each." --max 2400 --rp 1.0 --lp-out "$tmp.lp.json" "${urlopt[@]}" > "$tmp.txt" 2> "$tmp.err"; then
+$task" --max 2400 --rp 1.0 --lp-out "$tmp.lp.json" "${urlopt[@]}" > "$tmp.txt" 2> "$tmp.err"; then
 				say "writer $w: call failed on \"$topic\": $(tail -n 1 "$tmp.err" | cut -c1-120)"
 				sleep 5
 				continue

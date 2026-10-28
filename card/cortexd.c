@@ -312,6 +312,8 @@ static double ng_dma_s, ng_dma_max, lg_dma_s, lg_dma_max;
 
 static uint32_t chunk_ids[CX_LMAX + 1] __attribute__((aligned(64)));
 static long soft_seen_win;      /* the partial distillation: steps of the report window whose record held a distribution */
+static int chunk_dropped;       /* the memory dropout: the chunk in hand trains without the n-gram memory (its slot's flag) */
+static long dropped_win;        /* such chunks in the report window */
 static uint64_t ctx_cyc_win;    /* thread 0's context-memory cycles at the report window's start */
 static double tsc_per_us;       /* rdtsc ticks per microsecond, measured against the monotonic clock at the start */
 static long tchunks;                 /* chunks trained since the live run began (the Adam step count) */
@@ -402,10 +404,12 @@ static int poll_training(void)
 	if (flags & 2) { if (!(flags_acked & 2)) { flags_acked |= 2; wr64(CX_T_ACK, flags_acked); printf("cortexd: live: stop flag at chunk %ld\n", tchunks); fflush(stdout); } set_state(4); return 0; }
 	if (flags & 4) { set_state(2); return 0; }
 	if (rd64(CX_T_H_CHUNKS) <= (uint64_t)tchunks) { set_state(3); return 0; }
-	const int ng_run = rd32(CX_T_NG) != 0 && ng_loaded != NULL;   /* the memory trains: the coach serves the ring and gates were loaded */
-	if (ng_run && rd64(CX_NGR_H_SEQ) <= (uint64_t)tchunks) { set_state(3); return 0; }   /* the chunk's rows are not published yet */
-	if (ng_train_acked != ng_run) { ng_train_acked = ng_run; wr32(CX_T_NG_ACK, (uint32_t)ng_run); }
 	const volatile uint16_t *slot = (const volatile uint16_t *)(part + CX_T_SLOT(tchunks));
+	const int mem_on = rd32(CX_T_NG) != 0 && ng_loaded != NULL;   /* the memory trains with the run: the coach serves the ring and gates were loaded */
+	chunk_dropped = mem_on && slot[CX_T_SLOT_MEMOFF] != 0;        /* this chunk without it (the coach's dropout): trained dense, published as consumed by thread 0 */
+	const int ng_run = mem_on && !chunk_dropped;
+	if (ng_run && rd64(CX_NGR_H_SEQ) <= (uint64_t)tchunks) { set_state(3); return 0; }   /* the chunk's rows are not published yet */
+	if (ng_train_acked != mem_on) { ng_train_acked = mem_on; wr32(CX_T_NG_ACK, (uint32_t)mem_on); }
 	for (int t = 0; t <= CX_LMAX; t++) chunk_ids[t] = slot[t];
 	lr_base = rdf(CX_T_LR);
 	lr_scale = rdf(CX_T_SCALE);
@@ -467,6 +471,12 @@ static void train_chunk(int k)
 		loss_n++;
 		soft_seen_win += C.soft_seen;
 		C.soft_seen = 0;
+		if (chunk_dropped) {   /* no row gradients for this chunk: the slots' DMAs in flight land first, then the chunk is published as consumed */
+			for (int s = 0; s < 2; s++) if (C.ng_dma_seq[s]) { cdma_wait(&dma, C.ng_dma_seq[s], 5.0); C.ng_dma_seq[s] = 0; }
+			C.chunk = tchunks;
+			cl_ng_done(&C);
+			dropped_win++;
+		}
 		lr_eff = lr_k;
 		tchunks++;
 		wr64(CX_T_C_CHUNKS, (uint64_t)tchunks);
@@ -492,11 +502,13 @@ static void train_chunk(int k)
 				printf("  soft %ld of %ld", soft_seen_win, loss_n * (long)CX_LMAX);
 				if (C.soft_bad) printf(" (bad slots %ld)", C.soft_bad);
 			}
+			if (dropped_win) printf("  memory off for %ld of %ld chunks", dropped_win, loss_n);
 			printf("\n");
 			fflush(stdout);
 			loss_acc = 0;
 			loss_n = 0;
 			soft_seen_win = 0;
+			dropped_win = 0;
 			t_window = now;
 		}
 	}
