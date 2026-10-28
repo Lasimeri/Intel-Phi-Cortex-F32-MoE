@@ -30,6 +30,9 @@
  *     --log FILE           the log (default results/live.log, appended)
  *     --cortex PATH        the client binary (default build/host/cortex)
  *     --vocab FILE         the BPE vocabulary (default data/bpe/vocab4096.txt)
+ *     --soft FILE          the partial distillation (docs/DISTIL.md): FILE holds one 48-byte record per token of the
+ *                          stream (tools/soft-align.c, the teacher's distribution mapped onto the student's ids); each
+ *                          chunk's records go into the soft ring with it and the daemon mixes them into the target
  *     --ngram FILE         the n-gram memory (MoE stage 1) trains with the run: FILE holds the tables (host/ngtables.h:
  *                          2 orders x CX_NG_ROWS rows x 128 F32, 2 GiB, created zeroed when absent; keep it in
  *                          /dev/shm), mapped shared and trained in place. A thread serves the daemon's row ring in the
@@ -110,6 +113,9 @@ static long bias_decay;                            /* --bias-decay: chunks over 
 static const char *pool_path;                      /* --pool: pulled into the daemon before the LOAD */
 static int pool_wanted;                            /* the next checkpoint takes the pool with it (a `save-pool` line, the --pool-every schedule) */
 static long pool_every;                            /* --pool-every: the pool pushed every this many chunks */
+static const char *soft_path;                      /* --soft: the partial distillation's records, one per token of the stream */
+static cx_soft *soft;
+static long nsoft;
 
 /* ---- the log ---- */
 static FILE *lg;
@@ -141,6 +147,11 @@ static void feed(void)
 		volatile uint16_t *slot = (volatile uint16_t *)(part + CX_T_SLOT(fed));
 		const uint16_t *src = tok + (start_chunk + fed) * CX_T_L;
 		for (int t = 0; t <= CX_T_L; t++) slot[t] = src[t];
+		if (soft) {   /* the chunk's soft records into its slot of the soft ring, 64-bit stores into the uncached part */
+			volatile uint64_t *ss = (volatile uint64_t *)(part + CX_T_SOFT_SLOT(fed));
+			const uint64_t *sr = (const uint64_t *)(soft + (start_chunk + fed) * CX_T_L);
+			for (unsigned i = 0; i < CX_SOFT_CHUNK_BYTES / 8; i++) ss[i] = sr[i];
+		}
 		fed++;
 		__atomic_thread_fence(__ATOMIC_RELEASE);
 		ST64(CX_T_H_CHUNKS, (uint64_t)fed);
@@ -431,6 +442,7 @@ int main(int argc, char **argv)
 		else if (!strcmp(argv[i], "--expert-lr") && i + 1 < argc) { expert_lr = atof(argv[++i]); moe_knobs_given = 1; }
 		else if (!strcmp(argv[i], "--pool") && i + 1 < argc) pool_path = argv[++i];
 		else if (!strcmp(argv[i], "--pool-every") && i + 1 < argc) pool_every = atol(argv[++i]);
+		else if (!strcmp(argv[i], "--soft") && i + 1 < argc) soft_path = argv[++i];
 		else { fprintf(stderr, "coach: unknown option %s\n", argv[i]); return 2; }
 	}
 	lg = fopen(log_path, "a");
@@ -451,6 +463,21 @@ int main(int argc, char **argv)
 	total_chunks = (ntok - 1) / CX_T_L - start_chunk;
 	if (max_chunks >= 0 && max_chunks < total_chunks) total_chunks = max_chunks;
 	if (total_chunks <= 0) { fprintf(stderr, "coach: nothing to feed (file %ld tokens, start chunk %ld)\n", ntok, start_chunk); return 1; }
+	if (soft_path) {   /* the soft targets: one record per token, at least through the run's last chunk */
+		FILE *sf = fopen(soft_path, "rb");
+		if (!sf) { perror(soft_path); return 1; }
+		fseek(sf, 0, SEEK_END);
+		nsoft = ftell(sf) / (long)CX_SOFT_BYTES;
+		fseek(sf, 0, SEEK_SET);
+		const long need = (start_chunk + total_chunks) * CX_T_L, first = start_chunk * CX_T_L;
+		if (nsoft < need) { fprintf(stderr, "coach: %s holds %ld records, the run needs %ld (the tokens through chunk %ld)\n", soft_path, nsoft, need, start_chunk + total_chunks - 1); return 1; }
+		soft = malloc((size_t)nsoft * CX_SOFT_BYTES);
+		if (fread(soft, CX_SOFT_BYTES, (size_t)nsoft, sf) != (size_t)nsoft) { perror(soft_path); return 1; }
+		fclose(sf);
+		long with = 0;
+		for (long i = first; i < need; i++) with += soft[i].id[0] != CX_SOFT_NONE;
+		logline("coach: soft targets %s: %ld of %ld tokens of the run carry the teacher's distribution (%.1f %%)", soft_path, with, need - first, 100.0 * (double)with / (double)(need - first));
+	}
 	/* the part */
 	const int fd = open("/dev/shm/phi-hostmem", O_RDWR);
 	if (fd < 0) { perror("/dev/shm/phi-hostmem"); return 1; }
@@ -492,6 +519,7 @@ int main(int argc, char **argv)
 	set_flags(start_paused ? 4 : 0);
 	ST32(CX_T_EVERY, (uint32_t)every);
 	if (ng_path) { if (ng_start()) return 1; } else ST32(CX_T_NG, 0);
+	ST32(CX_T_SOFT, soft ? 1u : 0u);
 	const uint64_t report0 = LD64(CX_T_REPORT);
 	feed();
 	__atomic_thread_fence(__ATOMIC_SEQ_CST);
@@ -526,7 +554,11 @@ int main(int argc, char **argv)
 					snprintf(moe_note, sizeof moe_note, "  moe %u experts, bias %.3g", LD32(CX_T_MOE_DISTINCT), b);
 				} else snprintf(moe_note, sizeof moe_note, "  moe %u experts", LD32(CX_T_MOE_DISTINCT));
 			}
-			logline("report chunk %ld  tokens %ld  loss %.4f nats = %.4f bits/token  lr %.3e  scale %.4f  %.0f tok/s  ring %ld ahead%s", consumed, consumed * CX_T_L, loss, loss / CX_LN2, lr_eff, scale, tokps, fed - consumed, moe_note);
+			char ctx_note[48] = "", soft_note[48] = "";   /* the context memory's step time and the soft targets' share, when the daemon reports them */
+			const double ctx_us = kdbl(LD64(CX_T_CTX_US));
+			if (ctx_us > 0) snprintf(ctx_note, sizeof ctx_note, "  ctx %.0f us/step", ctx_us);
+			if (soft) snprintf(soft_note, sizeof soft_note, "  soft %.0f %%", 100.0 * (double)LD64(CX_T_SOFT_N) / ((double)every * CX_T_L));
+			logline("report chunk %ld  tokens %ld  loss %.4f nats = %.4f bits/token  lr %.3e  scale %.4f  %.0f tok/s  ring %ld ahead%s%s%s", consumed, consumed * CX_T_L, loss, loss / CX_LN2, lr_eff, scale, tokps, fed - consumed, moe_note, ctx_note, soft_note);
 			win_sum += loss;
 			win_n++;
 			if (win_n == window) {
@@ -587,6 +619,7 @@ int main(int argc, char **argv)
 			if (wait_ack_bit(1, 1, 60)) logline("coach: the card did not acknowledge the final checkpoint within 60 s");
 			else collect_ckpt("final");   /* with --moe the pool of the same chunk follows it */
 			ST32(CX_T_MAGIC, 0);
+			ST32(CX_T_SOFT, 0);
 			set_flags(0);
 			logline("coach: run ended at chunk %ld (%ld tokens), %d halvings, final scale %.4f", consumed, consumed * CX_T_L, halvings, scale);
 			break;

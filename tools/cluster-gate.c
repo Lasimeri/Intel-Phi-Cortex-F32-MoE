@@ -170,13 +170,14 @@ static int is_dumped(int k)
 }
 
 static double wall[4];
+static cx_soft *soft_recs;   /* CX_SOFT=FILE: the partial distillation's record per token of the slice (tools/soft-align.c) */
 
 static void run_check(void *arg, int k)
 {
 	(void)arg;
 	cx_gather_prefetch(C.ETB, ids[0]);
 	for (int ch = 0; ch < warm / L; ch++) {
-		cl_ng_begin(&C, k, ch);
+		cl_chunk_begin(&C, k, ch);
 		const uint32_t *id = ids + (long)ch * L;
 		for (int t = 0; t < L; t++) cl_fwd_step(&C, k, t, id[t], id[t + 1], id[t + 1]);
 		cl_wait(&C, k);
@@ -184,7 +185,7 @@ static void run_check(void *arg, int k)
 		cl_wait(&C, k);
 	}
 	const uint32_t *id = ids + (long)warm;
-	cl_ng_begin(&C, k, warm / L);
+	cl_chunk_begin(&C, k, warm / L);
 	const int pfd = pmu_open(getenv("CX_PMU") ? strtoull(getenv("CX_PMU"), NULL, 16) : 0x10cb);
 	const uint64_t p0 = pmu_read(pfd);
 	if (!k) wall[0] = cx_now();
@@ -240,7 +241,7 @@ static void run_train(void *arg, int k)
 	cx_gather_prefetch(C.ETB, ids[0]);
 	for (long ch = 0; ch < nchunks; ch++) {
 		const uint32_t *id = ids + ch * L;
-		cl_ng_begin(&C, k, ch);
+		cl_chunk_begin(&C, k, ch);
 		const uint64_t c0 = cx_rdtsc();
 		for (int t = 0; t < L; t++) cl_fwd_step(&C, k, t, id[t], id[t + 1], id[t + 1]);
 		const uint64_t c1 = cx_rdtsc();
@@ -284,7 +285,7 @@ static void run_train(void *arg, int k)
 	double vsum = 0;
 	for (long ch = 0; ch < vchunks; ch++) {
 		const uint32_t *id = vids + ch * L;
-		cl_ng_begin(&C, k, run_ntok / L + ch);   /* the rows of this validation chunk; nothing without the memory */
+		cl_chunk_begin(&C, k, run_ntok / L + ch);   /* the rows of this validation chunk; nothing without the memory */
 		for (int t = 0; t < L; t++) cl_fwd_step(&C, k, t, id[t], id[t + 1], id[t + 1]);
 		cl_wait(&C, k);
 		if (!k) {
@@ -531,6 +532,19 @@ int main(int argc, char **argv)
 	if (ntok < (runm ? L + 1 : need)) { fprintf(stderr, "cluster-gate: short token file\n"); return 1; }
 	ids = malloc((size_t)ntok * 4);
 	for (long t = 0; t < ntok; t++) ids[t] = tok[t];
+	if (getenv("CX_SOFT") && !runm) {   /* the partial distillation: a soft record per token of the slice; the chunks' records become the targets */
+		const char *path = getenv("CX_SOFT");
+		FILE *sf = fopen(path, "rb");
+		if (!sf) { perror(path); return 1; }
+		soft_recs = malloc((size_t)ntok * sizeof *soft_recs);
+		const long got = (long)fread(soft_recs, sizeof *soft_recs, (size_t)ntok, sf);
+		fclose(sf);
+		if (got < warm + L) { fprintf(stderr, "cluster-gate: %s holds %ld records, %d needed\n", path, got, warm + L); return 1; }
+		long with = 0;
+		for (int t = warm; t < warm + L; t++) with += soft_recs[t].id[0] != CX_SOFT_NONE;
+		C.soft_file = soft_recs;
+		printf("soft targets: %s, %ld of %d steps of the measured chunk carry a distribution\n", path, with, L);
+	}
 
 	cx_barrier_init(&C.bar, CL_N, 2, CX_CORE_REL);
 	cx_team_run(CL_N, setup, NULL);

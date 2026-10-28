@@ -144,8 +144,9 @@ static inline void ref_forward(const rparams *P, double *T, rstep *s, uint32_t i
 	for (int i = 0; i < CX_DU; i++) s->hc[i] = s->u[i] * s->xsu * P->cg[i];
 }
 
-/* tied head + CE for one hc: returns the loss; dl = softmax - onehot (unscaled) */
-static inline double ref_head_hc(const double *E, const double *hc, uint32_t tgt, double *dl)
+/* tied head + CE for one hc: returns the (hard) loss; dl = softmax - target (unscaled), the target onehot(tgt) or, with
+ * a soft record of the partial distillation (lib/cx-proto.h cx_soft), (1 - sum p_j) onehot(tgt) + sum_j p_j onehot(id_j) */
+static inline double ref_head_hc(const double *E, const double *hc, uint32_t tgt, double *dl, const cx_soft *sr)
 {
 	double m = -INFINITY, sum = 0;
 	for (int v = 0; v < CX_VOCAB; v++) {
@@ -158,11 +159,13 @@ static inline double ref_head_hc(const double *E, const double *hc, uint32_t tgt
 	for (int v = 0; v < CX_VOCAB; v++) { dl[v] = exp(dl[v] - m); sum += dl[v]; }
 	const double loss = log(sum) + m - (log(dl[tgt]) + m);
 	for (int v = 0; v < CX_VOCAB; v++) dl[v] /= sum;
-	dl[tgt] -= 1.0;
+	double w = 1.0;
+	if (sr) for (int j = 0; j < CX_SOFT_K; j++) if (sr->id[j] != CX_SOFT_NONE) { dl[sr->id[j]] -= sr->p[j]; w -= sr->p[j]; }
+	dl[tgt] -= w;
 	return loss;
 }
 
-static inline double ref_head(const rparams *P, const rstep *s, uint32_t tgt, double *dl) { return ref_head_hc(P->E, s->hc, tgt, dl); }
+static inline double ref_head(const rparams *P, const rstep *s, uint32_t tgt, double *dl) { return ref_head_hc(P->E, s->hc, tgt, dl, NULL); }
 
 typedef struct { double *prm, *E, *cg; } rgrads;
 

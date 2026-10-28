@@ -297,8 +297,8 @@ static inline void cref_backward(cref *C, cgrads *G, int t, const double *dl, do
 }
 
 /* a chunk from the given state (T and the step-0 bus copied in, not modified): mean loss; gradients if G. After it, bus[L] is
- * the next chunk's step-0 bus. */
-static inline double cref_chunk(cref *C, cgrads *G, const double *T0, const float *bus0, const uint32_t *ids, int L, uint32_t p1, uint32_t p2)
+ * the next chunk's step-0 bus. soft: the chunk's L soft-target records (the partial distillation) or NULL. */
+static inline double cref_chunk(cref *C, cgrads *G, const double *T0, const float *bus0, const uint32_t *ids, int L, uint32_t p1, uint32_t p2, const cx_soft *soft)
 {
 	memcpy(C->T, T0, (size_t)C->N * CX_NT * sizeof *C->T);
 	memcpy(C->bus, bus0, CX_DB * CX_NBUS * sizeof *C->bus);
@@ -306,7 +306,7 @@ static inline double cref_chunk(cref *C, cgrads *G, const double *T0, const floa
 	double *dls = G ? malloc((size_t)L * CX_VOCAB * sizeof *dls) : NULL;
 	for (int t = 0; t < L; t++) cref_step(C, t, ids[t], t >= 1 ? ids[t - 1] : p1, t >= 2 ? ids[t - 2] : (t == 1 ? p1 : p2));
 	for (int t = 0; t < L; t++) {
-		loss += ref_head_hc(C->E, C->cs[t].hc, ids[t + 1], dl);
+		loss += ref_head_hc(C->E, C->cs[t].hc, ids[t + 1], dl, soft ? soft + t : NULL);
 		if (G) for (int v = 0; v < CX_VOCAB; v++) dls[(long)t * CX_VOCAB + v] = dl[v] / L;
 	}
 	if (G) {

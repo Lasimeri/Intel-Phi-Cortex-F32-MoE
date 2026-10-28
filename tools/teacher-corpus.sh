@@ -112,7 +112,7 @@ $(cat "$persona")
 The topic: $topic
 The person is $mood.
 The three words to use: $words.
-Write $per conversations about the topic, $exch exchanges each." --max 2400 --rp 1.0 "${urlopt[@]}" > "$tmp.txt" 2> "$tmp.err"; then
+Write $per conversations about the topic, $exch exchanges each." --max 2400 --rp 1.0 --lp-out "$tmp.lp.json" "${urlopt[@]}" > "$tmp.txt" 2> "$tmp.err"; then
 				say "writer $w: call failed on \"$topic\": $(tail -n 1 "$tmp.err" | cut -c1-120)"
 				sleep 5
 				continue
@@ -135,6 +135,7 @@ Write $per conversations about the topic, $exch exchanges each." --max 2400 --rp
 				say "writer $w: nothing usable on \"$topic\" ($held objects, $(wc -c < "$tmp.txt") bytes raw, kept as failed-$stamp.txt)"
 				continue
 			fi
+			mv "$tmp.lp.json" "${file%.jsonl}.lp.json" 2>/dev/null   # the teacher's per-token distribution of this reply, beside the batch (docs/DISTIL.md)
 			bytes=$(stat -c %s "$file")
 			t1=$(date +%s.%N)
 			say "writer $w batch $n: $count of $held conversations, $bytes bytes, $(awk -v a="$t0" -v b="$t1" 'BEGIN { printf "%.1f", b - a }') s, \"$topic\", words $words, the person $mood"

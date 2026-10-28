@@ -28,6 +28,10 @@ pub struct Report {
     pub ahead: u64,
     pub experts: Option<u64>,
     pub bias: Option<f64>,
+    /// The context memory's mean microseconds a step ("ctx 1100 us/step"), when the daemon reports it.
+    pub ctx_us: Option<f64>,
+    /// The share of the window's steps that carried the teacher's distribution ("soft 41 %"), for a distillation run.
+    pub soft: Option<f64>,
 }
 
 /// The coach's opening line: the stream, the run's chunks, the schedule and the policy's settings.
@@ -149,7 +153,13 @@ pub fn report_of(rest: &str) -> Option<Report> {
         return None;
     }
     let moe = w.len() >= 23 && w[20] == "moe";
+    let after = |key: &str| -> Option<f64> {
+        let i = w.iter().position(|&s| s == key)?;
+        num(*w.get(i + 1)?)
+    };
     Some(Report {
+        ctx_us: after("ctx"),
+        soft: after("soft"),
         chunk: int(w[2])?,
         tokens: int(w[4])?,
         nats: num(w[6])?,
@@ -476,7 +486,7 @@ mod tests {
         assert_eq!((h.started.as_str(), h.file.as_str(), h.first, h.last, h.chunks, h.tokens), ("20:06:29", "data/mix/chat-train.u16", 648, 18716, 18069, 578208));
         assert_eq!((h.lr, h.every, h.window, h.min_gain, h.halvings, h.sample_every, h.sample_tokens), (1e-3, 100, 10, 0.010, 3, 1000, 128));
         assert_eq!(r.reports.len(), 2);
-        assert_eq!(r.reports[1], Report { chunk: 700, tokens: 22400, nats: 4.9579, bits: 7.1527, lr: 1e-3, scale: 1.0, tok_s: 1224.0, ahead: 960, experts: None, bias: None });
+        assert_eq!(r.reports[1], Report { chunk: 700, tokens: 22400, nats: 4.9579, bits: 7.1527, lr: 1e-3, scale: 1.0, tok_s: 1224.0, ahead: 960, experts: None, bias: None, ctx_us: None, soft: None });
         assert_eq!((h.memory.as_deref(), h.moe.as_deref()), (None, None));
         assert_eq!(r.windows, vec![Window { mean: 7.1886, gain: 0.0141 }]);
         let s = r.sample.as_ref().unwrap();
@@ -572,5 +582,13 @@ mod tests {
         assert!(r.poll(&path, &ckdir));
         check_record(&r);
         fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn a_report_carries_the_memory_time_and_the_soft_share() {
+        let r = report_of("report chunk 100  tokens 3200  loss 2.0000 nats = 2.8854 bits/token  lr 3.000e-03  scale 1.0000  285 tok/s  ring 960 ahead  moe 120 experts  ctx 1100 us/step  soft 41 %").unwrap();
+        assert_eq!((r.experts, r.bias, r.ctx_us, r.soft), (Some(120), None, Some(1100.0), Some(41.0)));
+        let plain = report_of("report chunk 100  tokens 3200  loss 2.0000 nats = 2.8854 bits/token  lr 3.000e-03  scale 1.0000  285 tok/s  ring 960 ahead").unwrap();
+        assert_eq!((plain.ctx_us, plain.soft), (None, None));
     }
 }

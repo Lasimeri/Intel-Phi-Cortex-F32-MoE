@@ -1,0 +1,3 @@
+watch.sh: the monitor is open in a konsole window on the desktop (/mnt/Phi-Cortex-F32-MoE/tui/target/release/cortex-watch)
+chat.sh: the TUI is open in a konsole window on the desktop (/mnt/Phi-Cortex-F32-MoE/tui/target/release/cortex-tui)
+18:47:53 the windows opened on data/live-teacher2

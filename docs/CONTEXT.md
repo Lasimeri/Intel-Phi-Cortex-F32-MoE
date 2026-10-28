@@ -63,3 +63,11 @@ distance goes to 16 keys (CX_CTX_PFD) in the next daemon; the number it buys is 
 (one correction conversation every six, 60 conversations of the last three rounds, about 18 % of a round's tokens, a
 tiny set seen again and again). The response, from the next round: one in twenty-four and only the latest round's
 set; the per-round restart of Adam's moments (every load zeroes them) is the other suspect and stays under watch.
+
+**At a full ring, continuously (the fresh instance's round 1, 18:47 to 19:16, one run of 14,861 chunks):** 622
+tok/s at the start, 278 to 292 once the ring was full from chunk 512 on, flat after that: 3.4 ms a step against 1.25
+without the memory, so the memory costs about 2.2 ms a step at 16,384 entries, and the deeper prefetch (16 keys
+ahead, 16:57) changed nothing measurable (round 11 of the old instance: 630 to 447 over a filling ring, as before).
+The rounds of 1,000 chunks from a load never showed this number because a load clears the ring. The daemon of the
+distillation build reports the memory's own step time (rdtsc around cx_ctx_step, "ctx N us/step"), which splits the
+3.4 ms into the memory and the rest instead of inferring it.

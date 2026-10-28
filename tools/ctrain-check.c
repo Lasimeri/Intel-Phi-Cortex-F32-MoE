@@ -68,6 +68,17 @@ int main(int argc, char **argv)
 	fclose(f);
 	uint32_t *ids = malloc((size_t)(warm + L + 1) * 4);
 	for (int t = 0; t < warm + L + 1; t++) ids[t] = tok[t];
+	cx_soft *soft = NULL;   /* CX_SOFT=FILE: the partial distillation's records of the slice, the chunk's in the target (as cluster-gate) */
+	if (getenv("CX_SOFT")) {
+		FILE *sf = fopen(getenv("CX_SOFT"), "rb");
+		if (!sf) { perror(getenv("CX_SOFT")); return 1; }
+		soft = malloc((size_t)(warm + L) * sizeof *soft);
+		if (fread(soft, sizeof *soft, (size_t)(warm + L), sf) != (size_t)(warm + L)) { fprintf(stderr, "ctrain-check: %s is short of %d records\n", getenv("CX_SOFT"), warm + L); return 1; }
+		fclose(sf);
+		long with = 0;
+		for (int t = warm; t < warm + L; t++) with += soft[t].id[0] != CX_SOFT_NONE;
+		printf("ctrain-check: soft targets %s, %ld of %d steps of the chunk carry a distribution\n", getenv("CX_SOFT"), with, L);
+	}
 
 	/* warm-up chunks (live bus, state carried), then the chunk */
 	C.bus_mode = CREF_BUS_LIVE;
@@ -80,14 +91,14 @@ int main(int argc, char **argv)
 	float *bus0 = malloc(CX_DB * CX_NBUS * sizeof *bus0);
 	memcpy(T0, C.T, (size_t)N * CX_NT * sizeof *T0);
 	memcpy(bus0, C.bus, CX_DB * CX_NBUS * sizeof *bus0);
-	const double loss = cref_chunk(&C, bwd ? &G : NULL, T0, bus0, ids + warm, L, warm >= 1 ? ids[warm - 1] : CX_NG_PAD, warm >= 2 ? ids[warm - 2] : CX_NG_PAD);
+	const double loss = cref_chunk(&C, bwd ? &G : NULL, T0, bus0, ids + warm, L, warm >= 1 ? ids[warm - 1] : CX_NG_PAD, warm >= 2 ? ids[warm - 2] : CX_NG_PAD, soft ? soft + warm : NULL);
 
 	float *closs = load(dir, "cl-loss", -1, (size_t)L), *chc = load(dir, "cl-hc", -1, (size_t)L * CX_DU);
 	if (!closs || !chc) return 1;
 	double *dlv = malloc(CX_VOCAB * sizeof *dlv), eloss = 0, csum = 0;
 	double *rhc = malloc((size_t)(L > 0 ? L : 0) * CX_DU * sizeof *rhc);
 	for (int t = 0; t < L; t++) {
-		const double lt = ref_head_hc(C.E, C.cs[t].hc, ids[warm + t + 1], dlv);
+		const double lt = ref_head_hc(C.E, C.cs[t].hc, ids[warm + t + 1], dlv, soft ? soft + warm + t : NULL);
 		csum += closs[t];
 		if (fabs(lt - closs[t]) > eloss) eloss = fabs(lt - closs[t]);
 		for (int c = 0; c < CX_DU; c++) rhc[(long)t * CX_DU + c] = C.cs[t].hc[c];

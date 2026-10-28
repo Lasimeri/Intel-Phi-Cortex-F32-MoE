@@ -17,6 +17,7 @@
 #define CX_TRAIN_H
 
 #include "col.h"
+#include "knc.h"   /* cx_rdtsc for the context memory's step timer (host tools include this header before knc.h) */
 #include "ctx.h"
 
 #define CX_LMAX 32
@@ -60,6 +61,7 @@ typedef struct {
 	/* stage 3 (card/ctx.h): the head's context memory, or NULL; ctx_start: the first step a query may return */
 	struct cx_ctx *ctx;
 	int64_t ctx_start;
+	uint64_t ctx_cycles;   /* rdtsc cycles spent in cx_ctx_step since the trainer was set up; the daemon reports thread 0's per window */
 	int L;
 } cx_train;
 
@@ -118,7 +120,11 @@ static inline void cx_train_fwd_step(cx_train *tr, int t, uint32_t id, uint32_t 
 	}
 	if (t + 1 < CX_LMAX) { cx_pfe_lines(tr->Ts + (long)(t + 1) * CX_NT, CX_NT); cx_pfe_lines(tr->acts + (long)(t + 1) * CX_NACT, CX_NACT); }
 	cx_col_pre(&tr->col, tr->ebuf, Bt);
-	if (tr->ctx) cx_ctx_step(tr->ctx, A, tr->ctx_start);   /* stage 3: o += sigmoid(b) a, the step into the memory */
+	if (tr->ctx) {   /* stage 3: o += sigmoid(b) a, the step into the memory; its cycles counted for the daemon's report */
+		const uint64_t c0 = cx_rdtsc();
+		cx_ctx_step(tr->ctx, A, tr->ctx_start);
+		tr->ctx_cycles += cx_rdtsc() - c0;
+	}
 #ifdef CX_MOE
 	if (tr->moe) {   /* the route from x, the expert into the slot (the MLP region of the parameter block) */
 		cx_moe *M = tr->moe;

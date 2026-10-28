@@ -65,6 +65,15 @@ typedef struct {
 	volatile uint8_t *part;
 	cdma *dma;
 	long chunk;
+	/* the partial distillation (lib/cx-proto.h cx_soft, docs/DISTIL.md): soft_cur = the current chunk's L records, or
+	 * NULL for plain one-hot targets. The daemon DMAs each chunk's slot of the soft ring (soft_host = the ring in the
+	 * part) into softbuf (two chunk slots) when soft_on; the gate points soft_file at a whole file of records instead.
+	 * soft_seen: thread 0's count of steps whose record held a distribution, read and cleared by the daemon per chunk */
+	int soft_on;
+	const cx_soft *soft_cur, *soft_file;
+	cx_soft *softbuf;
+	uint64_t softbuf_phys, soft_host;
+	long soft_seen;
 	/* MoE stage 2 (builds with CX_MOE; moe_on 0 = the dense columns): the pool in GDDR, the shared keys, each head's
 	 * router context, every head's route per step (route[k * CX_LMAX + t]), the experts' SGD step */
 	int moe_on;
@@ -120,16 +129,29 @@ static inline void cl_ng_done(cluster *C)
 	*(volatile uint64_t *)(C->part + CX_NGR_C_SEQ) = (uint64_t)C->chunk + 1;
 }
 
-static inline void cl_ng_begin(cluster *C, int k, long ch)
+/* the chunk's inputs into GDDR before its forward, by thread 0, then a barrier: the memory's rows of chunk ch (ring
+ * slot ch & 1) when the memory trains, and the chunk's soft targets (its slot of the soft ring into softbuf slot
+ * ch & 1) when the coach feeds them; the gate's whole-file records are pointed at instead of copied */
+static inline void cl_chunk_begin(cluster *C, int k, long ch)
 {
-	if (!C->ng) return;
+	if (!C->ng && !C->soft_on && !C->soft_file) return;
 	if (!k) {
 		C->chunk = ch;
-		while (__atomic_load_n((volatile uint64_t *)(C->part + CX_NGR_H_SEQ), __ATOMIC_ACQUIRE) < (uint64_t)ch + 1) cx_relax();
-		const int s = (int)(ch & 1);
-		const uint64_t seq = cdma_submit(C->dma, C->ng_host_rows + (uint64_t)s * CX_NGR_BYTES, C->ngbuf_phys + (uint64_t)s * CX_NGR_BYTES, CX_NGR_BYTES, 0, 0);
-		if (!seq || cdma_wait(C->dma, seq, 5.0)) { fprintf(stderr, "cl_ng_begin: row DMA failed at chunk %ld\n", ch); }
-		for (uint32_t i = 0; i < CX_NGR_BYTES / 4; i += 16) cx_evict1(C->ngbuf + (size_t)s * (CX_NGR_BYTES / 4) + i);
+		if (C->ng) {
+			while (__atomic_load_n((volatile uint64_t *)(C->part + CX_NGR_H_SEQ), __ATOMIC_ACQUIRE) < (uint64_t)ch + 1) cx_relax();
+			const int s = (int)(ch & 1);
+			const uint64_t seq = cdma_submit(C->dma, C->ng_host_rows + (uint64_t)s * CX_NGR_BYTES, C->ngbuf_phys + (uint64_t)s * CX_NGR_BYTES, CX_NGR_BYTES, 0, 0);
+			if (!seq || cdma_wait(C->dma, seq, 5.0)) { fprintf(stderr, "cl_chunk_begin: row DMA failed at chunk %ld\n", ch); }
+			for (uint32_t i = 0; i < CX_NGR_BYTES / 4; i += 16) cx_evict1(C->ngbuf + (size_t)s * (CX_NGR_BYTES / 4) + i);
+		}
+		if (C->soft_file) C->soft_cur = C->soft_file + ch * C->L;
+		else if (C->soft_on) {
+			const int s = (int)(ch & 1);
+			const uint64_t seq = cdma_submit(C->dma, C->soft_host + (uint64_t)((uint32_t)ch % CX_T_SLOTS) * CX_SOFT_CHUNK_BYTES, C->softbuf_phys + (uint64_t)s * CX_SOFT_CHUNK_BYTES, CX_SOFT_CHUNK_BYTES, 0, 0);
+			if (!seq || cdma_wait(C->dma, seq, 5.0)) { fprintf(stderr, "cl_chunk_begin: soft target DMA failed at chunk %ld\n", ch); }
+			for (uint32_t i = 0; i < CX_SOFT_CHUNK_BYTES; i += 64) cx_evict1((const char *)C->softbuf + (size_t)s * CX_SOFT_CHUNK_BYTES + i);
+			C->soft_cur = C->softbuf + (size_t)s * CX_T_L;
+		} else C->soft_cur = NULL;
 	}
 	cl_wait(C, k);
 }
@@ -219,9 +241,23 @@ static inline void cl_fwd_step(cluster *C, int k, int t, uint32_t id, uint32_t i
 	S = cx_hsum(S);
 	if (!k) _mm512_mask_store_ps(C->loss + (t & ~15), (__mmask16)(1u << (t & 15)), _mm512_fmadd_ps(cx_log2(S), _mm512_set1_ps(CX_LN2), _mm512_sub_ps(M, lt)));
 	const __m512 scale = _mm512_mul_ps(_mm512_mul_ps(cx_exp2(_mm512_mul_ps(_mm512_sub_ps(mk, M), l2e)), cx_rcp(S)), invL);
+	/* the target: onehot(tgt), or with the step's soft record (the partial distillation, lib/cx-proto.h cx_soft)
+	 * (1 - sum p_j) onehot(tgt) + sum_j p_j onehot(id_j); own blocks only, like the one-hot */
+	const cx_soft *sr = C->soft_cur ? C->soft_cur + t : NULL;
+	__m512 wtgt = invL;
+	if (sr) {
+		float w = 1.0f;
+		for (int j = 0; j < CX_SOFT_K; j++) w -= sr->id[j] != CX_SOFT_NONE ? sr->p[j] : 0.0f;
+		wtgt = _mm512_mul_ps(_mm512_set1_ps(w), invL);
+		if (!k && sr->id[0] != CX_SOFT_NONE) C->soft_seen++;
+	}
 	for (int b = 0; b < C->nblk[k]; b++) {
 		__m512 d = _mm512_mul_ps(_mm512_load_ps(lg + 16 * b), scale);
-		if (C->blk[k][b] == (int)(tgt >> 4)) d = _mm512_mask_sub_ps(d, (__mmask16)(1u << (tgt & 15)), d, invL);
+		if (C->blk[k][b] == (int)(tgt >> 4)) d = _mm512_mask_sub_ps(d, (__mmask16)(1u << (tgt & 15)), d, wtgt);
+		if (sr) for (int j = 0; j < CX_SOFT_K; j++) {
+			const uint32_t id = sr->id[j];
+			if (id != CX_SOFT_NONE && C->blk[k][b] == (int)(id >> 4)) d = _mm512_mask_sub_ps(d, (__mmask16)(1u << (id & 15)), d, _mm512_mul_ps(_mm512_set1_ps(sr->p[j]), invL));
+		}
 		_mm512_store_ps(lg + 16 * b, d);
 	}
 }

@@ -130,6 +130,24 @@
 #define CX_T_SLOT_BYTES 128u
 #define CX_T_RING (56u << 20)
 #define CX_T_SLOT(c) (CX_T_RING + (uint32_t)((c) % CX_T_SLOTS) * CX_T_SLOT_BYTES)
+/* ---- the partial distillation (docs/DISTIL.md): the teacher's next-token distribution at a student token, mapped
+ * onto student ids by tools/soft-align.c: CX_SOFT_K ids (CX_SOFT_NONE = unused) with their probabilities, 48 B a
+ * token in the stream's order (a .soft file beside the .u16 stream, one record per token for the token after it).
+ * The head's target at the step becomes (1 - sum p_j) onehot(next) + sum_j p_j onehot(id_j): an empty record is the
+ * plain one-hot, a record holding lambda times the teacher's distribution the mix. The coach copies a chunk's CX_T_L
+ * records into the chunk's slot of the soft ring (CX_T_SOFT_SLOT, the token ring's slot count and order) before
+ * publishing the chunk and sets CX_T_SOFT; the daemon DMAs the slot into GDDR before the chunk's forward
+ * (card/cluster.h cl_chunk_begin). The reported loss stays the hard cross-entropy. */
+#define CX_SOFT_K 8
+#define CX_SOFT_NONE 0xFFFFu
+typedef struct { uint16_t id[CX_SOFT_K]; float p[CX_SOFT_K]; } cx_soft;
+#define CX_SOFT_BYTES 48u
+#define CX_SOFT_CHUNK_BYTES (CX_T_L * CX_SOFT_BYTES)   /* 1,536 */
+#define CX_T_SOFT (CX_T_BASE + 640u)        /* u32 1: the coach fills the soft ring for every chunk of the run (host) */
+#define CX_T_SOFT_RING (57u << 20)          /* CX_T_SLOTS slots of CX_SOFT_CHUNK_BYTES: 1.5 MiB */
+#define CX_T_SOFT_SLOT(c) (CX_T_SOFT_RING + (uint32_t)((c) % CX_T_SLOTS) * CX_SOFT_CHUNK_BYTES)
+#define CX_T_CTX_US (CX_T_BASE + 1856u)     /* f64 the context memory's mean microseconds a step over the last report window, thread 0 (card) */
+#define CX_T_SOFT_N (CX_T_BASE + 1920u)     /* u64 steps of the last report window whose soft record held a distribution (card) */
 #define CX_T_WARMUP 50                      /* chunks of learning-rate ramp at the start of a live run (as cluster-gate run) */
 
 #endif

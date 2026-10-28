@@ -348,6 +348,19 @@ fn run_rows(w: &Watch, cw: usize) -> Vec<Vec<Span>> {
         }
         rows.push(row);
     }
+    // the context memory's step time and the soft targets' share, from the last report (the daemon's words through the coach)
+    if let Some(r) = last {
+        let mut parts = Vec::new();
+        if let Some(us) = r.ctx_us {
+            parts.push(format!("context memory {us:.0} us a step"));
+        }
+        if let Some(s) = r.soft {
+            parts.push(format!("soft targets on {s:.0} % of the steps (the teacher's distribution, docs/DISTIL.md)"));
+        }
+        if !parts.is_empty() {
+            rows.push(vec![dim("distil "), text(parts.join("   "))]);
+        }
+    }
     if live.is_some_and(|l| l.memory) || h.memory.is_some() {
         rows.push(vec![dim("memory "), text(if live.is_some_and(|l| l.memory) { "trained with the run" } else { "in the opening line" }), dim(h.memory.as_ref().map_or(String::new(), |m| format!("   {m}")))]);
     }

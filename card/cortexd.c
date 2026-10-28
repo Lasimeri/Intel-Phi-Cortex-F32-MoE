@@ -311,6 +311,9 @@ static long ng_steps, lg_steps, served;
 static double ng_dma_s, ng_dma_max, lg_dma_s, lg_dma_max;
 
 static uint32_t chunk_ids[CX_LMAX + 1] __attribute__((aligned(64)));
+static long soft_seen_win;      /* the partial distillation: steps of the report window whose record held a distribution */
+static uint64_t ctx_cyc_win;    /* thread 0's context-memory cycles at the report window's start */
+static double tsc_per_us;       /* rdtsc ticks per microsecond, measured against the monotonic clock at the start */
 static long tchunks;                 /* chunks trained since the live run began (the Adam step count) */
 static double lr_base, lr_scale, lr_eff, loss_acc, t_window;
 static long loss_n;
@@ -407,10 +410,12 @@ static int poll_training(void)
 	lr_base = rdf(CX_T_LR);
 	lr_scale = rdf(CX_T_SCALE);
 	report_every = rd32(CX_T_EVERY) ? rd32(CX_T_EVERY) : 100;
-	if (!tchunks) { loss_acc = 0; loss_n = 0; t_window = cx_now(); }
+	if (!tchunks) { loss_acc = 0; loss_n = 0; t_window = cx_now(); soft_seen_win = 0; ctx_cyc_win = C.tr[0].ctx_cycles; }
 	C.bus = bus_train;
 	C.bus_on = train_bus_on;
-	C.ng = ng_run ? nggates : NULL;   /* with the memory: the chunk's rows over the ring (cl_ng_begin), its row gradients back (cl_bwd_chunk); without: the plain model */
+	C.ng = ng_run ? nggates : NULL;   /* with the memory: the chunk's rows over the ring (cl_chunk_begin), its row gradients back (cl_bwd_chunk); without: the plain model */
+	C.soft_on = rd32(CX_T_SOFT) != 0;   /* the partial distillation: the chunk's soft targets wait in the soft ring (cl_chunk_begin DMAs the slot) */
+	if (!C.soft_on) C.soft_cur = NULL;
 	if (moe_loaded) moe_knobs();
 	act_op[act_slot] = ACT_TRAIN;
 	set_state(1);
@@ -448,7 +453,7 @@ static void train_chunk(int k)
 	const float b1 = 0.9f, b2 = 0.95f;
 	const uint32_t *id = chunk_ids;
 	tr->ng = C.ng;
-	cl_ng_begin(&C, k, tchunks);   /* the memory's rows of this chunk (ring slot tchunks & 1) into GDDR; nothing without the memory */
+	cl_chunk_begin(&C, k, tchunks);   /* the chunk's inputs into GDDR: the memory's rows (ring slot tchunks & 1), the soft targets of the partial distillation; nothing without either */
 	C.tr[k].ctx_start = C.tr[k].ctx ? C.tr[k].ctx->train_start : 0;   /* stage 3: the training retrieves the stream and the chats alike */
 	for (int t = 0; t < CX_LMAX; t++) cl_fwd_step(&C, k, t, id[t], id[t + 1], id[t + 1]);
 	float lr_k, lr_t, eps_t;
@@ -460,6 +465,8 @@ static void train_chunk(int k)
 		for (int t = 0; t < CX_LMAX; t++) lsum += C.loss[t];
 		loss_acc += lsum / CX_LMAX;
 		loss_n++;
+		soft_seen_win += C.soft_seen;
+		C.soft_seen = 0;
 		lr_eff = lr_k;
 		tchunks++;
 		wr64(CX_T_C_CHUNKS, (uint64_t)tchunks);
@@ -468,16 +475,24 @@ static void train_chunk(int k)
 			wrf(CX_T_LOSS, loss_acc / loss_n);
 			wrf(CX_T_LR_EFF, lr_eff);
 			wrf(CX_T_TOKPS, tokps);
+			const uint64_t cyc = C.tr[0].ctx_cycles;   /* the context memory's share of a step, thread 0, this window */
+			const double ctx_us = C.ctx_on && tsc_per_us > 0 ? (double)(cyc - ctx_cyc_win) / tsc_per_us / ((double)loss_n * CX_LMAX) : 0;
+			ctx_cyc_win = cyc;
+			wrf(CX_T_CTX_US, ctx_us);
+			wr64(CX_T_SOFT_N, (uint64_t)soft_seen_win);
 			const uint32_t distinct = moe_loaded ? moe_distinct() : 0;
 			if (moe_loaded) wr32(CX_T_MOE_DISTINCT, distinct);
 			cx_fence();
 			wr64(CX_T_REPORT, rd64(CX_T_REPORT) + 1);
 			printf("live: chunk %7ld  tokens %10ld  loss %.4f nats = %.4f bits/token  lr %.2e  %.0f tok/s", tchunks, tchunks * (long)CX_LMAX, loss_acc / loss_n, loss_acc / loss_n / CX_LN2, lr_eff, tokps);
 			if (moe_loaded) printf("  moe: bias %g, expert lr %g, %u experts updated", (double)C.moe[0].bias, (double)C.moe_lr, distinct);
+			if (C.ctx_on) printf("  ctx %.0f us/step", ctx_us);
+			if (C.soft_on) printf("  soft %ld of %ld", soft_seen_win, loss_n * (long)CX_LMAX);
 			printf("\n");
 			fflush(stdout);
 			loss_acc = 0;
 			loss_n = 0;
+			soft_seen_win = 0;
 			t_window = now;
 		}
 	}
@@ -677,6 +692,9 @@ int main(int argc, char **argv)
 	nggrad_phys = ngpage_phys + (128u << 10);
 	C.nggrad = nggrad;
 	C.nggrad_phys = nggrad_phys;
+	C.softbuf = (cx_soft *)(ngpage + (192u << 10) / 4);   /* the partial distillation's two chunk slots of soft targets at 192 KiB of the page */
+	C.softbuf_phys = ngpage_phys + (192u << 10);
+	C.soft_host = host_part + CX_T_SOFT_RING;
 	C.ng = NULL;
 	C.ctxg = nggates + CX_GATES_CTX;   /* the context gates after the n-gram gates; fresh until a load brings a saved block */
 	for (int k = 0; k < CL_N; k++) C.ctxg[k] = CX_CTX_GATE0;
@@ -708,8 +726,15 @@ int main(int argc, char **argv)
 
 	cx_barrier_init(&C.bar, CL_N, 2, CX_CORE_REL);
 	cx_team_run(CL_N, setup, NULL);
-	printf("cortexd: %d columns (pin failures %d, thread 0 cpu %d, thread %d cpu %d), part %llu MiB, DMA channel %d (region 0x%llx, %llu MiB), n-gram step ring at part + %u KiB, row ring at part + %u MiB, live training ring at part + %u MiB (training bus %s), MoE pool %u experts x %u B in GDDR (routes after a LOAD with arg bit 1); serving\n",
-	       CL_N, cx_pin_fail, cx_found_cpu[0], CL_N - 1, cx_found_cpu[CL_N - 1], (unsigned long long)part_mib, chan, (unsigned long long)dma.region_addr, (unsigned long long)(dma.region_size >> 20), CX_NGS_BASE >> 10, CX_NGR_BASE >> 20, CX_T_RING >> 20, train_bus_on ? "on" : "off", CX_EX_N, CX_EX_BYTES);
+	{   /* the TSC rate, for the context memory's per-step time in the reports: rdtsc against the monotonic clock over 20 ms */
+		const double t0 = cx_now();
+		const uint64_t c0 = cx_rdtsc();
+		while (cx_now() - t0 < 0.02) cx_relax();
+		tsc_per_us = (double)(cx_rdtsc() - c0) / ((cx_now() - t0) * 1e6);
+		printf("cortexd: TSC %.1f MHz\n", tsc_per_us);
+	}
+	printf("cortexd: %d columns (pin failures %d, thread 0 cpu %d, thread %d cpu %d), part %llu MiB, DMA channel %d (region 0x%llx, %llu MiB), n-gram step ring at part + %u KiB, row ring at part + %u MiB, live training ring at part + %u MiB (training bus %s), soft targets at part + %u MiB, MoE pool %u experts x %u B in GDDR (routes after a LOAD with arg bit 1); serving\n",
+	       CL_N, cx_pin_fail, cx_found_cpu[0], CL_N - 1, cx_found_cpu[CL_N - 1], (unsigned long long)part_mib, chan, (unsigned long long)dma.region_addr, (unsigned long long)(dma.region_size >> 20), CX_NGS_BASE >> 10, CX_NGR_BASE >> 20, CX_T_RING >> 20, train_bus_on ? "on" : "off", CX_T_SOFT_RING >> 20, CX_EX_N, CX_EX_BYTES);
 	fflush(stdout);
 	cx_team_run(CL_N, live, NULL);
 	wr32(CX_T_STATE, 0);

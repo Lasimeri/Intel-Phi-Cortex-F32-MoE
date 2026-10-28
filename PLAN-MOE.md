@@ -705,3 +705,20 @@ step on plain 4 KiB pages beside the running daemon: the daemon's own rate with 
 number that counts, measured at the deployment. A session's view of the memory starts at CX_OP_CTX_RESET (the client
 sends it at every start, so a chat retrieves only its own turns, re-read each turn by the harness), the training's
 view at a load; the daemon runs the memory unless CX_CTX=0 is in its environment.
+
+## 18:43 to 19:3x (10-27): the fresh instance and the partial distillation
+
+The user: "Open up the training interface with a fresh training instance, new model from scratch and everything,
+adjust the teacher model so it partially distills itself into the PhiLLM." The fresh instance (data/live-teacher2:
+its own vocabulary on 2,114,500 B of the corpus, fresh weights, tables, pool, memory) started at 18:47 and trained
+its first round (all 14,861 chunks at once) at 282 to 292 tok/s with the context memory's ring full from chunk 512
+on (3.4 ms a step against 1.25 without the memory; the deeper prefetch of 16:57 bought nothing); the windows opened
+on it at 18:47:53. The distillation (docs/DISTIL.md): the teacher's eight likeliest next tokens with their
+probabilities at every token it writes (the sidecar of each batch; the server must run without the MTP draft, which
+leaves the accepted tokens without a distribution), aligned onto the student's tokens where the two tokenisers
+share a boundary (60 to 66 % of the student's tokens, the eight carrying 97 to 98 % of the mass), scaled by lambda
+0.5, carried beside the stream as 48-byte records, fed into a second ring of the part and mixed into the card's
+target as (1 - sum p) onehot + sum p_j onehot(id_j); the reported loss stays the hard cross-entropy. Gated on the
+card against the double reference with 24 of 32 steps carrying a distribution: every gradient within 4e-6
+relative, the loss identical. The daemon also times the context memory's step (rdtsc, "ctx N us/step" in the
+report) so the 3.4 ms is split, not guessed.
