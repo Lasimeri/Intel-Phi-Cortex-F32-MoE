@@ -71,3 +71,44 @@ The gate on the card (the dense model, the context memory on, 1,024 warm steps, 
 and the person's lines at 0.5) against the double reference: loss identical (8.425488 nats), hc 3.9e-7, u 2.9e-7,
 W 1.1e-6, W1 2.7e-7, cg 4.7e-7, E 3.5e-7 relative, the context gates 3.2e-7. Deployed with the format change at
 the next gap, at weight 1 until the levers before it have been measured.
+
+## Overnight and the morning of 10-28: what the numbers say
+
+Rounds 7 to 16 (epochs at lr 3e-3 alternating with new-data rounds, dropout off, weight 1). The memory reading of
+the fixed held-out (the first 5,001 tokens of valid.u16): 2.7636 (r6), 2.6320, 2.6871, 2.6725, 2.7310, 2.8079,
+2.7211, 2.7241, 2.6396, 2.7297, 2.6155 (r16) bits/token: flat. The probe: 1 to 3 of 20 every round. The relevance
+grades 0.4 to 2.6 of 10. Epochs at a constant 3e-3 bought nothing measurable.
+
+The n-gram gates ran away: means 4.28/4.60 at r6, 6.22/8.99 at r7, 7.70/13.59 at r10, 9.61/22.27 at r13,
+10.39/25.06 at r16. Adam moves 256 gate floats by about the learning rate each chunk while the gradient keeps its
+sign, so the gated rows came to dominate the column's input (card/train.h adds g * r into the embedding before
+cx_col_pre). Every prediction still passes through the columns; the dense reading's rise (6.08 to 8.58) is the model
+with its dominant input deleted, not starved columns. A mechanism to test, not yet measured: with x = RMSNorm([p; r])
+a growing p shrinks the bus term's share.
+
+The meter was checked before any lever: tools/ref-loss had no context memory, so every memory reading since 16:44 had
+read the model minus its retrieval. With `--ctx` (the context gates from the 1,536-B gates file) round 16 reads
+2.6155 again (top-1 0.6868 against 0.6870): the retrieval moves the held-out by less than 0.0001 bits, and the
+saved round-16 tables reproduce the driver's number exactly. The flat series is the model.
+
+## The decision metric: answer bits (tools/answer-bits.sh, tools/answer-bits.c)
+
+The probe cannot resolve a gain at 1 to 3 of 20. The new metric: the same 60 held-out conversations (frozen in
+DIR/answer-bits-set.jsonl) read twice, as written and with every person's line swapped for the line of the same turn
+seven conversations on; the speaker's tokens are the same in both and pair one to one. The answer loss with the true
+question, and the bits the question gives (swapped minus true), per answer token, with the standard error over the
+300 answers. Round 16: answer loss 5.1365 bits/token, swapped 5.6451: the question gives 0.5086 bits per answer
+token (per-answer mean 0.5794 +- 0.0383), 0.9980 over the first five tokens of each answer, and 254 of 300 answers
+are easier after their true question. The student does use the question; the 2.6 of the held-out is flattered by
+the persona line and the markers every conversation repeats, the speaker's own tokens cost 5.14 bits. A change is a
+gain when the answer loss falls and the question's bits rise by more than twice the standard error, for two rounds.
+tools/answer-bits-watch.sh measures every round as it lands (results/answer-bits.log).
+
+## Deployed 05:15 to 05:20
+
+The first lever is the learning rate of the epoch rounds, 1e-3 (the driver's `--epoch-lr`); memory dropout stays off
+(at gate means of 10 to 25 a dropped chunk shifts the input by an order of magnitude, and it has never run end to
+end). The record format grew to 52 bytes with the per-step weight at 1; the driver checks every round's records
+against its tokens and refuses a round that does not align (it refused round 18 at 05:19 when a stale mixstream
+binary wrote 48-byte records; build.sh had no rule for it, now it has). The teacher serves 65,536 tokens shared by
+its two slots and its grader reads the student's record (docs/TEACHER.md).

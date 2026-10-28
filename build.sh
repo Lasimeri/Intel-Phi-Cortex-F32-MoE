@@ -75,6 +75,13 @@ cc "${flags[@]}" -O2 -o "$out/host/chat-text" "$here/tools/chat-text.c"
 cc "${flags[@]}" -O2 -o "$out/host/json-objects" "$here/tools/json-objects.c"
 cc "${flags[@]}" -O2 -Wno-unused-function -o "$out/host/soft-align" "$here/tools/soft-align.c" -lm
 cc "${flags[@]}" -O2 -Wno-unused-function -o "$out/host/ref-loss" "$here/tools/ref-loss.c" -lm
+cc "${flags[@]}" -O2 -o "$out/host/answer-bits" "$here/tools/answer-bits.c" -lm
+cc "${flags[@]}" -O2 -o "$out/host/soft-check" "$here/tools/soft-check.c"
+# the stream tools the from-scratch driver runs (tools/teacher-scratch.sh): without these rules a stale mixstream wrote
+# 48-byte soft records into a 52-byte run on 2026-10-28 05:19 (soft-check refused the round)
+cc "${flags[@]}" -O2 -o "$out/host/mixstream" "$here/tools/mixstream.c"
+cc "${flags[@]}" -O2 -o "$out/host/init-ckpt" "$here/tools/init-ckpt.c" -lm
+cc "${flags[@]}" -O2 -o "$out/host/ngram-base" "$here/tools/ngram-base.c" -lm
 # live training: the host coach (feeder, reports, policy, samples through the client, commands, the memory's ring
 # thread); -ffp-contract=off keeps the rows' SGD step the batch server's arithmetic (host/ngtables.h)
 cc "${flags[@]}" -O2 -ffp-contract=off -pthread "${hostq[@]}" -o "$out/host/coach" "$here/host/coach.c"

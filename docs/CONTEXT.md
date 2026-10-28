@@ -79,3 +79,17 @@ and 2.23 ms at the end (631 to 449 tok/s). So at a ring just filled the memory i
 quarter, not the 2.2 ms the 3.47 ms steps of round 1 (one run of 14,861 chunks) suggested; the rest of round 1's
 cost grows after the ring is full, with the index lists' fill (the probed lists lengthen as a trained model's keys
 cluster), and the timer will put a number on it the next time a round runs long enough.
+
+**The memory's step over a long continuous run (round 7 of the fresh instance, 21:55 to 22:25, 20,980 chunks from
+one load, the timer of the 21:55 daemon):** 501 us a step at chunk 2,000, 542 at 3,000, 678 at 6,000, 683 at
+9,000, 745 at 12,000, 746 at 15,000, 785 at 18,000, 699 at 21,000 (the stream's last part: the newest batches); the
+rate 437, 428, 403, 396, 380, 377, 365, 368 tok/s. The ring is full from chunk 512; what grows after that is the
+index: the probed lists fill towards their cap of 1,024 as the keys of a trained model cluster, so the far scan
+lengthens. The step's rest grows too (2.29 ms at chunk 2,000 to 2.74 at 18,000 while the memory took 0.50 to 0.79
+of it), which this timer does not explain; the memory's backward and the longer top-4 bookkeeping are the next
+suspects to time.
+
+**What the memory buys on the held-out (10-28 05:02, tools/ref-loss --ctx):** round 16 of the fresh instance, the
+gates mean -2.554 and max +3.222 (some heads fully open): 2.6155 bits/token with the context memory and 2.6155
+without it (top-1 0.6870 against 0.6868) over 5,000 predictions. Real retrieval, no measurable gain on this held-out
+yet.

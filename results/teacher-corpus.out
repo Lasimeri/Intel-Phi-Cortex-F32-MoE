@@ -1,22 +1,123 @@
-21:54:06 === corpus writers: 1 at once, 3 conversations of 5 exchanges a call, 199 topics, 261 seed words, persona data/chat-base2/persona.txt, into data/teacher (touch data/teacher/stop to end)
-21:54:40 writer 0 batch 1: 3 of 3 conversations, 2249 bytes, 33.4 s, "a book that changed me", words short, blanket, empty, the person joking around
-21:55:11 writer 0 batch 2: 3 of 3 conversations, 2359 bytes, 31.2 s, "Adopted family connections", words nose, pig, clock, the person excited
-21:55:28 writer 0 batch 3: 3 of 3 conversations, 2031 bytes, 17.3 s, "adopting shelter dogs", words new, seal, ice, the person bored
-21:55:56 writer 0 batch 4: 3 of 3 conversations, 3133 bytes, 28.3 s, "animal behavior observation", words new, pull, worm, the person curious and asks the speaker who it is at some point
-21:56:16 writer 0 batch 5: 3 of 3 conversations, 2039 bytes, 20.1 s, "anxiety over money", words worm, smile, lamp, the person worried about something
-21:56:44 writer 0 batch 6: 3 of 3 conversations, 2261 bytes, 27.3 s, "aquarium plant maintenance", words bug, honey, point, the person curious
-21:57:03 writer 0 batch 7: 3 of 3 conversations, 1925 bytes, 19.4 s, "a song that stuck with me", words blanket, bird, frown, the person shy and asks short questions
-21:57:22 writer 0 batch 8: 3 of 3 conversations, 2318 bytes, 19.0 s, "Autumn leaves falling", words sock, worm, curtain, the person tired
-21:57:40 writer 0 batch 9: 3 of 3 conversations, 2169 bytes, 18.3 s, "baking bread", words school, banana, bird, the person chatty and tells a small story of its own
-21:58:05 writer 0 batch 10: 3 of 3 conversations, 2365 bytes, 24.4 s, "beach day trip", words deer, pull, mud, the person friendly and asks the speaker where it lives at some point
-21:58:24 writer 0 batch 11: 3 of 3 conversations, 2168 bytes, 19.1 s, "bench by fountain", words catch, deer, window, the person in a hurry
-21:58:40 writer 0 batch 12: 3 of 3 conversations, 1920 bytes, 16.0 s, "Best friend long-distance calls", words grass, cream, nice, the person cheerful
-21:59:04 writer 0 batch 13: 3 of 3 conversations, 2391 bytes, 23.7 s, "bike route mapping", words hair, knee, short, the person worried about something
-21:59:26 writer 0 batch 14: 3 of 3 conversations, 2535 bytes, 21.8 s, "bird calls in trees", words dirty, sour, ankle, the person curious and asks the speaker who it is at some point
-21:59:43 writer 0 batch 15: 3 of 3 conversations, 2127 bytes, 17.3 s, "bird migration patterns", words sheep, lemon, play, the person tired
-22:00:01 writer 0 batch 16: 3 of 3 conversations, 1867 bytes, 18.6 s, "Birthday party ideas", words tall, lemon, eye, the person shy and asks short questions
-22:00:24 writer 0 batch 17: 3 of 3 conversations, 1993 bytes, 22.1 s, "blending smoothies", words pencil, ice, wrist, the person tired
-22:00:42 writer 0 batch 18: 3 of 3 conversations, 2145 bytes, 18.3 s, "Blooming flowers early spring", words tea, sing, egg, the person joking around
-22:01:14 writer 0 batch 19: 3 of 3 conversations, 2293 bytes, 31.9 s, "board gaming", words cake, couch, full, the person friendly and asks the speaker where it lives at some point
-22:01:37 writer 0 batch 20: 3 of 3 conversations, 2588 bytes, 23.5 s, "boat rental options", words table, sugar, sweet, the person tired
-22:01:57 writer 0 batch 21: 3 of 3 conversations, 1960 bytes, 19.7 s, "boiling soup", words flower, lamp, drop, the person curious and asks the speaker who it is at some point
+04:58:29 === corpus writers: 2 at once, 3 conversations of 5 exchanges a call, 199 topics, 261 seed words, persona data/chat-base2/persona.txt, into data/teacher (touch data/teacher/stop to end)
+04:58:29 writer 1: call failed on "Adopted family connections": teacher: no answer from http://127.0.0.1:8090
+04:58:29 writer 0: call failed on "a book that changed me": teacher: no answer from http://127.0.0.1:8090
+04:58:34 writer 0: call failed on "adopting shelter dogs": teacher: no answer from http://127.0.0.1:8090
+04:58:34 writer 1: call failed on "animal behavior observation": teacher: no answer from http://127.0.0.1:8090
+04:58:39 writer 0: call failed on "anxiety over money": teacher: no answer from http://127.0.0.1:8090
+04:58:39 writer 1: call failed on "aquarium plant maintenance": teacher: no answer from http://127.0.0.1:8090
+04:58:44 writer 1: call failed on "Autumn leaves falling": teacher: no answer from http://127.0.0.1:8090
+04:58:44 writer 0: call failed on "a song that stuck with me": teacher: no answer from http://127.0.0.1:8090
+04:58:49 writer 0: call failed on "baking bread": teacher: no answer from http://127.0.0.1:8090
+04:58:49 writer 1: call failed on "beach day trip": teacher: no answer from http://127.0.0.1:8090
+04:58:54 writer 0: call failed on "bench by fountain": teacher: no answer from http://127.0.0.1:8090
+04:58:54 writer 1: call failed on "Best friend long-distance calls": teacher: no answer from http://127.0.0.1:8090
+04:58:59 writer 1: call failed on "bird calls in trees": teacher: no answer from http://127.0.0.1:8090
+04:58:59 writer 0: call failed on "bike route mapping": teacher: no answer from http://127.0.0.1:8090
+04:59:04 writer 1: call failed on "Birthday party ideas": teacher: no answer from http://127.0.0.1:8090
+04:59:04 writer 0: call failed on "bird migration patterns": teacher: no answer from http://127.0.0.1:8090
+04:59:09 writer 1: call failed on "Blooming flowers early spring": teacher: empty reply: {"error":{"message":"Loading model","type":"unavailable_error","code":503}}
+04:59:09 writer 0: call failed on "blending smoothies": teacher: empty reply: {"error":{"message":"Loading model","type":"unavailable_error","code":503}}
+04:59:14 writer 1: call failed on "boat rental options": teacher: empty reply: {"error":{"message":"Loading model","type":"unavailable_error","code":503}}
+04:59:15 writer 0: call failed on "board gaming": teacher: empty reply: {"error":{"message":"Loading model","type":"unavailable_error","code":503}}
+04:59:20 writer 1: call failed on "book club picks": teacher: empty reply: {"error":{"message":"Loading model","type":"unavailable_error","code":503}}
+04:59:20 writer 0: call failed on "boiling soup": teacher: empty reply: {"error":{"message":"Loading model","type":"unavailable_error","code":503}}
+04:59:25 writer 0: call failed on "breeze through leaves": teacher: empty reply: {"error":{"message":"Loading model","type":"unavailable_error","code":503}}
+04:59:25 writer 1: call failed on "brewing coffee": teacher: empty reply: {"error":{"message":"Loading model","type":"unavailable_error","code":503}}
+05:00:00 writer 0 batch 13: 3 of 3 conversations, 2210 bytes, 29.9 s, "budgeting tips", words soft, pop, fast, the person in a hurry
+05:00:05 writer 1 batch 13: 3 of 3 conversations, 2463 bytes, 35.0 s, "camping gear check", words chair, fast, rug, the person excited
+05:00:25 writer 0 batch 14: 3 of 3 conversations, 2226 bytes, 25.6 s, "card collecting", words toad, fly, hit, the person a little sad
+05:00:32 writer 1 batch 14: 3 of 3 conversations, 2300 bytes, 27.1 s, "cat litter box preferences", words honey, cat, hair, the person in a hurry
+05:00:54 writer 0 batch 15: 3 of 3 conversations, 1884 bytes, 29.2 s, "chess matches", words desk, hen, steak, the person joking around
+05:00:57 writer 1 batch 15: 3 of 3 conversations, 1978 bytes, 25.5 s, "Childhood pet stories", words bee, tad, ankle, the person curious
+05:01:19 writer 1 batch 16: 3 of 3 conversations, 2159 bytes, 21.8 s, "chopping onions", words finger, jump, pull, the person excited
+05:01:35 writer 0 batch 16: 3 of 3 conversations, 2794 bytes, 40.9 s, "Chilly nights", words sock, closed, mountain, the person chatty and tells a small story of its own
+05:01:48 writer 1 batch 17: 3 of 3 conversations, 2387 bytes, 29.1 s, "cloud shapes drifting overhead", words wolf, rain, mud, the person worried about something
+05:02:13 writer 1 batch 18: 3 of 3 conversations, 1994 bytes, 24.4 s, "contentment reading books", words lock, dry, four, the person in a hurry
+05:02:18 writer 0 batch 17: 3 of 3 conversations, 2449 bytes, 42.8 s, "city museum visit", words kick, cake, bright, the person excited
+05:02:40 writer 0 batch 18: 3 of 3 conversations, 2093 bytes, 21.7 s, "College roommate bonds", words bread, wolf, six, the person friendly and asks the speaker where it lives at some point
+05:02:51 writer 1 batch 19: 3 of 3 conversations, 2253 bytes, 38.1 s, "cooking dinner", words walk, new, tad, the person tired
+05:03:15 writer 0 batch 19: 3 of 3 conversations, 2204 bytes, 34.5 s, "cooking class booking", words nose, flower, eat, the person worried about something
+05:03:26 writer 1 batch 20: 3 of 3 conversations, 2441 bytes, 35.5 s, "cool shade of old oak trees", words fun, dress, talk, the person bored
+05:03:49 writer 0 batch 20: 3 of 3 conversations, 2439 bytes, 34.8 s, "cooking rice", words nose, bone, walk, the person curious
+05:03:59 writer 1 batch 21: 3 of 3 conversations, 2045 bytes, 32.6 s, "crunching underfoot gravel", words quiet, wall, short, the person worried about something
+05:04:19 writer 0 batch 21: 3 of 3 conversations, 2043 bytes, 29.2 s, "Cousin competition games", words shoe, shelf, run, the person bored
+05:04:24 writer 1 batch 22: 3 of 3 conversations, 1930 bytes, 24.6 s, "dewdrops on morning spiderwebs", words table, cow, jump, the person shy and asks short questions
+05:04:49 writer 1 batch 23: 3 of 3 conversations, 1849 bytes, 25.0 s, "do you dream in color", words cookie, nut, grape, the person shy and asks short questions
+05:04:50 writer 0 batch 22: 3 of 3 conversations, 2214 bytes, 31.9 s, "darts throwing", words phone, fast, hot, the person curious
+05:05:16 writer 1 batch 24: 3 of 3 conversations, 2003 bytes, 27.4 s, "drone flying", words big, cook, arm, the person shy and asks short questions
+05:05:27 writer 0 batch 23: 2 of 3 conversations, 1750 bytes, 37.0 s, "dog breed characteristics", words chocolate, bat, ask, the person joking around
+05:05:48 writer 1 batch 25: 3 of 3 conversations, 2337 bytes, 31.9 s, "echoes off stone walls", words shoe, fast, rug, the person joking around
+05:06:12 writer 0 batch 24: 3 of 3 conversations, 2254 bytes, 44.9 s, "dread of public speaking", words snow, clap, door, the person shy and asks short questions
+05:06:15 writer 1 batch 26: 3 of 3 conversations, 2036 bytes, 26.6 s, "family gatherings", words carpet, ankle, chick, the person friendly and asks the speaker what it likes at some point
+05:06:39 writer 1 batch 27: 3 of 3 conversations, 2111 bytes, 24.9 s, "Family vacation memories", words valley, heart, donkey, the person chatty and tells a small story of its own
+05:06:51 writer 0 batch 25: 3 of 3 conversations, 2118 bytes, 38.7 s, "Dry leaves crunching feet", words dog, lemon, clean, the person friendly and asks the speaker where it lives at some point
+05:07:14 writer 1 batch 28: 3 of 3 conversations, 1618 bytes, 34.8 s, "fear of failure", words window, star, couch, the person a little sad
+05:07:19 writer 0 batch 26: 3 of 3 conversations, 2089 bytes, 28.4 s, "excitement for travel", words tv, cry, bug, the person joking around
+05:07:41 writer 1 batch 29: 3 of 3 conversations, 2131 bytes, 26.4 s, "feeling grateful", words hard, hen, one, the person bored
+05:07:51 writer 0 batch 27: 3 of 3 conversations, 2170 bytes, 31.2 s, "Family recipe secrets", words nice, catch, bird, the person chatty and tells a small story of its own
+05:08:15 writer 1 batch 30: 3 of 3 conversations, 2115 bytes, 34.0 s, "fermenting kimchi", words foot, river, phone, the person joking around
+05:08:23 writer 0 batch 28: 3 of 3 conversations, 2261 bytes, 32.7 s, "farmers market stroll", words count, mud, wolf, the person in a hurry
+05:09:01 writer 1 batch 31: 3 of 3 conversations, 2954 bytes, 46.2 s, "First frost", words phone, curtain, water, the person friendly and asks the speaker where it lives at some point
+05:09:06 writer 0 batch 29: 3 of 3 conversations, 2358 bytes, 42.7 s, "feeding schedules for cats", words rain, slow, jam, the person friendly and asks the speaker what it likes at some point
+05:09:34 writer 1 batch 32: 3 of 3 conversations, 2233 bytes, 33.3 s, "fishing trips", words five, glass, skirt, the person curious
+05:09:44 writer 0 batch 30: 3 of 3 conversations, 2282 bytes, 37.4 s, "feeling lost in a crowd", words ball, toad, two, the person chatty and tells a small story of its own
+05:10:09 writer 1 batch 33: 3 of 3 conversations, 2076 bytes, 34.7 s, "flowers blooming late spring", words honey, belly, cookie, the person friendly and asks the speaker where it lives at some point
+05:10:16 writer 0 batch 31: 3 of 3 conversations, 2095 bytes, 32.1 s, "ferret playtime activities", words soft, open, blue, the person worried about something
+05:10:47 writer 1 batch 34: 3 of 3 conversations, 2044 bytes, 37.9 s, "Fresh smell after rain", words short, lake, clean, the person cheerful
+05:10:58 writer 0 batch 32: 3 of 3 conversations, 2226 bytes, 42.0 s, "first frost turning leaves red", words open, leg, smooth, the person a little sad
+05:11:25 writer 1 batch 35: 2 of 2 conversations, 1406 bytes, 37.7 s, "Friendship breakup lessons", words sit, eat, pillow, the person cheerful
+05:11:31 writer 0 batch 33: 3 of 3 conversations, 1976 bytes, 33.3 s, "fish tank cleaning routines", words muffin, belt, lake, the person shy and asks short questions
+05:11:57 writer 1 batch 36: 3 of 3 conversations, 2131 bytes, 32.6 s, "frying eggs", words bear, toast, drop, the person curious and asks the speaker who it is at some point
+05:12:10 writer 0 batch 34: 3 of 3 conversations, 2430 bytes, 38.9 s, "Foggy mornings", words door, hip, table, the person joking around
+05:12:38 writer 1 batch 37: 3 of 3 conversations, 2705 bytes, 41.1 s, "garden progress", words paper, bed, ring, the person excited
+05:12:41 writer 0 batch 35: 3 of 3 conversations, 2381 bytes, 31.1 s, "Friend group dynamics", words sheep, pop, school, the person worried about something
+05:13:13 writer 0 batch 36: 3 of 3 conversations, 2289 bytes, 32.4 s, "frustration with traffic jams", words banana, sour, hard, the person curious
+05:13:21 writer 1 batch 38: 3 of 3 conversations, 2107 bytes, 42.4 s, "golf putting", words throw, four, nine, the person friendly and asks the speaker where it lives at some point
+05:13:46 writer 0 batch 37: 3 of 3 conversations, 2344 bytes, 33.0 s, "gardening pots", words watch, grape, tell, the person chatty and tells a small story of its own
+05:13:49 writer 1 batch 39: 3 of 3 conversations, 2035 bytes, 28.0 s, "Grandparent wisdom quotes", words wave, ball, watch, the person friendly and asks the speaker where it lives at some point
+05:14:19 writer 0 batch 38: 3 of 3 conversations, 2177 bytes, 32.5 s, "Golden sunset short day", words coat, cold, wet, the person joking around
+05:14:21 writer 1 batch 40: 3 of 3 conversations, 2126 bytes, 32.8 s, "grooming long-haired rabbits", words new, friend, six, the person bored
+05:14:42 writer 0 batch 39: 3 of 3 conversations, 1916 bytes, 22.9 s, "good weather day", words goat, paint, potato, the person a little sad
+05:14:55 writer 1 batch 41: 3 of 3 conversations, 2398 bytes, 33.2 s, "guinea pig diet needs", words sofa, finger, wide, the person curious
+05:15:19 writer 0 batch 40: 3 of 3 conversations, 2246 bytes, 37.3 s, "grilling meat", words owl, ring, pop, the person worried about something
+05:15:26 writer 1 batch 42: 3 of 3 conversations, 1989 bytes, 31.6 s, "happy birthday", words cry, chick, milk, the person worried about something
+05:15:57 writer 1 batch 43: 3 of 3 conversations, 2313 bytes, 30.6 s, "hobby projects", words trail, butter, two, the person in a hurry
+05:16:02 writer 0 batch 41: 3 of 3 conversations, 2067 bytes, 42.7 s, "group activity voting", words mouth, jump, field, the person friendly and asks the speaker where it lives at some point
+05:16:36 writer 0: call failed on "hamster wheel sizes": teacher: no answer from http://127.0.0.1:8090
+05:16:36 writer 1: call failed on "home decor ideas": teacher: no answer from http://127.0.0.1:8090
+05:16:41 writer 1: call failed on "how my voice sounds to others": teacher: empty reply: {"error":{"message":"Loading model","type":"unavailable_error","code":503}}
+05:16:41 writer 0: call failed on "hiking trails": teacher: empty reply: {"error":{"message":"Loading model","type":"unavailable_error","code":503}}
+05:16:46 writer 1: call failed on "Icy pavements winter morning": teacher: empty reply: {"error":{"message":"Loading model","type":"unavailable_error","code":503}}
+05:16:46 writer 0: call failed on "Holiday gift exchange rules": teacher: empty reply: {"error":{"message":"Loading model","type":"unavailable_error","code":503}}
+05:16:51 writer 0: call failed on "hotel room availability": teacher: empty reply: {"error":{"message":"Loading model","type":"unavailable_error","code":503}}
+05:16:51 writer 1: call failed on "knitting scarves": teacher: empty reply: {"error":{"message":"Loading model","type":"unavailable_error","code":503}}
+05:16:56 writer 0: call failed on "Humid air late summer": teacher: empty reply: {"error":{"message":"Loading model","type":"unavailable_error","code":503}}
+05:16:56 writer 1: call failed on "loneliness at night": teacher: empty reply: {"error":{"message":"Loading model","type":"unavailable_error","code":503}}
+05:17:32 writer 1 batch 49: 3 of 3 conversations, 2287 bytes, 31.1 s, "lunch options", words ten, mud, pillow, the person excited
+05:17:38 writer 0 batch 47: 3 of 3 conversations, 2416 bytes, 37.5 s, "joy in cooking dinner", words skin, chips, sofa, the person bored
+05:18:01 writer 1 batch 50: 3 of 3 conversations, 2061 bytes, 29.3 s, "marinating chicken", words butter, bone, run, the person cheerful
+05:18:03 writer 0 batch 48: 3 of 3 conversations, 1929 bytes, 24.5 s, "local festival dates", words field, stone, corn, the person shy and asks short questions
+05:18:21 writer 1 batch 51: 3 of 3 conversations, 1903 bytes, 19.8 s, "mixing cocktails", words smooth, sit, grass, the person a little sad
+05:18:23 writer 0 batch 49: 3 of 3 conversations, 1866 bytes, 19.9 s, "Long daylight hours summer", words clap, cloud, bag, the person shy and asks short questions
+05:18:42 writer 1 batch 52: 3 of 3 conversations, 1991 bytes, 20.7 s, "morning commute", words smooth, bone, cake, the person tired
+05:18:48 writer 0 batch 50: 3 of 3 conversations, 2043 bytes, 24.8 s, "making pasta", words drop, red, cook, the person friendly and asks the speaker where it lives at some point
+05:19:12 writer 0 batch 51: 3 of 3 conversations, 1990 bytes, 24.2 s, "missing home", words lemon, six, mouth, the person tired
+05:19:22 writer 1 batch 53: 3 of 3 conversations, 2088 bytes, 40.2 s, "mud on boots", words pencil, tap, skirt, the person tired
+05:19:39 writer 0 batch 52: 3 of 3 conversations, 2349 bytes, 27.7 s, "model trains", words four, mud, couch, the person curious and asks the speaker who it is at some point
+05:19:48 writer 1 batch 54: 3 of 3 conversations, 2114 bytes, 26.4 s, "my favorite morning ritual", words run, ten, nice, the person cheerful
+05:20:13 writer 1 batch 55: 3 of 3 conversations, 1996 bytes, 24.3 s, "Neighbor friendship beginnings", words mouth, bear, wave, the person bored
+05:20:15 writer 0 batch 53: 3 of 3 conversations, 2493 bytes, 35.5 s, "movie recommendations", words roof, grass, cheese, the person cheerful
+05:20:38 writer 0 batch 54: 3 of 3 conversations, 2144 bytes, 23.1 s, "music playlists", words phone, wrist, seal, the person friendly and asks the speaker where it lives at some point
+05:20:45 writer 1 batch 56: 3 of 3 conversations, 2554 bytes, 32.1 s, "nervous about first date", words cold, wrist, hair, the person curious and asks the speaker who it is at some point
+05:21:11 writer 1 batch 57: 3 of 3 conversations, 2126 bytes, 26.5 s, "origami folding", words hip, toast, milk, the person worried about something
+05:21:12 writer 0 batch 55: 3 of 3 conversations, 2305 bytes, 33.8 s, "my first day of school", words shelf, duck, chocolate, the person friendly and asks the speaker where it lives at some point
+05:21:37 writer 0 batch 56: 3 of 3 conversations, 2026 bytes, 25.3 s, "neighbor news", words chair, box, valley, the person worried about something
+05:21:45 writer 1 batch 58: 3 of 3 conversations, 1246 bytes, 33.6 s, "Parenting style differences", words water, happy, head, the person chatty and tells a small story of its own
+05:22:08 writer 0 batch 57: 3 of 3 conversations, 2103 bytes, 30.7 s, "Old photo album discoveries", words cookie, old, donkey, the person chatty and tells a small story of its own
+05:22:20 writer 1 batch 59: 3 of 3 conversations, 2015 bytes, 35.2 s, "path along riverbank", words window, old, soup, the person a little sad
+05:22:40 writer 0 batch 58: 3 of 3 conversations, 2733 bytes, 32.1 s, "painting watercolors", words fox, tall, pull, the person tired
+05:22:45 writer 1 batch 60: 3 of 3 conversations, 2003 bytes, 24.8 s, "peeling potatoes", words tea, bee, loud, the person excited
+05:23:12 writer 0 batch 59: 3 of 3 conversations, 2248 bytes, 32.3 s, "park permit application", words tad, melon, chocolate, the person bored
+05:23:26 writer 1 batch 61: 3 of 3 conversations, 2373 bytes, 41.1 s, "pet vaccination schedules", words blue, push, sky, the person in a hurry
+05:23:33 writer 0 batch 60: 3 of 3 conversations, 1916 bytes, 20.6 s, "peaceful morning walk", words pencil, ten, blue, the person a little sad
+05:23:54 writer 1 batch 62: 3 of 3 conversations, 2233 bytes, 27.7 s, "plating desserts", words belly, red, hot, the person excited

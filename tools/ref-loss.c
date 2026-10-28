@@ -2,18 +2,27 @@
  * ref-loss: the mean next-token loss of a checkpoint over a token stream, on the host in double (tools/cref.h: the
  * 120 columns, the bus off as the lineage was trained). The measurement of what a change to the weights costs, such
  * as the 3-bit quantisation of tools/quant3.c, and of a run's held-out loss while the card is busy training.
- *   ref-loss CKPT IDS.u16 NTOK [SKIP] [--ngram TABLES GATES] [--moe POOL.f32 [--moe-bias X]]
+ *   ref-loss CKPT IDS.u16 NTOK [SKIP] [--ngram TABLES GATES] [--ctx] [--moe POOL.f32 [--moe-bias X]] [--dump FILE]
  * Steps the stream from token SKIP (default 0) for NTOK tokens with the fast weights carried across the whole pass
  * (the state starts from zero, as a session does) and prints the loss in nats and bits per token and the top-1
  * accuracy, with a running line every 5,000 tokens. The last token has no target: NTOK - 1 predictions. With
  * --ngram the model is read with its n-gram memory: TABLES = the run's tables (host/ngtables.h, mapped read-only;
- * the live file in /dev/shm, or a tables-N.f32 copy) and GATES = its gates (ckpt-N-gates.f32, 2 x 128 F32); the
- * rows of each step's suffix (the two ids before it in the stream, CX_NG_PAD before SKIP) enter as the card does it.
+ * the live file in /dev/shm, or a round's tables copy) and GATES = its gates (ckpt-N-gates.f32: the 2 x 128 n-gram
+ * gates, then from stage 3 the context gates, 1,536 B); the rows of each step's suffix (the two ids before it in the
+ * stream, CX_NG_PAD before SKIP) enter as the card does it.
+ * With --ctx the model is read with its context memory (stage 3, card/ctx.h; tools/ref.h rctx): every column's ring of
+ * 16,384 keys and values, empty at SKIP as a session's view is after its reset, its gate from the GATES file's
+ * context part (floats 256 to 375). The card has run the memory since 2026-10-27 16:44; a reading without --ctx is the
+ * model minus its retrieval, and the gap grows as the context gates open (round 16 of data/live-teacher2: mean -2.55,
+ * max +3.22). One difference stays: the reference seeds its index's centroids from the stream's first 256 keys, the
+ * card's centroids carry the training stream's; the exact last 256 steps are the same either way.
  * With --moe the model is read as the MoE model (lib/cx-moe.h): POOL.f32 = a pool the daemon pushed (pool-N.f32,
  * 4,293,918,720 B, mapped read-only), the fixed seeded keys, the home bonus X (default 0: the keys alone decide, as
  * a run that has lowered its bonus to 0 routes; the bonus of the run's last report for a checkpoint taken before).
  * The checkpoint's own MLP regions (the home experts) are not used then; with the bonus high enough to route every
  * head home the result equals the dense reading of the same checkpoint.
+ * --dump FILE writes the loss of every prediction, F32 nats, NTOK - 1 of them in stream order (prediction s is of
+ * token SKIP + s + 1), for the masks of tools/answer-bits.c.
  */
 #include "cref.h"
 #include "../host/ngtables.h"
@@ -42,11 +51,16 @@ static int load_ckpt(cref *C, const char *path)
 	return 0;
 }
 
-static int load_gates(const char *path, float *gates)
+/* the gates file: the n-gram gates always; the whole block (CX_GATES_FLOATS) when it holds one, else the context gates
+ * stay at their fresh value and *full is 0 */
+static int load_gates(const char *path, float *gates, int *full)
 {
 	FILE *f = fopen(path, "rb");
-	if (!f || fread(gates, sizeof *gates, CX_NG_ORDERS * CX_DE, f) != CX_NG_ORDERS * CX_DE) { perror(path); return -1; }
+	if (!f) { perror(path); return -1; }
+	const size_t got = fread(gates, sizeof *gates, CX_GATES_FLOATS, f);
 	fclose(f);
+	if (got < (size_t)(CX_NG_ORDERS * CX_DE)) { fprintf(stderr, "ref-loss: %s holds %zu floats, the n-gram gates need %d\n", path, got, CX_NG_ORDERS * CX_DE); return -1; }
+	*full = got == CX_GATES_FLOATS;
 	return 0;
 }
 
@@ -59,18 +73,22 @@ static double now(void)
 
 int main(int argc, char **argv)
 {
-	if (argc < 4) { fprintf(stderr, "usage: ref-loss CKPT IDS.u16 NTOK [SKIP] [--ngram TABLES GATES] [--moe POOL.f32 [--moe-bias X]]\n"); return 2; }
+	if (argc < 4) { fprintf(stderr, "usage: ref-loss CKPT IDS.u16 NTOK [SKIP] [--ngram TABLES GATES] [--ctx] [--moe POOL.f32 [--moe-bias X]] [--dump FILE]\n"); return 2; }
 	const long ntok = atol(argv[3]);
 	long skip = 0;
-	const char *tables = NULL, *gates_path = NULL, *pool_path = NULL;
+	const char *tables = NULL, *gates_path = NULL, *pool_path = NULL, *dump_path = NULL;
 	double pool_bias = 0;
+	int ctx = 0;
 	for (int i = 4; i < argc; i++) {
 		if (!strcmp(argv[i], "--ngram") && i + 2 < argc) { tables = argv[++i]; gates_path = argv[++i]; }
+		else if (!strcmp(argv[i], "--ctx")) ctx = 1;
 		else if (!strcmp(argv[i], "--moe") && i + 1 < argc) pool_path = argv[++i];
 		else if (!strcmp(argv[i], "--moe-bias") && i + 1 < argc) pool_bias = atof(argv[++i]);
+		else if (!strcmp(argv[i], "--dump") && i + 1 < argc) dump_path = argv[++i];
 		else if (argv[i][0] != '-') skip = atol(argv[i]);
 		else { fprintf(stderr, "ref-loss: unknown option %s\n", argv[i]); return 2; }
 	}
+	if (ctx && !gates_path) { fprintf(stderr, "ref-loss: --ctx takes its gates from the --ngram GATES file\n"); return 2; }
 	cref C;
 	cref_alloc(&C, CX_NCOL, WINDOW);
 	if (load_ckpt(&C, argv[1])) return 1;
@@ -90,13 +108,21 @@ int main(int argc, char **argv)
 		printf("ref-loss: MoE on: pool %s, the seeded keys, home bonus %g\n", pool_path, pool_bias);
 	}
 	ngtables NG;
-	static float gates[CX_NG_ORDERS * CX_DE];
+	static float gates[CX_GATES_FLOATS];
 	if (tables) {
-		if (ng_open(&NG, tables, 0) || load_gates(gates_path, gates)) return 1;
+		int full = 0;
+		if (ng_open(&NG, tables, 0) || load_gates(gates_path, gates, &full)) return 1;
 		cref_ng_tables(&C, (const float *const *)NG.T, gates);
 		double gsum[CX_NG_ORDERS] = { 0 };
 		for (int o = 0; o < CX_NG_ORDERS; o++) for (int i = 0; i < CX_DE; i++) gsum[o] += gates[o * CX_DE + i];
 		printf("ref-loss: n-gram memory on: %s, gates %s (means %.3f %.3f)\n", tables, gates_path, gsum[0] / CX_DE, gsum[1] / CX_DE);
+		if (ctx) {
+			if (!full) { fprintf(stderr, "ref-loss: --ctx needs the %d-float gates block; %s holds only the n-gram gates\n", CX_GATES_FLOATS, gates_path); return 2; }
+			cref_ctx_init(&C);
+			double cs = 0, cmax = -1e300;
+			for (int c = 0; c < C.N; c++) { C.ctxg[c] = gates[CX_GATES_CTX + c]; cs += C.ctxg[c]; if (C.ctxg[c] > cmax) cmax = C.ctxg[c]; }
+			printf("ref-loss: context memory on: %d steps a head, the gates from %s (mean %.3f, max %.3f)\n", CX_CTX_WINDOW, gates_path, cs / C.N, cmax);
+		}
 	}
 	FILE *f = fopen(argv[2], "rb");
 	if (!f) { perror(argv[2]); return 1; }
@@ -104,6 +130,8 @@ int main(int argc, char **argv)
 	fseek(f, skip * 2, SEEK_SET);
 	if (fread(tok, 2, (size_t)ntok, f) != (size_t)ntok) { fprintf(stderr, "ref-loss: %s holds fewer than %ld ids after %ld\n", argv[2], ntok, skip); return 1; }
 	fclose(f);
+	FILE *dump = NULL;
+	if (dump_path && !(dump = fopen(dump_path, "wb"))) { perror(dump_path); return 1; }
 	static float zero_bus[CX_DB * CX_NBUS];
 	const float *ext[WINDOW];
 	for (int t = 0; t < WINDOW; t++) ext[t] = zero_bus;
@@ -129,16 +157,20 @@ int main(int argc, char **argv)
 		double sum = 0;
 		for (int v = 0; v < CX_VOCAB; v++) sum += exp(l[v] - max);
 		const int next = tok[s + 1];
-		nll += max + log(sum) - l[next];
+		const double e = max + log(sum) - l[next];
+		nll += e;
 		hits += best == next;
+		if (dump) { const float ef = (float)e; fwrite(&ef, sizeof ef, 1, dump); }
 		if ((s + 1) % 5000 == 0) {
 			printf("ref-loss: %ld tokens: %.4f nats = %.4f bits/token, top-1 %.4f, %.1f tok/s\n", s + 1, nll / (s + 1), nll / (s + 1) / log(2.0), (double)hits / (s + 1), (s + 1) / (now() - t0));
 			fflush(stdout);
 		}
 	}
+	if (dump && fclose(dump)) { perror(dump_path); return 1; }
 	const long n = ntok - 1;
-	char how[160] = "";
+	char how[200] = "";
 	if (tables) strcat(how, " with the memory");
+	if (ctx) strcat(how, " with the context memory");
 	if (pool_path) snprintf(how + strlen(how), sizeof how - strlen(how), " with the pool (bonus %g)", pool_bias);
 	printf("ref-loss: %s on %s[%ld..%ld)%s: %.4f nats = %.4f bits/token over %ld predictions, top-1 %.4f, %.1f s\n", argv[1], argv[2], skip, skip + ntok, how, nll / n, nll / n / log(2.0), n, (double)hits / n, now() - t0);
 	return 0;

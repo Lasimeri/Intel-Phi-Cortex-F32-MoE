@@ -9,7 +9,7 @@
 # loop's record: "round R chunk C: GRADE grammar G relevance R persona P: why (matches in a row 0) | STUDENT => REWRITE",
 # and the pass ends with "round R corrections: K graded, mean grammar X relevance Y persona Z, N kept".
 #   tools/teacher-correct.sh CORPUS_DIR PERSONA.txt VOCAB OUT.jsonl ROUND CHUNK [--count K] [--tables FILE] [--ngen N]
-#                            [--seed S] [--batches B] [--log FILE] [--url URL]
+#                            [--seed S] [--batches B] [--log FILE] [--url URL] [--record FILE [--record-bytes B]]
 # Defaults: --count 24, --tables /dev/shm/cortex-teacher-tables.f32, --ngen 40, --seed 1, --batches 60 (the newest
 # batch files drawn from), --log results/identity-loop.log.
 set -u
@@ -17,9 +17,11 @@ cd "$(dirname "$0")/.." || exit 1
 [ $# -ge 6 ] || { echo "usage: tools/teacher-correct.sh CORPUS_DIR PERSONA.txt VOCAB OUT.jsonl ROUND CHUNK [--count K] [--tables FILE] [--ngen N] [--seed S] [--batches B] [--log FILE] [--url URL]" >&2; exit 2; }
 corpus=$1; persona=$2; vocab=$3; out=$4; round=$5; chunk=$6
 shift 6
-count=24; tables=/dev/shm/cortex-teacher-tables.f32; ngen=40; seed=1; batches=60; log=results/identity-loop.log; urlopt=()
+count=24; tables=/dev/shm/cortex-teacher-tables.f32; ngen=40; seed=1; batches=60; log=results/identity-loop.log; urlopt=(); record=""; record_bytes=160000
 while [ $# -gt 0 ]; do
 	case "$1" in
+	--record) record=$2; shift 2 ;;
+	--record-bytes) record_bytes=$2; shift 2 ;;
 	--count) count=$2; shift 2 ;;
 	--tables) tables=$2; shift 2 ;;
 	--ngen) ngen=$2; shift 2 ;;
@@ -38,6 +40,14 @@ ls -t "$corpus"/batch-*.jsonl 2>/dev/null | head -n "$batches" | xargs -r cat | 
 n=$(wc -l < "$W/picked.jsonl")
 [ "$n" -gt 0 ] || { say "round $round corrections: no corpus conversation to draw from"; exit 1; }
 : > "$out"
+# the student's record for the grader (--record): the newest --record-bytes of it, fixed for the pass, then this pass's
+# own items appended as they are graded, so every call's system message starts with the same bytes (the prompt cache)
+hist=()
+if [ -n "$record" ]; then
+	touch "$record"
+	tail -c "$record_bytes" "$record" | sed '1{/^round /!d}' > "$W/history.txt"
+	hist=(--history "$W/history.txt")
+fi
 graded=0; kept=0; sg=0; sr=0; sp=0; i=0
 RANDOM=$((seed * 7919))
 while IFS= read -r conv; do
@@ -58,12 +68,17 @@ while IFS= read -r conv; do
 	prompt+=$(printf '<|user|>%s<|end|>\n<|assistant|>' "$u")
 	printf 'person: %s\n' "$u" >> "$W/ctx.txt"
 	reply=$(build/host/cortex --live "$prompt" "$ngen" --no-echo --stop-eot --vocab "$vocab" --ngram "$tables" --seed $((seed + i)) --temp 0.5 --topk 75 --topp 0.95 --minp 0.05 --rp 1.2 --stop '<|end|>' --stop '<|user|>' --stop '<|system|>' --stop '<|assistant|>' 2> /dev/null | tr '\n' ' ' | sed -E 's/<\|(end|user|system|assistant|endoftext)\|>.*//; s/^ +//; s/ +$//')
-	grade=$(tools/teacher-grade.sh "$persona" "$W/ctx.txt" "$reply" "${urlopt[@]}" 2> "$W/grade.err") || { say "round $round chunk $chunk: the teacher gave no grade for item $i: $(tail -n 1 "$W/grade.err" | cut -c1-100)"; continue; }
+	grade=$(tools/teacher-grade.sh "$persona" "$W/ctx.txt" "$reply" "${hist[@]}" "${urlopt[@]}" 2> "$W/grade.err") || { say "round $round chunk $chunk: the teacher gave no grade for item $i: $(tail -n 1 "$W/grade.err" | cut -c1-100)"; continue; }
 	g=$(printf '%s' "$grade" | jq -r '.grammar'); r=$(printf '%s' "$grade" | jq -r '.relevance'); p=$(printf '%s' "$grade" | jq -r '.persona')
 	why=$(printf '%s' "$grade" | jq -r '.why'); rewrite=$(printf '%s' "$grade" | jq -r '.rewrite')
 	graded=$((graded + 1)); sg=$((sg + ${g%.*})); sr=$((sr + ${r%.*})); sp=$((sp + ${p%.*}))
 	say "round $round chunk $chunk: GRADE grammar $g relevance $r persona $p: $why (matches in a row 0) | $(printf '%s' "$reply" | cut -c1-200) => $(printf '%s' "$rewrite" | cut -c1-200)"
 	printf '%s\n' "$conv" | jq -c --argjson t "$t" --arg rw "$rewrite" '.messages |= (.[0:2 * $t] + [{ role: "assistant", content: $rw }])' >> "$out" && kept=$((kept + 1))
+	if [ -n "$record" ]; then   # the item into the student's record and the pass's history: one line, newlines flattened
+		rline=$(printf 'round %s: person: %s | student: %s | grades %s %s %s | rewrite: %s' "$round" "$u" "$reply" "$g" "$r" "$p" "$rewrite" | tr '\n' ' ')
+		printf '%s\n' "$rline" >> "$record"
+		printf '%s\n' "$rline" >> "$W/history.txt"
+	fi
 done < "$W/picked.jsonl"
 if [ "$graded" -gt 0 ]; then
 	say "round $round corrections: $graded graded, mean grammar $(awk -v s=$sg -v n=$graded 'BEGIN { printf "%.1f", s / n }') relevance $(awk -v s=$sr -v n=$graded 'BEGIN { printf "%.1f", s / n }') persona $(awk -v s=$sp -v n=$graded 'BEGIN { printf "%.1f", s / n }'), $kept kept in $out"

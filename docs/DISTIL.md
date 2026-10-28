@@ -108,3 +108,16 @@ differ, counts the miss (CX_T_SOFT_BAD, "bad slots N" in the daemon's and the co
 log. The cost of the check: 192 additions and one uncached 8-byte read a chunk, under 2 microseconds against a
 chunk of 70 ms. A deployment is verified by holding the daemon's `soft N of M` per report window against the
 file's own count for the same chunks (the scratchpad's softwin tool), not by the report alone.
+
+## The 52-byte record and the alignment check (10-28 05:15 to 05:20)
+
+The record carries a loss weight since 22:00 (52 bytes: uint16 id[8], float p[8], float w). The slot checksum proves
+the copy to the card, not that the records belong to their tokens, so every stream is now checked against its tokens
+(tools/soft-check: the share of distribution-carrying records whose ids hold the actual next token; the alignment
+gives the hard target the leftover mass, so an aligned stream reads 100 %, a stream shifted by one token reads 19 to
+21 % or under 1 %): train.soft 100.0 % of 364,368 records (controls +1 20.0 %, -1 0.2 %), valid.soft 100.0 % of
+19,517, round 18's 100.0 % of 56,438 (05:19 to 05:20). The driver refuses a round that fails it and rebuilds a stream
+whose record count differs from its token count instead of padding it. It refused round 18 once: build.sh had no
+rule for tools/mixstream, the 48-byte binary of the night wrote 48-byte records into the 52-byte run (4,889,904 bytes
+for 101,873 tokens); the rule exists now. On the card, round 18's soft count per window of 100 chunks equals the
+file's in every window (1719, 1696, 1719, 1682, 1637, 1735, 1713, 1650 of 3,200), zero checksum misses.

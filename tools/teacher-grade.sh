@@ -7,16 +7,24 @@
 # {"grammar": G, "relevance": R, "persona": P, "why": "...", "rewrite": "..."}. Exit 1 when the server fails, 2 when the
 # teacher's answer holds no usable rewrite or grades. The call goes through tools/teacher.sh (CLAUDE.md as the system
 # prompt, the user's sampling, the repeat penalty at 1.0 for the JSON answer).
-#   tools/teacher-grade.sh PERSONA.txt CONTEXT.txt "REPLY" [--url URL]
+#   tools/teacher-grade.sh PERSONA.txt CONTEXT.txt "REPLY" [--history FILE] [--url URL]
+# --history FILE: the student's record (2026-10-28 04:55, user: the teacher should "remember how the student model
+# responds instead of producing mindless responses in relation to whatever the student model says"): its earlier
+# replies, oldest first, one a line, with the person's line each answered, the grades and the teacher's rewrite
+# (tools/teacher-correct.sh keeps it in DIR/student-record.txt). Without it every call is a fresh request that sees
+# one reply and nothing of the student. The record stands at the end of the system message, after the rubric and
+# before the item, so the calls of a pass share its prefix and the server's prompt cache reads it once (the server
+# holds 64K tokens since 05:xx, tools/teacher-serve.sh).
 set -u
 cd "$(dirname "$0")/.." || exit 1
-[ $# -ge 3 ] || { echo "usage: tools/teacher-grade.sh PERSONA.txt CONTEXT.txt \"REPLY\" [--url URL]" >&2; exit 2; }
+[ $# -ge 3 ] || { echo "usage: tools/teacher-grade.sh PERSONA.txt CONTEXT.txt \"REPLY\" [--history FILE] [--url URL]" >&2; exit 2; }
 persona=$1; ctx=$2; reply=$3
 shift 3
-urlopt=()
+urlopt=(); history=""
 while [ $# -gt 0 ]; do
 	case "$1" in
 	--url) urlopt=(--url "$2"); shift 2 ;;
+	--history) history=$2; shift 2 ;;
 	*) echo "teacher-grade: unknown option $1" >&2; exit 2 ;;
 	esac
 done
@@ -27,6 +35,14 @@ trap 'rm -f "$task"' EXIT
 cat > "$task" <<'EOF'
 You grade and correct a very small chat model that speaks in the first person as the persona you are given. You see the conversation so far (the person and the speaker, which is the model) and the model's latest reply to the person's last line. Answer with a JSON object only: {"grammar": G, "relevance": R, "persona": P, "why": "...", "rewrite": "..."}. grammar, 0 to 10: is the reply fluent, well-formed, simple English (0 is gibberish, 10 is flawless). relevance, 0 to 10: does it answer the person's last line and fit the conversation (0 ignores it, 10 answers it well). persona, 0 to 10: does it speak as one single self consistent with the persona, saying persona facts only when the person asked about the speaker, never as an assistant or an AI, never about parts, heads, columns or siblings inside itself, never inventing facts about itself (10 is fully in character). why: one short sentence naming the main fault, or "good" when there is none. rewrite: what the speaker should have said at that point, one or two short plain sentences a child reads easily, in the persona's voice, keeping whatever was right in the model's reply; it never mentions the model, the grades or a mistake, and it never uses quotation marks.
 EOF
+if [ -n "$history" ] && [ -s "$history" ]; then
+	cat >> "$task" <<EOF
+
+This student's record so far, oldest first: each line is one of its earlier replies with the person's line it answered, your grades (grammar relevance persona) and your rewrite. Use it as a teacher uses what a pupil did before: when the latest reply repeats a mistake the student keeps making (a phrase it tacks onto every answer, an answer that ignores the question, yes to everything, a wrong fact it repeats), name that in why, and make the rewrite the right answer to the person's last line that shows exactly what this student keeps getting wrong. Grade the latest reply on its own merits.
+
+$(cat "$history")
+EOF
+fi
 out=$(tools/teacher.sh "$task" "The persona:
 $(cat "$persona")
 

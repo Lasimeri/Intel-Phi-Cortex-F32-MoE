@@ -34,7 +34,19 @@
 #   tools/teacher-scratch.sh CORPUS_DIR PERSONA.txt [--ckdir DIR] [--tables FILE] [--vocab-bytes B]
 #                            [--round-chunks N] [--lr X] [--prompt "..."] [--valid-every K] [--corrections K]
 #                            [--ratio R] [--keep-rounds M] [--lambda X] [--replay|--no-replay] [--mem-dropout P]
-#                            [--probe QUESTIONS.jsonl] [--weight-user W]
+#                            [--probe QUESTIONS.jsonl] [--weight-user W] [--epoch-lr X]
+# (v5, 2026-10-28 05:xx) --epoch-lr X: the learning rate of the epoch rounds (default --lr; 1e-3 from 05:xx: sixteen
+# rounds at a constant 3e-3 left the window losses bouncing 2.7 to 3.3 with no trend, docs/REASON.md). The grader of
+# the correction pass reads the student's record, DIR/student-record.txt (tools/teacher-correct.sh --record: every
+# graded reply with the person's line, the grades and the rewrite; the user, 04:55: the teacher should remember how
+# the student responds). Before every round the round's soft records are checked against its tokens
+# (tools/soft-check: the next token among the ids of at least 85 % of the distribution-carrying records) and the round
+# is refused when they do not align; a stream whose record count differs from its token count is rebuilt from the
+# batch list once and refused when it still differs (no padding). The coach's samples use the persona's chat prompt and
+# the teacher's own word list, DIR/words-teacher.txt (2026-10-28 04:58, user: "stop using the story telling dataset";
+# nothing of the stories was ever in this instance's stream, its weights, vocabulary or tables: the coach's default
+# sample prompt "Once upon a time" and its stories word list were the last traces). The held-out's memory reading
+# runs the context memory too (tools/ref-loss --ctx).
 # Defaults: --ckdir data/live-teacher, --tables /dev/shm/cortex-teacher-tables.f32, --vocab-bytes 300000,
 # --round-chunks 1000, --lr 0.003, --prompt "Introduce yourself", --valid-every 20, --corrections 20 (0 turns the
 # loop off), --ratio 6, --keep-rounds 3, --lambda 0.5 (0 trains on the hard targets alone), --replay (an epoch round
@@ -52,7 +64,7 @@ cd "$(dirname "$0")/.." || exit 1
 [ $# -ge 2 ] || { echo "usage: tools/teacher-scratch.sh CORPUS_DIR PERSONA.txt [--ckdir DIR] [--tables FILE] [--vocab-bytes B] [--round-chunks N] [--lr X] [--prompt \"...\"] [--valid-every K] [--corrections K] [--ratio R] [--keep-rounds M] [--lambda X]" >&2; exit 2; }
 corpus=$1; persona=$2
 shift 2
-ckdir=data/live-teacher; tables=/dev/shm/cortex-teacher-tables.f32; vocab_bytes=300000; round_chunks=1000; lr=0.003; prompt="Introduce yourself"; valid_every=20; corrections=20; ratio=6; keep_rounds=3; lambda=0.5; replay=1; mem_dropout=0; probe=data/probe/questions.jsonl; weight_user=1
+ckdir=data/live-teacher; tables=/dev/shm/cortex-teacher-tables.f32; vocab_bytes=300000; round_chunks=1000; lr=0.003; prompt="Introduce yourself"; valid_every=20; corrections=20; ratio=6; keep_rounds=3; lambda=0.5; replay=1; mem_dropout=0; probe=data/probe/questions.jsonl; weight_user=1; epoch_lr=""
 rec=52   # bytes per soft record (lib/cx-proto.h cx_soft)
 while [ $# -gt 0 ]; do
 	case "$1" in
@@ -72,6 +84,7 @@ while [ $# -gt 0 ]; do
 	--mem-dropout) mem_dropout=$2; shift 2 ;;
 	--probe) probe=$2; shift 2 ;;
 	--weight-user) weight_user=$2; shift 2 ;;
+	--epoch-lr) epoch_lr=$2; shift 2 ;;
 	*) echo "teacher-scratch: unknown option $1" >&2; exit 2 ;;
 	esac
 done
@@ -104,12 +117,14 @@ align_batch() {
 	build/host/soft-align "$vocab" "$W/batch.turns" "$W/batch.lp.tsv" "$2" "$3" --lambda "$lambda" --weight-user "$weight_user" >> "$W/soft-align.out" 2>&1
 }
 # the soft-target records run beside the token streams, one $rec-byte record a token. The format and the weight they
-# were written with stand in DIR/soft-format.txt: when either changes, both streams are rebuilt from the batches of
-# DIR/work/encoded.txt in their order (the same walk as encode_new, so the token counts agree exactly); a stream left
-# short by a stop between the two appends is padded with empty records up to its token count, a longer one cut
+# were written with stand in DIR/soft-format.txt: when either changes, or a stream's record count differs from its
+# token count (a stop between the two appends), both streams are rebuilt from the batches of DIR/work/encoded.txt in
+# their order (the same walk as encode_new: every batch whose text converted and encoded is in the token stream, so it
+# gets records, empty ones when its alignment fails; none failed in 1,387 alignments to 2026-10-28 05:07). Then the
+# counts must agree and the records must align (tools/soft-check), or the driver stops: it never pads.
 soft_format="rec $rec weight-user $weight_user lambda $lambda"
 resoft_all() {
-	local f nb=0 t v
+	local f nb=0 nt
 	say "the soft records are rebuilt ($soft_format): $(wc -l < "$W/encoded.txt") batches of $W/encoded.txt"
 	: > "$soft"; : > "$vsoft"
 	while IFS= read -r f; do
@@ -117,28 +132,30 @@ resoft_all() {
 		[ -f "$f" ] || continue
 		build/host/chat-text "$f" "$W/batch.txt" --no-think-block --detok > /dev/null 2>&1 || continue
 		build/host/bpe encode "$vocab" "$W/batch.txt" "$W/batch.u16" > /dev/null 2>&1 || continue
-		align_batch "$f" "$W/batch.txt" "$W/batch.soft" || continue
-		[ $(( $(stat -c %s "$W/batch.soft") / rec )) -eq $(( $(stat -c %s "$W/batch.u16") / 2 )) ] || continue
+		nt=$(( $(stat -c %s "$W/batch.u16") / 2 ))
+		if ! align_batch "$f" "$W/batch.txt" "$W/batch.soft" || [ $(( $(stat -c %s "$W/batch.soft") / rec )) -ne "$nt" ]; then
+			build/host/soft-align --empty "$nt" "$W/batch.soft" > /dev/null || { say "soft-align --empty failed"; exit 1; }
+			say "rebuild: batch $(basename "$f") did not align: $nt empty records"
+		fi
 		if [ $((nb % valid_every)) -eq 0 ]; then cat "$W/batch.soft" >> "$vsoft"; else cat "$W/batch.soft" >> "$soft"; fi
 	done < "$W/encoded.txt"
-	t=$(( $(stat -c %s "$train") / 2 )); v=$(( $(stat -c %s "$valid") / 2 ))
-	say "rebuilt: train $(( $(stat -c %s "$soft") / rec )) records for $t tokens, valid $(( $(stat -c %s "$vsoft") / rec )) for $v (a difference is padded or cut)"
 	echo "$soft_format" > "$ckdir/soft-format.txt"
 }
-pad_soft() {
-	local toks recs
-	toks=$(( $(stat -c %s "$1") / 2 ))
-	recs=0; [ -f "$2" ] && recs=$(( $(stat -c %s "$2") / rec ))
-	if [ "$recs" -gt "$toks" ]; then truncate -s $((toks * rec)) "$2"; recs=$toks; fi
-	[ "$recs" -lt "$toks" ] || return 0
-	build/host/soft-align --empty $((toks - recs)) "$W/pad.soft" > /dev/null || { say "soft-align --empty failed"; exit 1; }
-	cat "$W/pad.soft" >> "$2"
-	say "$2: padded with $((toks - recs)) empty records to $toks"
-}
-[ -s "$vocab" ] && [ "$(cat "$ckdir/soft-format.txt" 2>/dev/null)" != "$soft_format" ] && resoft_all
-pad_soft "$train" "$soft"
-pad_soft "$valid" "$vsoft"
+soft_counts_ok() { [ $(( $(stat -c %s "$train") / 2 )) -eq $(( $(stat -c %s "$soft" 2>/dev/null || echo 0) / rec )) ] && [ $(( $(stat -c %s "$valid") / 2 )) -eq $(( $(stat -c %s "$vsoft" 2>/dev/null || echo 0) / rec )) ]; }
+if [ -s "$vocab" ]; then
+	if [ "$(cat "$ckdir/soft-format.txt" 2>/dev/null)" != "$soft_format" ] || ! soft_counts_ok; then resoft_all; fi
+	soft_counts_ok || { say "the soft records do not match the tokens after the rebuild (train $(( $(stat -c %s "$train") / 2 )) tokens, $(( $(stat -c %s "$soft") / rec )) records; valid $(( $(stat -c %s "$valid") / 2 )), $(( $(stat -c %s "$vsoft") / rec ))): stopping"; exit 1; }
+	for pair in "$train:$soft" "$valid:$vsoft"; do
+		build/host/soft-check "${pair%%:*}" "${pair#*:}" --rec "$rec" > "$W/soft-check.out" 2>&1 || { say "the soft records of ${pair#*:} do not align with the tokens: $(tail -n 1 "$W/soft-check.out"): stopping"; exit 1; }
+		say "$(/usr/bin/grep -E 'next token among' "$W/soft-check.out" | sed -E 's/^soft-check: //') (${pair#*:})"
+	done
+fi
 prompt_text=$(printf '<|system|>%s<|end|>\n<|user|>%s<|end|>\n<|assistant|>' "$(cat "$persona")" "$prompt")
+# the teacher's own words for the coach's sample metrics (no stories list anywhere in this instance)
+words_list=$ckdir/words-teacher.txt
+cat "$corpus"/batch-*.jsonl 2>/dev/null | jq -r '.messages[1:][] | .content' 2>/dev/null | tr 'A-Z' 'a-z' | tr -c "a-z'\n" '\n' | sed -E "s/^'+//; s/'+$//" | /usr/bin/grep -E "^[a-z][a-z']{0,19}$" | sort | uniq -c | awk '$1 >= 3 { print $2, $1 }' > "$words_list.tmp" && [ -s "$words_list.tmp" ] && mv "$words_list.tmp" "$words_list"
+record=$ckdir/student-record.txt
+[ -n "$epoch_lr" ] || epoch_lr=$lr
 
 say "=== identity loop: set $corpus (the teacher's corpus as it grows), test persona $persona, prompt \"$prompt\", the teacher judges (tools/teacher-judge.sh) and corrects ($corrections a round, ratio $ratio, the last $keep_rounds rounds kept), from ${cur_ckpt:-fresh weights}; a round every $round_chunks new chunks, lr $lr, memory $tables, the vocabulary on the first $vocab_bytes bytes"
 
@@ -225,8 +242,10 @@ while true; do
 	poolopt=(); [ -n "$cur_pool" ] && [ -f "$cur_pool" ] && poolopt=(--pool "$cur_pool")
 	gates=ones; [ -f "${cur_ckpt%.bin}-gates.f32" ] && gates=${cur_ckpt%.bin}-gates.f32
 	dropopt=(); [ "$(awk -v d="$mem_dropout" 'BEGIN { print (d > 0) }')" = 1 ] && dropopt=(--ngram-dropout "$mem_dropout")
-	say "round $round${epoch:+$([ "$epoch" -eq 1 ] && echo " (an epoch: the whole stream again)")}: $untrained untrained chunks of $have; the coach from $cur_ckpt${cur_pool:+ with $cur_pool} on $stream ($mixnote; gates $gates${dropopt:+; memory dropout $mem_dropout})"
-	setsid nohup build/host/coach "$stream" --soft "${stream%.u16}.soft" --ckpt "$cur_ckpt" "${poolopt[@]}" --start 0 --lr "$lr" --every 100 --window 300 --halvings 0 --no-stop \
+	rlr=$lr; [ "$epoch" -eq 1 ] && rlr=$epoch_lr
+	say "round $round${epoch:+$([ "$epoch" -eq 1 ] && echo " (an epoch: the whole stream again)")}: $untrained untrained chunks of $have; the coach from $cur_ckpt${cur_pool:+ with $cur_pool} on $stream ($mixnote; gates $gates${dropopt:+; memory dropout $mem_dropout}; lr $rlr)"
+	build/host/soft-check "$stream" "${stream%.u16}.soft" --rec "$rec" > "$W/soft-check.out" 2>&1 || { say "round $round: the soft records do not align with the round's tokens: $(tail -n 1 "$W/soft-check.out"): refusing the round"; exit 1; }
+	setsid nohup build/host/coach "$stream" --soft "${stream%.u16}.soft" --prompt "$prompt_text" --words "$words_list" --ckpt "$cur_ckpt" "${poolopt[@]}" --start 0 --lr "$rlr" --every 100 --window 300 --halvings 0 --no-stop \
 		--save-every 5000 --sample-every 0 --vocab "$vocab" --cmd results/live.cmd --log results/live.log --ckdir "$ckdir" \
 		--moe --moe-bias 100 --expert-lr 0.05 --ngram "$tables" --row-lr 0.1 --gates "$gates" "${dropopt[@]}" > "$W/coach-$round.out" 2>&1 < /dev/null &
 	cpid=$!
@@ -247,10 +266,10 @@ while true; do
 	# bigram floor 3.06 and the trigram floor 2.58 on this corpus, 21:4x), then the dense reading for the columns alone
 	held=""; heldd=""; vt=$(( $(stat -c %s "$valid") / 2 )); ntok=$((vt - 64)); [ "$ntok" -gt 5001 ] && ntok=5001
 	if [ "$ntok" -ge 1000 ]; then
-		[ -f "${cur_ckpt%.bin}-gates.f32" ] && held=$(build/host/ref-loss "$cur_ckpt" "$valid" "$ntok" --ngram "$tables" "${cur_ckpt%.bin}-gates.f32" 2>/dev/null | tail -n 1 | sed -E 's/.*: ([0-9.]+ nats = [0-9.]+ bits\/token).*/\1/')
+		[ -f "${cur_ckpt%.bin}-gates.f32" ] && held=$(build/host/ref-loss "$cur_ckpt" "$valid" "$ntok" --ngram "$tables" "${cur_ckpt%.bin}-gates.f32" --ctx 2>/dev/null | tail -n 1 | sed -E 's/.*: ([0-9.]+ nats = [0-9.]+ bits\/token).*/\1/')
 		heldd=$(build/host/ref-loss "$cur_ckpt" "$valid" "$ntok" 2>/dev/null | tail -n 1 | sed -E 's/.*: ([0-9.]+ nats = [0-9.]+ bits\/token).*/\1/')
 	fi
-	say "round $round ended: $cur_ckpt $cur_pool; trained $trained chunks of the stream; held-out ${held:-not yet} ($ntok tokens, memory reading; dense ${heldd:-not yet})"
+	say "round $round ended: $cur_ckpt $cur_pool; trained $trained chunks of the stream; held-out ${held:-not yet} ($ntok tokens, memory reading with the context memory; dense ${heldd:-not yet})"
 	build/host/cortex --live "$prompt_text" 48 --no-echo --stop-eot --greedy --vocab "$vocab" --ngram "$tables" --stop '<|end|>' --stop '<|user|>' --stop '<|system|>' --stop '<|assistant|>' 2> /dev/null | tr '\n' ' ' | sed -E 's/<\|(end|user|system|assistant|endoftext)\|>.*//' > "$W/reply.txt"
 	verdict=$(tools/teacher-judge.sh "$persona" "$prompt" "$(cat "$W/reply.txt")" 2>/dev/null)
 	say "round $round chunk $trained: $verdict (matches in a row 0) | $(cut -c1-300 "$W/reply.txt")"
@@ -259,7 +278,7 @@ while true; do
 	# the correction pass: the teacher grades and rewrites the student's answers; the rewrites recur in the next round
 	if [ "$corrections" -gt 0 ]; then
 		cj=$ckdir/corrections-round-$round.jsonl
-		tools/teacher-correct.sh "$corpus" "$persona" "$vocab" "$cj" "$round" "$trained" --count "$corrections" --tables "$tables" --seed "$round" --log "$log" > "$W/correct-$round.out" 2>&1
+		tools/teacher-correct.sh "$corpus" "$persona" "$vocab" "$cj" "$round" "$trained" --count "$corrections" --tables "$tables" --seed "$round" --log "$log" --record "$record" > "$W/correct-$round.out" 2>&1
 		if [ -s "$cj" ]; then
 			ls "$ckdir"/corrections-round-*.jsonl | sort -t- -k3 -n | tail -n "$keep_rounds" | xargs cat > "$W/set.jsonl"
 			if build/host/chat-text "$W/set.jsonl" "$W/set.txt" --no-think-block --detok > /dev/null 2>&1 && build/host/bpe encode "$vocab" "$W/set.txt" "$setfile" > /dev/null 2>&1; then

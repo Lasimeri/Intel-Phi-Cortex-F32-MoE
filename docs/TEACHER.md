@@ -207,3 +207,20 @@ two tokenisers share a boundary. The server must run without the MTP draft for i
 with the draft the distribution comes only at the tokens the target model sampled itself. Measured cost on the
 writer: a call of three conversations took 12 to 16 s with the draft and takes 22 to 29 s without it (19:29, the
 same prompt shape), so the corpus grows at about 6 conversations a minute instead of 12.
+
+## The teacher's memory of the student (10-28 04:55 to 05:20)
+
+The user: "Does the teacher model have at least 64K of ctx set so it can remember how the student model responds
+instead of producing mindless responses in relation to whatever the student model says?" It had 8,192 tokens a slot,
+and the context size was not the whole of it: every call is a fresh request (CLAUDE.md, the task, one reply), so no
+size of context lets the teacher remember what the student said before unless the record is in the prompt. Now:
+
+| piece | what |
+|---|---|
+| the server | `tools/teacher-serve.sh --np 2 --ctx 65536 --kv q8_0 --unified`: two slots sharing one cache of 65,536 tokens (n_ctx_slot 65,536, kv_unified true), 23,375 of 24,564 MiB. The cache measured at no more than 90.6 KiB a token at f16 (two slots of 8,192 against one: 17,826 against 17,101 MiB), so 64K at f16 (about 5.8 GiB) does not fit beside the 17 GiB of weights and the desktop's 4.2 GiB; q8_0 halves it |
+| the record | DIR/student-record.txt: one line per graded reply: the round, the person's line it answered, the student's reply, the grades, the teacher's rewrite; seeded at 05:1x with the 320 graded replies of rounds 1 to 17 (99,188 bytes, about 25K tokens; their person's lines were not kept then) |
+| the grader | `tools/teacher-grade.sh --history FILE`: the record after the rubric in the system message; the teacher names the mistake the student keeps making when the reply repeats it and makes the rewrite teach against it, grading the reply on its own merits |
+| the pass | `tools/teacher-correct.sh --record FILE [--record-bytes 160000]`: the newest 160,000 bytes of the record, fixed for the pass, the pass's own items appended as they are graded, so every call shares the prefix and the server's prompt cache reads it once |
+
+The probe and the identity judge stay without the record: they are the measurements, and a teacher that remembers
+the student would grade the same answer differently from round to round.
