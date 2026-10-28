@@ -60,11 +60,16 @@ int main(int argc, char **argv)
 		long s = -1;
 		for (long i = e; i >= a; i--) if (tok[i] == T_ASSISTANT) { s = i; break; }
 		if (s < 0) { fprintf(stderr, "reward-soft: conversation %d holds no speaker's line\n", c); return 1; }
-		/* the tokens after <|assistant|> through its closing <|end|>: record i predicts token i + 1 */
+		/* the tokens after <|assistant|> through its closing <|end|>: record i predicts token i + 1. A negative reward (an
+		 * answer worse than its group, tools/teacher-reward.sh --mode rloo) leaves the closing <|end|> at 0: the group
+		 * admits only answers that closed themselves, so pushing <|end|> down after every worse answer would teach the
+		 * student not to stop */
+		const float w = (float)(rw[c] * scale);
 		for (long i = s; i + 1 < e; i++) {
-			rec[i].w = (float)(rw[c] * scale);
-			reinforced++;
-			if (tok[i + 1] == T_END) break;
+			const int closing = tok[i + 1] == T_END;
+			rec[i].w = closing && w < 0 ? 0.0f : w;
+			reinforced += !(closing && w < 0);
+			if (closing) break;
 		}
 		c++;
 		a = e + 1;

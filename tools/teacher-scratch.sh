@@ -236,6 +236,8 @@ record=$ckdir/student-record.txt
 # reply tokens at --reward-weight and everything else at 0 (tools/reward-soft.c); the set's records go to mixstream
 # with --set-soft, so the reward reaches the card in the same records as the teacher's distribution
 setsoft=$ckdir/corrections-set.soft
+oncefile=$ckdir/rewards-once.u32
+oncesoft=$ckdir/rewards-once.soft
 build_set() {
 	local nc nrw=0
 	ls "$ckdir"/corrections-round-*.jsonl | sort -t- -k3 -n | tail -n "$keep_rounds" | xargs cat > "$W/set.jsonl"
@@ -245,13 +247,17 @@ build_set() {
 	fi
 	nc=$(( $(stat -c %s "$W/setc.u32") / tok ))
 	build/host/soft-align --empty "$nc" "$W/setc.soft" > /dev/null || { say "round $round: soft-align --empty failed"; return; }
+	# the rewards are not part of the recurring set (v9, 2026-10-28 07:5x): they go to DIR/rewards-once.u32 and .soft,
+	# which mixstream --once puts into the next round exactly once each, spread over it (in the set they cycled in file
+	# order behind the corrections: a short round never reached their tail, an epoch repeated them about five times)
+	rm -f "$oncefile" "$oncesoft"
 	if [ "$reward" -eq 1 ]; then
 		ls "$ckdir"/rewards-round-*.jsonl 2>/dev/null | sort -t- -k3 -n | tail -n "$reward_rounds" | xargs -r cat > "$W/rw.jsonl"
 		if [ -s "$W/rw.jsonl" ]; then
 			if build/host/chat-text "$W/rw.jsonl" "$W/rw.txt" --no-think-block --detok > /dev/null 2>&1 && build/host/bpe encode "$vocab" "$W/rw.txt" "$W/rw.u32" > /dev/null 2>&1 \
 				&& jq -r '.reward // 1' "$W/rw.jsonl" > "$W/rw.rewards" && build/host/reward-soft "$W/rw.u32" "$W/rw.rewards" "$W/rw.soft" --scale "$reward_weight" > "$W/reward-soft.out" 2>&1; then
-				cat "$W/rw.u32" >> "$W/setc.u32"
-				cat "$W/rw.soft" >> "$W/setc.soft"
+				mv "$W/rw.u32" "$oncefile"
+				mv "$W/rw.soft" "$oncesoft"
 				nrw=$(wc -l < "$W/rw.jsonl")
 			else
 				say "round $round: the reward set could not be built: $(tail -n 1 "$W/reward-soft.out" 2>/dev/null | cut -c1-120)"
@@ -260,7 +266,7 @@ build_set() {
 	fi
 	mv "$W/setc.u32" "$setfile"
 	mv "$W/setc.soft" "$setsoft"
-	say "round $round: the correction set is $(wc -l < "$W/set.jsonl") conversations, $nc tokens, from the last $keep_rounds rounds$([ "$reward" -eq 1 ] && echo "; the reward set $nrw of the student's own right replies of the last $reward_rounds rounds, at weight $reward_weight ($(sed -n -E 's/.* ([0-9]+) reinforced tokens.*/\1/p' "$W/reward-soft.out" 2>/dev/null) reinforced tokens)")"
+	say "round $round: the correction set is $(wc -l < "$W/set.jsonl") conversations, $nc tokens, from the last $keep_rounds rounds$([ "$reward" -eq 1 ] && echo "; the reward set $nrw answers of the last $reward_rounds rounds (each once in the next round, mixstream --once), at weight $reward_weight ($(sed -n -E 's/.* ([0-9]+) reinforced tokens.*/\1/p' "$W/reward-soft.out" 2>/dev/null) reinforced tokens)")"
 }
 # the set's records, one per token of the set. A set of before the u32 ids carries 52-byte records (u16 id[8] with
 # 0xFFFF unused, F32 p[8], F32 w), the format the 52-byte driver wrote and kept (its own start had already replaced a
@@ -357,8 +363,9 @@ while true; do
 	# the round's stream: the untrained chunks, with the correction set recurring inside them once there is one
 	stream=$ckdir/round-$round.u32
 	trained_after=$have
+	onceopt=(); [ -s "$oncefile" ] && [ -s "$oncesoft" ] && onceopt=(--once "$oncefile" "$oncesoft")   # the last pass's rewards, each once in this round
 	if [ "$corrections" -gt 0 ] && [ -s "$setfile" ]; then
-		build/host/mixstream "$setfile" "$train" $((trained * 32)) "$ratio" "$untrained" "$stream" --soft "$soft" "${stream%.u32}.soft" --set-soft "$setsoft" > "$W/mix-$round.out" 2>&1 || { say "round $round: mixstream failed: $(tail -n 1 "$W/mix-$round.out" | cut -c1-120)"; exit 1; }
+		build/host/mixstream "$setfile" "$train" $((trained * 32)) "$ratio" "$untrained" "$stream" --soft "$soft" "${stream%.u32}.soft" --set-soft "$setsoft" "${onceopt[@]}" > "$W/mix-$round.out" 2>&1 || { say "round $round: mixstream failed: $(tail -n 1 "$W/mix-$round.out" | cut -c1-120)"; exit 1; }
 		# the base's end token in the mix is where the next round starts (a partial conversation is moved up by mixstream)
 		end_tok=$(sed -n -E 's/.*from token [0-9]+ to ([0-9]+) of.*/\1/p' "$W/mix-$round.out" | head -n 1)
 		[ -n "$end_tok" ] && trained_after=$((end_tok / 32))

@@ -199,3 +199,27 @@ right. A hand check of the arithmetic: scores 6, 3, 3, 0 give +0.40, 0, 0 and -0
 in the round after they were drawn only (--reward-rounds 1, on-policy as far as one round allows), and the set recurs
 every 12 corpus conversations instead of 24 so its conversations train at all (at 24 a round of 3,700 chunks gave the
 set about 35 slots for 120 conversations).
+
+## Three corrections to the reward, and a second frozen set (07:5x)
+
+- **Scheduling.** The rewards rode in the recurring set behind the 20 corrections, and mixstream cycles the set in file
+  order from the start every round: a new-data round (about 3,700 chunks at ratio 12, some 70 set slots) never
+  reached the tail of up to 120 reward conversations, an epoch repeated each about five times. From round 22 the
+  rewards are a set of their own (DIR/rewards-once.u32 and .soft) that `mixstream --once` puts into the next round
+  exactly once each, spread over its base conversations (the ones the spread cannot place when the stream is full are
+  appended after it). Tested on real data: 20 once-conversations all spread, records equal to tokens (64,721),
+  alignment 100.0 %, every negative and zero weight intact.
+- **The closing token of a worse answer.** A negative reward pushed down every token of the answer through its
+  `<|end|>`; the group admits only answers that closed themselves, so that taught the student not to stop. The closing
+  `<|end|>` of a negative span now keeps weight 0 (tools/reward-soft.c).
+- **The negative weights on the card.** The 22:00 gate had tested positive weights only. Gated at 07:50: the u32
+  cluster-gate with w = -0.25 on 22 of the measured chunk's 32 steps against the double reference: every gradient
+  within 9.3e-07 relative, the gradients changed as the weights demand (column 0's W max 2.15e-03 at w = 1, 1.76e-03
+  here), the reported loss unweighted at 8.425488.
+
+The answer-bits series has a saw-tooth: every epoch over the whole stream raised the answer loss on the frozen set of
+the newest held-out conversations, every new-data round lowered it. The set is the newest held-out, question-and-answer
+style, so a round's recency is confounded with its quality. A second frozen set, DIR/answer-bits-set-old.jsonl, holds
+the 60 oldest held-out conversations (batches of 10-27 13:57 to 15:28, before the question-and-answer third; none of
+them in any correction or reward file), measured by a second watcher into results/answer-bits-old.log for rounds 6 on.
+A gain counts only when it shows on both sets.
