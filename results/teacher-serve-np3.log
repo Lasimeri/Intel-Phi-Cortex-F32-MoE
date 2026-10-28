@@ -1,0 +1,3 @@
+teacher-serve: starting llama-server on 127.0.0.1:8090 (ctx 65536, 3 slot(s), cache q8_0, unified), log /tmp/cortex-teacher.log
+teacher-serve: up after 26 s: /home/lasimeri/models/Qwen3.8-27B/Qwen3.8-27B-UD-Q4_K_XL.gguf
+23481 MiB, 24564 MiB

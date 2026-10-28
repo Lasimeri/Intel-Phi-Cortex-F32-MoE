@@ -36,6 +36,12 @@
 #                            [--ratio R] [--keep-rounds M] [--lambda X] [--replay|--no-replay] [--mem-dropout P]
 #                            [--probe QUESTIONS.jsonl] [--weight-user W] [--epoch-lr X]
 #                            [--reward|--no-reward] [--reward-min G] [--reward-rounds N] [--reward-weight W]
+#                            [--reward-bank FILE] [--reward-count N] [--reward-samples S]
+# (v7, 05:5x) --reward-bank FILE (default DIR/reward-bank.jsonl, tools/teacher-bank.sh): after the correction pass,
+# tools/teacher-reward.sh puts --reward-count questions of the bank (default 40, a draw fixed by the round) to the live
+# weights --reward-samples times each (default 2) and the teacher verifies every answer against its expected one; the
+# right ones that closed themselves join the round's rewards: the correction pass alone made right replies 2.1 % of
+# the time (7 of 328 in the student's record at 05:4x), about 0.4 a pass, too few to be a reward.
 # (v6, 2026-10-28 05:3x, the user: "The student model needs a reward function for when it gets something right")
 # --reward (the default): every reply of the correction pass the teacher grades right (grammar, relevance and persona
 # all at least --reward-min, default 7) is reinforced: the conversation closed by the student's own reply recurs in the
@@ -71,7 +77,7 @@ cd "$(dirname "$0")/.." || exit 1
 [ $# -ge 2 ] || { echo "usage: tools/teacher-scratch.sh CORPUS_DIR PERSONA.txt [--ckdir DIR] [--tables FILE] [--vocab-bytes B] [--round-chunks N] [--lr X] [--prompt \"...\"] [--valid-every K] [--corrections K] [--ratio R] [--keep-rounds M] [--lambda X]" >&2; exit 2; }
 corpus=$1; persona=$2
 shift 2
-ckdir=data/live-teacher; tables=/dev/shm/cortex-teacher-tables.f32; vocab_bytes=300000; round_chunks=1000; lr=0.003; prompt="Introduce yourself"; valid_every=20; corrections=20; ratio=6; keep_rounds=3; lambda=0.5; replay=1; mem_dropout=0; probe=data/probe/questions.jsonl; weight_user=1; epoch_lr=""; reward=1; reward_min=7; reward_rounds=5; reward_weight=1
+ckdir=data/live-teacher; tables=/dev/shm/cortex-teacher-tables.f32; vocab_bytes=300000; round_chunks=1000; lr=0.003; prompt="Introduce yourself"; valid_every=20; corrections=20; ratio=6; keep_rounds=3; lambda=0.5; replay=1; mem_dropout=0; probe=data/probe/questions.jsonl; weight_user=1; epoch_lr=""; reward=1; reward_min=7; reward_rounds=5; reward_weight=1; reward_bank=""; reward_count=40; reward_samples=2
 rec=52   # bytes per soft record (lib/cx-proto.h cx_soft)
 while [ $# -gt 0 ]; do
 	case "$1" in
@@ -97,6 +103,9 @@ while [ $# -gt 0 ]; do
 	--reward-min) reward_min=$2; shift 2 ;;
 	--reward-rounds) reward_rounds=$2; shift 2 ;;
 	--reward-weight) reward_weight=$2; shift 2 ;;
+	--reward-bank) reward_bank=$2; shift 2 ;;
+	--reward-count) reward_count=$2; shift 2 ;;
+	--reward-samples) reward_samples=$2; shift 2 ;;
 	*) echo "teacher-scratch: unknown option $1" >&2; exit 2 ;;
 	esac
 done
@@ -328,6 +337,7 @@ while true; do
 		rj=$ckdir/rewards-round-$round.jsonl
 		rwopt=(); [ "$reward" -eq 1 ] && { : > "$rj"; rwopt=(--rewards "$rj" --reward-min "$reward_min"); }
 		tools/teacher-correct.sh "$corpus" "$persona" "$vocab" "$cj" "$round" "$trained" --count "$corrections" --tables "$tables" --seed "$round" --log "$log" --record "$record" "${rwopt[@]}" > "$W/correct-$round.out" 2>&1
+		[ "$reward" -eq 1 ] && [ -s "${reward_bank:=$ckdir/reward-bank.jsonl}" ] && tools/teacher-reward.sh "$reward_bank" "$persona" "$vocab" "$round" "$trained" "$rj" --count "$reward_count" --samples "$reward_samples" --tables "$tables" --log "$log" > "$W/reward-$round.out" 2>&1
 		[ -s "$cj" ] && build_set
 	fi
 done

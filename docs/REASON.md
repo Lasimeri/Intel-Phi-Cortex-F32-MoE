@@ -148,3 +148,35 @@ teacher verified, and the wrong ones keep getting the teacher's rewrite.
 The replies the teacher grades right are rare (relevance 0.4 to 2.6 of 10 through round 17), so the first rounds will
 show how many rewards a pass yields; if it is a handful, the next step is several samples per context (the best of N,
 or a group-relative advantage, which the signed weight of the record allows).
+
+## The held-out leak, measured and closed (05:4x)
+
+The correction pass drew its contexts from the newest 60 batch files, held-out batches included, and trains each
+context verbatim: 3 of the 60 conversations of the answer-bits set (first person line and first reply both matching)
+had entered the correction sets of rounds 13 to 15. The pass now draws only from batches the instance has encoded for
+training (every --valid-every-th line of DIR/work/encoded.txt excluded, and a batch not yet encoded never drawn, as it
+may still become held-out); the draw pool of 05:45 overlaps the held-out batches in 0 of 60. The measured set is now
+the 56 conversations without the leaked ones (DIR/answer-bits-set.jsonl; the 60 kept as answer-bits-set-60.jsonl).
+On it the night's gain stands:
+
+| round | answer loss (bits/token) | the question gives | per answer | easier |
+|---|---|---|---|---|
+| 6 | 5.5309 | 0.2856 | 0.3216 +- 0.0265 | 223 of 280 |
+| 16 | 5.0556 | 0.5141 | 0.5928 +- 0.0399 | 237 of 280 |
+
+## The reward made dense: the bank (05:5x)
+
+In the student's record 7 of 328 graded replies (2.1 %) had all three grades at 7 or more: the correction pass alone
+would reward about 0.4 replies a pass. The reward therefore also comes from a bank of questions with known answers
+(tools/teacher-bank.sh: the teacher writes them by category, about the speaker, colours, animals, hot and cold, small
+sums, yes or no, a choice of two, what to do, a kind reply; the probe's twenty questions and any question holding most
+of a probe question's words with the same answer are dropped, so "How many legs does a bird have?" stays and "How many
+legs does a dog have, can you tell me?" goes). Each round the student answers 40 of them twice under the user's
+sampling, the teacher verifies every answer against its expected answer with the probe's judge, and every right
+answer that closed itself is reinforced (tools/teacher-reward.sh, the driver's --reward-bank). A paraphrase of a
+persona question with a different wording ("Tell me what you are called.") can pass the filter, so the probe's first
+five items (the persona) no longer measure far transfer; the decision metric is answer bits.
+
+Attribution from here: round 19 is the epoch learning rate alone (1e-3); from round 20 the reward and the corrections
+graded against the student's record train too. Grades written after 05:33 come from a teacher that sees the record
+and are not comparable with the grades before.

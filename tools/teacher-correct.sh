@@ -24,13 +24,15 @@ cd "$(dirname "$0")/.." || exit 1
 [ $# -ge 6 ] || { echo "usage: tools/teacher-correct.sh CORPUS_DIR PERSONA.txt VOCAB OUT.jsonl ROUND CHUNK [--count K] [--tables FILE] [--ngen N] [--seed S] [--batches B] [--log FILE] [--url URL]" >&2; exit 2; }
 corpus=$1; persona=$2; vocab=$3; out=$4; round=$5; chunk=$6
 shift 6
-count=24; tables=/dev/shm/cortex-teacher-tables.f32; ngen=40; seed=1; batches=60; log=results/identity-loop.log; urlopt=(); record=""; record_bytes=160000; rewards=""; reward_min=7; nreward=0
+count=24; tables=/dev/shm/cortex-teacher-tables.f32; ngen=40; seed=1; batches=60; log=results/identity-loop.log; urlopt=(); record=""; record_bytes=160000; rewards=""; reward_min=7; nreward=0; encoded=""; valid_every=20
 while [ $# -gt 0 ]; do
 	case "$1" in
 	--record) record=$2; shift 2 ;;
 	--record-bytes) record_bytes=$2; shift 2 ;;
 	--rewards) rewards=$2; shift 2 ;;
 	--reward-min) reward_min=$2; shift 2 ;;
+	--encoded) encoded=$2; shift 2 ;;
+	--valid-every) valid_every=$2; shift 2 ;;
 	--count) count=$2; shift 2 ;;
 	--tables) tables=$2; shift 2 ;;
 	--ngen) ngen=$2; shift 2 ;;
@@ -45,7 +47,18 @@ done
 say() { echo "$(date +%T) $*" | tee -a "$log"; }
 W=$(mktemp -d "${TMPDIR:-/tmp}/teacher-correct.XXXXXX") || exit 1
 trap 'rm -rf "$W"' EXIT
-ls -t "$corpus"/batch-*.jsonl 2>/dev/null | head -n "$batches" | xargs -r cat | shuf -n "$count" > "$W/picked.jsonl"
+# the contexts come from training batches only (2026-10-28 05:4x: drawn from the newest batch files, the pass had put 4
+# of the 60 conversations of the answer-bits set into the correction sets of rounds 2, 13, 14 and 15): the batches the
+# instance has already encoded (ENCODED, default DIR/work/encoded.txt with DIR the directory of OUT) and not sent to
+# the held-out (every --valid-every-th line of that list, as the driver splits it), the newest --batches of them; a
+# batch not yet encoded may still become held-out, so it is never drawn
+[ -n "$encoded" ] || encoded=$(dirname "$out")/work/encoded.txt
+if [ -s "$encoded" ]; then
+	awk -v k="$valid_every" 'NR % k != 0' "$encoded" | tail -n "$batches" | while IFS= read -r f; do [ -f "$f" ] && cat "$f"; done | shuf -n "$count" > "$W/picked.jsonl"
+else
+	say "round $round corrections: $encoded missing: refusing to draw contexts that may be held-out"
+	exit 1
+fi
 n=$(wc -l < "$W/picked.jsonl")
 [ "$n" -gt 0 ] || { say "round $round corrections: no corpus conversation to draw from"; exit 1; }
 : > "$out"
@@ -76,7 +89,9 @@ while IFS= read -r conv; do
 	u=${lines[$((2 * (t - 1)))]}
 	prompt+=$(printf '<|user|>%s<|end|>\n<|assistant|>' "$u")
 	printf 'person: %s\n' "$u" >> "$W/ctx.txt"
-	reply=$(build/host/cortex --live "$prompt" "$ngen" --no-echo --stop-eot --vocab "$vocab" --ngram "$tables" --seed $((seed + i)) --temp 0.5 --topk 75 --topp 0.95 --minp 0.05 --rp 1.2 --stop '<|end|>' --stop '<|user|>' --stop '<|system|>' --stop '<|assistant|>' 2> /dev/null | tr '\n' ' ' | sed -E 's/<\|(end|user|system|assistant|endoftext)\|>.*//; s/^ +//; s/ +$//')
+	raw=$(build/host/cortex --live "$prompt" "$ngen" --no-echo --stop-eot --vocab "$vocab" --ngram "$tables" --seed $((seed + i)) --temp 0.5 --topk 75 --topp 0.95 --minp 0.05 --rp 1.2 --stop '<|end|>' --stop '<|user|>' --stop '<|system|>' --stop '<|assistant|>' 2> /dev/null | tr '\n' ' ')
+	reply=$(printf '%s' "$raw" | sed -E 's/<\|(end|user|system|assistant|endoftext)\|>.*//; s/^ +//; s/ +$//')
+	ended=0; [[ "$raw" == *"<|end|>"* ]] && ended=1   # the reply closed itself; one cut at --ngen tokens is never rewarded
 	grade=$(tools/teacher-grade.sh "$persona" "$W/ctx.txt" "$reply" "${hist[@]}" "${urlopt[@]}" 2> "$W/grade.err") || { say "round $round chunk $chunk: the teacher gave no grade for item $i: $(tail -n 1 "$W/grade.err" | cut -c1-100)"; continue; }
 	g=$(printf '%s' "$grade" | jq -r '.grammar'); r=$(printf '%s' "$grade" | jq -r '.relevance'); p=$(printf '%s' "$grade" | jq -r '.persona')
 	why=$(printf '%s' "$grade" | jq -r '.why'); rewrite=$(printf '%s' "$grade" | jq -r '.rewrite')
@@ -89,7 +104,7 @@ while IFS= read -r conv; do
 		printf '%s\n' "$rline" >> "$W/history.txt"
 	fi
 	# the reward: a reply the teacher graded right on all three becomes a reinforced target, the student's own words
-	if [ -n "$rewards" ] && [ "${g%.*}" -ge "$reward_min" ] && [ "${r%.*}" -ge "$reward_min" ] && [ "${p%.*}" -ge "$reward_min" ]; then
+	if [ -n "$rewards" ] && [ "$ended" -eq 1 ] && [ "${g%.*}" -ge "$reward_min" ] && [ "${r%.*}" -ge "$reward_min" ] && [ "${p%.*}" -ge "$reward_min" ]; then
 		printf '%s\n' "$conv" | jq -c --argjson t "$t" --arg rp "$reply" '.messages |= (.[0:2 * $t] + [{ role: "assistant", content: $rp }]) | . + { reward: 1 }' >> "$rewards" && nreward=$((nreward + 1))
 		say "round $round chunk $chunk: REWARD the student's reply graded right (grammar $g relevance $r persona $p) | $(printf '%s' "$reply" | cut -c1-200)"
 	fi
