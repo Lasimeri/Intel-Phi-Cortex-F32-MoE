@@ -224,3 +224,9 @@ size of context lets the teacher remember what the student said before unless th
 
 The probe and the identity judge stay without the record: they are the measurements, and a teacher that remembers
 the student would grade the same answer differently from round to round.
+
+**The record's cost, measured in round 18's pass (05:34 to 05:5x):** the grader's prompt grew to 30,660 to 30,762
+tokens, read at 602 to 671 tokens a second, 45 to 51 s a call, because the two writers took the grader's slot between
+its calls and the cache lost the record's prefix: 60 to 90 s an item against about 17 s in round 17. From the gap after
+it the server runs three slots in the same 65,536-token cache (`--np 3`), so the grader's slot keeps its prefix while
+the two writers use the others; the cost of the record is then one read a pass.

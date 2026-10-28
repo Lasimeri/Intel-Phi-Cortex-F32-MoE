@@ -121,3 +121,51 @@
 05:23:26 writer 1 batch 61: 3 of 3 conversations, 2373 bytes, 41.1 s, "pet vaccination schedules", words blue, push, sky, the person in a hurry
 05:23:33 writer 0 batch 60: 3 of 3 conversations, 1916 bytes, 20.6 s, "peaceful morning walk", words pencil, ten, blue, the person a little sad
 05:23:54 writer 1 batch 62: 3 of 3 conversations, 2233 bytes, 27.7 s, "plating desserts", words belly, red, hot, the person excited
+05:24:10 writer 0 batch 61: 3 of 3 conversations, 2569 bytes, 36.9 s, "pet behavior", words bee, drop, sugar, the person cheerful
+05:24:24 writer 1 batch 63: 3 of 3 conversations, 2370 bytes, 30.2 s, "preparing salads", words glove, box, watch, the person joking around
+05:24:31 writer 0 batch 62: 3 of 3 conversations, 2038 bytes, 20.9 s, "picnic spot scouting", words stone, good, fox, the person chatty and tells a small story of its own
+05:24:55 writer 1 batch 64: 3 of 3 conversations, 1461 bytes, 30.6 s, "puppy socialization classes", words rock, sock, cheese, the person joking around
+05:24:55 writer 0 batch 63: 3 of 3 conversations, 2154 bytes, 24.5 s, "poker hands", words blue, shirt, orange, the person curious and asks the speaker who it is at some point
+05:25:25 writer 1 batch 65: 3 of 3 conversations, 2087 bytes, 29.6 s, "Rainbow after storm", words arm, peach, orange, the person friendly and asks the speaker where it lives at some point
+05:25:27 writer 0 batch 64: 3 of 3 conversations, 2207 bytes, 31.5 s, "pride in small achievements", words slow, dirt, ask, the person in a hurry
+05:25:46 writer 1 batch 66: 3 of 3 conversations, 2001 bytes, 21.5 s, "reptile heating requirements", words fast, wrist, owl, the person shy and asks short questions
+05:25:54 writer 0 batch 65: 3 of 3 conversations, 2286 bytes, 27.6 s, "puzzle solving", words watch, coffee, sun, the person friendly and asks the speaker what it likes at some point
+05:26:17 writer 1 batch 67: 3 of 3 conversations, 2064 bytes, 31.0 s, "road map planning", words melon, coat, watch, the person curious
+05:26:19 writer 0 batch 66: 3 of 3 conversations, 1925 bytes, 24.7 s, "relief on finishing exams", words fox, pants, chair, the person friendly and asks the speaker what it likes at some point
+05:26:41 writer 1 batch 68: 3 of 3 conversations, 2269 bytes, 24.0 s, "rock climbing", words snow, run, ice, the person worried about something
+05:26:49 writer 0 batch 67: 3 of 3 conversations, 2495 bytes, 30.3 s, "Reunion planning struggles", words play, lock, chocolate, the person joking around
+05:27:13 writer 1 batch 69: 3 of 3 conversations, 2139 bytes, 32.0 s, "sadness after a loss", words slow, chick, glass, the person chatty and tells a small story of its own
+05:27:15 writer 0 batch 68: 3 of 3 conversations, 2023 bytes, 25.8 s, "roasting vegetables", words candy, honey, star, the person shy and asks short questions
+05:27:35 writer 1 batch 70: 3 of 3 conversations, 2018 bytes, 21.7 s, "Shared hobby groups", words jam, forest, orange, the person joking around
+05:27:35 writer 0 batch 69: 3 of 3 conversations, 1922 bytes, 19.8 s, "rustling in tall grass", words tell, quiet, rice, the person a little sad
+05:28:01 writer 0 batch 70: 3 of 3 conversations, 2249 bytes, 25.9 s, "shadows stretching long at dusk", words cookie, field, soda, the person shy and asks short questions
+05:28:26 writer 1 batch 71: 3 of 3 conversations, 3674 bytes, 50.6 s, "Short days winter", words wet, tree, curtain, the person worried about something
+05:28:36 writer 0 batch 71: 3 of 3 conversations, 2128 bytes, 34.6 s, "shopping finds", words three, short, potato, the person excited
+05:28:58 writer 1 batch 72: 3 of 3 conversations, 1882 bytes, 32.2 s, "sleep schedule", words new, eye, wall, the person shy and asks short questions
+05:29:11 writer 0 batch 72: 3 of 3 conversations, 2187 bytes, 35.3 s, "Sibling rivalries", words river, door, cow, the person excited
+05:29:32 writer 1 batch 73: 3 of 3 conversations, 2375 bytes, 34.5 s, "small kindnesses from strangers", words light, clap, butter, the person bored
+05:29:40 writer 0 batch 73: 3 of 3 conversations, 2286 bytes, 29.3 s, "slicing cheese", words open, chair, cry, the person curious
+05:30:09 writer 0 batch 74: 3 of 3 conversations, 2107 bytes, 28.9 s, "smell of rain coming", words lemon, cook, tap, the person excited
+05:30:14 writer 1 batch 74: 3 of 3 conversations, 2055 bytes, 41.9 s, "snack basket assembly", words old, radio, jump, the person joking around
+05:30:40 writer 0 batch 75: 3 of 3 conversations, 2078 bytes, 30.4 s, "social media trends", words grass, moth, window, the person curious
+05:30:42 writer 1 batch 75: 3 of 3 conversations, 1885 bytes, 27.6 s, "sound of distant traffic fading", words door, dry, box, the person chatty and tells a small story of its own
+05:31:09 writer 1 batch 76: 3 of 3 conversations, 1975 bytes, 27.5 s, "Spring rain", words watch, pizza, roof, the person curious and asks the speaker who it is at some point
+05:31:16 writer 0 batch 76: 3 of 3 conversations, 2428 bytes, 36.5 s, "souvenir shopping budget", words sit, dry, donkey, the person worried about something
+05:31:36 writer 1 batch 77: 3 of 3 conversations, 2187 bytes, 27.0 s, "stir-frying noodles", words laugh, knee, finger, the person cheerful
+05:31:50 writer 0 batch 77: 3 of 3 conversations, 2382 bytes, 34.2 s, "stargazing nights", words owl, watch, sock, the person cheerful
+05:32:10 writer 1 batch 78: 3 of 3 conversations, 2066 bytes, 33.8 s, "stress from work deadlines", words glass, bag, fish, the person curious
+05:32:20 writer 0 batch 78: 3 of 3 conversations, 2014 bytes, 29.9 s, "strange recurring dreams", words pizza, smooth, frog, the person friendly and asks the speaker where it lives at some point
+05:32:35 writer 1 batch 79: 3 of 3 conversations, 2030 bytes, 24.9 s, "Summer heatwaves", words soft, tea, chair, the person worried about something
+05:32:44 writer 0 batch 79: 3 of 3 conversations, 1938 bytes, 23.3 s, "Sudden downpour afternoon", words clap, star, ankle, the person shy and asks short questions
+05:33:04 writer 1 batch 80: 3 of 3 conversations, 2026 bytes, 29.0 s, "sunset over lake", words knock, eight, sing, the person excited
+05:33:23 writer 0 batch 80: 3 of 3 conversations, 2351 bytes, 39.5 s, "Sunday dinner plans", words bag, bird, cheese, the person shy and asks short questions
+05:33:36 writer 1 batch 81: 3 of 3 conversations, 2163 bytes, 32.2 s, "swim suit packing list", words head, shoe, back, the person friendly and asks the speaker what it likes at some point
+05:33:50 writer 0 batch 81: 3 of 3 conversations, 2088 bytes, 27.3 s, "sunset viewing points", words write, closed, dirt, the person cheerful
+05:34:55 writer 1 batch 82: 3 of 3 conversations, 2292 bytes, 79.0 s, "that one embarrassing moment", words draw, cheese, candy, the person a little sad
+05:36:05 writer 0 batch 82: 3 of 3 conversations, 2424 bytes, 135.0 s, "taste of summer ice cream", words fly, carpet, teacher, the person friendly and asks the speaker where it lives at some point
+05:37:05 writer 1 batch 83: 3 of 3 conversations, 2008 bytes, 129.8 s, "the sound of rain outside", words ring, elbow, ankle, the person joking around
+05:38:24 writer 1 batch 84: 3 of 3 conversations, 1959 bytes, 78.6 s, "toasting bread", words flower, bone, grape, the person bored
+05:39:16 writer 0 batch 83: 3 of 3 conversations, 2673 bytes, 190.1 s, "the meaning behind a dream symbol", words pop, chest, goat, the person curious and asks the speaker who it is at some point
+05:39:48 writer 1 batch 85: 3 of 3 conversations, 2187 bytes, 83.8 s, "training parrots to talk", words cheese, sleep, play, the person friendly and asks the speaker what it likes at some point
+05:40:39 writer 0 batch 84: 3 of 3 conversations, 2128 bytes, 83.3 s, "Thunderstorms in July", words belly, egg, dirty, the person chatty and tells a small story of its own
+05:41:14 writer 0 batch 85: 3 of 3 conversations, 2274 bytes, 34.7 s, "trail difficulty levels", words hot, eat, duck, the person chatty and tells a small story of its own

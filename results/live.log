@@ -21052,3 +21052,8 @@
 05:23:44 report chunk 3000  tokens 96000  loss 2.1786 nats = 3.1430 bits/token  lr 3.000e-03  scale 1.0000  461 tok/s  ring 280 ahead  moe 120 experts  ctx 600 us/step  soft 56 %
 05:23:51 report chunk 3100  tokens 99200  loss 1.9949 nats = 2.8780 bits/token  lr 3.000e-03  scale 1.0000  461 tok/s  ring 180 ahead  moe 120 experts  ctx 607 us/step  soft 54 %
 05:23:58 report chunk 3200  tokens 102400  loss 1.8245 nats = 2.6322 bits/token  lr 3.000e-03  scale 1.0000  459 tok/s  ring 80 ahead  moe 120 experts  ctx 609 us/step  soft 54 %
+05:24:03 coach: the stream is exhausted at chunk 3280
+05:24:03 checkpoint (final): data/live-teacher2/ckpt-3280.bin, 23463424 bytes, chunk 3280, push 1, copied in 50 ms
+05:24:41 tables: data/live-teacher2/tables-3280.f32, 2147483648 bytes, written in 37.5 s
+05:26:22 pool: data/live-teacher2/pool-3280.f32, 4293918720 bytes in 187 rounds, 101.6 s
+05:26:23 coach: run ended at chunk 3280 (104960 tokens), 0 halvings, final scale 1.0000

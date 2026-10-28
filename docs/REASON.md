@@ -112,3 +112,39 @@ end). The record format grew to 52 bytes with the per-step weight at 1; the driv
 against its tokens and refuses a round that does not align (it refused round 18 at 05:19 when a stale mixstream
 binary wrote 48-byte records; build.sh had no rule for it, now it has). The teacher serves 65,536 tokens shared by
 its two slots and its grader reads the student's record (docs/TEACHER.md).
+
+## The overnight verdict, corrected by the new metric (05:34)
+
+On the frozen set, the answer bits of the rounds before and after the night:
+
+| round | answer loss, true question (bits/token) | swapped | the question gives (bits/token) | per answer | easier with the true question |
+|---|---|---|---|---|---|
+| 6 | 5.5982 | 5.8892 | 0.2910 | 0.3268 +- 0.0266 | 235 of 300 |
+| 7 | 5.4364 | 5.7369 | 0.3006 | 0.3352 +- 0.0289 | 224 of 300 |
+| 16 | 5.1365 | 5.6451 | 0.5086 | 0.5794 +- 0.0383 | 254 of 300 |
+
+Rounds 7 to 16 lowered the answer loss by 0.46 bits per token and raised what the question gives from 0.33 to 0.58
+bits per answer, more than six standard errors: the night improved the answers and their dependence on the
+question. The held-out (its average dominated by the persona line and the markers every conversation repeats) and the
+probe were blind to it; the sentence above, "Epochs at a constant 3e-3 bought nothing measurable", is wrong. The gain
+is not the epochs' alone: the writer's question-and-answer third (from 21:54) and new data entered in the same rounds,
+and the frozen set is the newest held-out, question-and-answer style. The series of every round stands in
+results/answer-bits.log.
+
+## The reward (05:27, the user: "The student model needs a reward function for when it gets something right")
+
+The reward reinforces the student's own right replies, the recipe of STaR (Zelikman et al. 2022) and of
+rejection-sampling fine-tuning: a reply the teacher grades right becomes a training target, weighted by its reward.
+This reverses the rule of 10-27 that the student's own words never enter the stream; it does so only for replies the
+teacher verified, and the wrong ones keep getting the teacher's rewrite.
+
+| piece | what |
+|---|---|
+| the verdict | the correction pass (tools/teacher-correct.sh `--rewards FILE --reward-min 7`): a reply whose three grades (grammar, relevance, persona) are all at least 7 is right; the conversation up to the person's line, closed by the student's own reply, goes to DIR/rewards-round-R.jsonl with reward 1 |
+| the records | tools/reward-soft.c: the loss weight of the reply's tokens and its closing `<|end|>` is the reward times `--reward-weight`, every other token of the conversation 0 (the context is the teacher's text and the persona, trained already) |
+| the stream | the driver (v6) appends the reward conversations of the last 5 rounds to the correction set, which recurs once every 24 corpus conversations; mixstream `--set-soft` carries the set's own records to the round's stream; the card scales each step's gradient by its record's weight (gated at 22:00) |
+| the check | on real data the set builds with one record per token (2,223 for 2,223) and every reinforced span lands on the reply alone ("No, I do not wear a skirt. I am a language model on a Xeon Phi card." at weight 1, its context at 0) |
+
+The replies the teacher grades right are rare (relevance 0.4 to 2.6 of 10 through round 17), so the first rounds will
+show how many rewards a pass yields; if it is a handful, the next step is several samples per context (the best of N,
+or a group-relative advantage, which the signed weight of the record allows).

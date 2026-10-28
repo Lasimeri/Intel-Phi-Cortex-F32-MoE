@@ -10,6 +10,13 @@
 # and the pass ends with "round R corrections: K graded, mean grammar X relevance Y persona Z, N kept".
 #   tools/teacher-correct.sh CORPUS_DIR PERSONA.txt VOCAB OUT.jsonl ROUND CHUNK [--count K] [--tables FILE] [--ngen N]
 #                            [--seed S] [--batches B] [--log FILE] [--url URL] [--record FILE [--record-bytes B]]
+#                            [--rewards FILE [--reward-min G]]
+# --rewards FILE: the reward (2026-10-28 05:27, user: "The student model needs a reward function for when it gets
+# something right"): every reply the teacher grades right (grammar, relevance and persona all at least G, default 7)
+# is written to FILE as the conversation up to the cut closed by the student's OWN reply, with "reward": 1; the driver
+# reinforces exactly that reply's tokens (tools/reward-soft.c). This reverses the rule of 2026-10-27 that the student's
+# own words never enter the stream, at the user's request, for teacher-verified right replies only; the wrong ones
+# keep getting the teacher's rewrite.
 # Defaults: --count 24, --tables /dev/shm/cortex-teacher-tables.f32, --ngen 40, --seed 1, --batches 60 (the newest
 # batch files drawn from), --log results/identity-loop.log.
 set -u
@@ -17,11 +24,13 @@ cd "$(dirname "$0")/.." || exit 1
 [ $# -ge 6 ] || { echo "usage: tools/teacher-correct.sh CORPUS_DIR PERSONA.txt VOCAB OUT.jsonl ROUND CHUNK [--count K] [--tables FILE] [--ngen N] [--seed S] [--batches B] [--log FILE] [--url URL]" >&2; exit 2; }
 corpus=$1; persona=$2; vocab=$3; out=$4; round=$5; chunk=$6
 shift 6
-count=24; tables=/dev/shm/cortex-teacher-tables.f32; ngen=40; seed=1; batches=60; log=results/identity-loop.log; urlopt=(); record=""; record_bytes=160000
+count=24; tables=/dev/shm/cortex-teacher-tables.f32; ngen=40; seed=1; batches=60; log=results/identity-loop.log; urlopt=(); record=""; record_bytes=160000; rewards=""; reward_min=7; nreward=0
 while [ $# -gt 0 ]; do
 	case "$1" in
 	--record) record=$2; shift 2 ;;
 	--record-bytes) record_bytes=$2; shift 2 ;;
+	--rewards) rewards=$2; shift 2 ;;
+	--reward-min) reward_min=$2; shift 2 ;;
 	--count) count=$2; shift 2 ;;
 	--tables) tables=$2; shift 2 ;;
 	--ngen) ngen=$2; shift 2 ;;
@@ -79,7 +88,13 @@ while IFS= read -r conv; do
 		printf '%s\n' "$rline" >> "$record"
 		printf '%s\n' "$rline" >> "$W/history.txt"
 	fi
+	# the reward: a reply the teacher graded right on all three becomes a reinforced target, the student's own words
+	if [ -n "$rewards" ] && [ "${g%.*}" -ge "$reward_min" ] && [ "${r%.*}" -ge "$reward_min" ] && [ "${p%.*}" -ge "$reward_min" ]; then
+		printf '%s\n' "$conv" | jq -c --argjson t "$t" --arg rp "$reply" '.messages |= (.[0:2 * $t] + [{ role: "assistant", content: $rp }]) | . + { reward: 1 }' >> "$rewards" && nreward=$((nreward + 1))
+		say "round $round chunk $chunk: REWARD the student's reply graded right (grammar $g relevance $r persona $p) | $(printf '%s' "$reply" | cut -c1-200)"
+	fi
 done < "$W/picked.jsonl"
+[ -n "$rewards" ] && say "round $round rewards: $nreward of $graded replies graded right (every grade at least $reward_min), reinforced from the next round${rewards:+ ($rewards)}"
 if [ "$graded" -gt 0 ]; then
 	say "round $round corrections: $graded graded, mean grammar $(awk -v s=$sg -v n=$graded 'BEGIN { printf "%.1f", s / n }') relevance $(awk -v s=$sr -v n=$graded 'BEGIN { printf "%.1f", s / n }') persona $(awk -v s=$sp -v n=$graded 'BEGIN { printf "%.1f", s / n }'), $kept kept in $out"
 else

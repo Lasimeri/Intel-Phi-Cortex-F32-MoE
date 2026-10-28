@@ -35,6 +35,13 @@
 #                            [--round-chunks N] [--lr X] [--prompt "..."] [--valid-every K] [--corrections K]
 #                            [--ratio R] [--keep-rounds M] [--lambda X] [--replay|--no-replay] [--mem-dropout P]
 #                            [--probe QUESTIONS.jsonl] [--weight-user W] [--epoch-lr X]
+#                            [--reward|--no-reward] [--reward-min G] [--reward-rounds N] [--reward-weight W]
+# (v6, 2026-10-28 05:3x, the user: "The student model needs a reward function for when it gets something right")
+# --reward (the default): every reply of the correction pass the teacher grades right (grammar, relevance and persona
+# all at least --reward-min, default 7) is reinforced: the conversation closed by the student's own reply recurs in the
+# set of the next rounds (the last --reward-rounds, default 5) with that reply's tokens at --reward-weight (default 1)
+# and the rest at 0 (tools/reward-soft.c). The student's own words enter the stream only this way, teacher-verified;
+# the wrong replies keep getting the teacher's rewrite. --no-reward turns it off.
 # (v5, 2026-10-28 05:xx) --epoch-lr X: the learning rate of the epoch rounds (default --lr; 1e-3 from 05:xx: sixteen
 # rounds at a constant 3e-3 left the window losses bouncing 2.7 to 3.3 with no trend, docs/REASON.md). The grader of
 # the correction pass reads the student's record, DIR/student-record.txt (tools/teacher-correct.sh --record: every
@@ -64,7 +71,7 @@ cd "$(dirname "$0")/.." || exit 1
 [ $# -ge 2 ] || { echo "usage: tools/teacher-scratch.sh CORPUS_DIR PERSONA.txt [--ckdir DIR] [--tables FILE] [--vocab-bytes B] [--round-chunks N] [--lr X] [--prompt \"...\"] [--valid-every K] [--corrections K] [--ratio R] [--keep-rounds M] [--lambda X]" >&2; exit 2; }
 corpus=$1; persona=$2
 shift 2
-ckdir=data/live-teacher; tables=/dev/shm/cortex-teacher-tables.f32; vocab_bytes=300000; round_chunks=1000; lr=0.003; prompt="Introduce yourself"; valid_every=20; corrections=20; ratio=6; keep_rounds=3; lambda=0.5; replay=1; mem_dropout=0; probe=data/probe/questions.jsonl; weight_user=1; epoch_lr=""
+ckdir=data/live-teacher; tables=/dev/shm/cortex-teacher-tables.f32; vocab_bytes=300000; round_chunks=1000; lr=0.003; prompt="Introduce yourself"; valid_every=20; corrections=20; ratio=6; keep_rounds=3; lambda=0.5; replay=1; mem_dropout=0; probe=data/probe/questions.jsonl; weight_user=1; epoch_lr=""; reward=1; reward_min=7; reward_rounds=5; reward_weight=1
 rec=52   # bytes per soft record (lib/cx-proto.h cx_soft)
 while [ $# -gt 0 ]; do
 	case "$1" in
@@ -85,6 +92,11 @@ while [ $# -gt 0 ]; do
 	--probe) probe=$2; shift 2 ;;
 	--weight-user) weight_user=$2; shift 2 ;;
 	--epoch-lr) epoch_lr=$2; shift 2 ;;
+	--reward) reward=1; shift ;;
+	--no-reward) reward=0; shift ;;
+	--reward-min) reward_min=$2; shift 2 ;;
+	--reward-rounds) reward_rounds=$2; shift 2 ;;
+	--reward-weight) reward_weight=$2; shift 2 ;;
 	*) echo "teacher-scratch: unknown option $1" >&2; exit 2 ;;
 	esac
 done
@@ -156,6 +168,41 @@ words_list=$ckdir/words-teacher.txt
 cat "$corpus"/batch-*.jsonl 2>/dev/null | jq -r '.messages[1:][] | .content' 2>/dev/null | tr 'A-Z' 'a-z' | tr -c "a-z'\n" '\n' | sed -E "s/^'+//; s/'+$//" | /usr/bin/grep -E "^[a-z][a-z']{0,19}$" | sort | uniq -c | awk '$1 >= 3 { print $2, $1 }' > "$words_list.tmp" && [ -s "$words_list.tmp" ] && mv "$words_list.tmp" "$words_list"
 record=$ckdir/student-record.txt
 [ -n "$epoch_lr" ] || epoch_lr=$lr
+# the recurring set and its records: the corrections of the last --keep-rounds rounds (the teacher's rewrites, weight
+# 1) and, with --reward, the student's own replies the teacher graded right in the last --reward-rounds rounds, their
+# reply tokens at --reward-weight and everything else at 0 (tools/reward-soft.c); the set's records go to mixstream
+# with --set-soft, so the reward reaches the card in the same records as the teacher's distribution
+setsoft=$ckdir/corrections-set.soft
+build_set() {
+	local nc nrw=0
+	ls "$ckdir"/corrections-round-*.jsonl | sort -t- -k3 -n | tail -n "$keep_rounds" | xargs cat > "$W/set.jsonl"
+	if ! build/host/chat-text "$W/set.jsonl" "$W/set.txt" --no-think-block --detok > /dev/null 2>&1 || ! build/host/bpe encode "$vocab" "$W/set.txt" "$W/setc.u16" > /dev/null 2>&1; then
+		say "round $round: the correction set could not be encoded"
+		return
+	fi
+	nc=$(( $(stat -c %s "$W/setc.u16") / 2 ))
+	build/host/soft-align --empty "$nc" "$W/setc.soft" > /dev/null || { say "round $round: soft-align --empty failed"; return; }
+	if [ "$reward" -eq 1 ]; then
+		ls "$ckdir"/rewards-round-*.jsonl 2>/dev/null | sort -t- -k3 -n | tail -n "$reward_rounds" | xargs -r cat > "$W/rw.jsonl"
+		if [ -s "$W/rw.jsonl" ]; then
+			if build/host/chat-text "$W/rw.jsonl" "$W/rw.txt" --no-think-block --detok > /dev/null 2>&1 && build/host/bpe encode "$vocab" "$W/rw.txt" "$W/rw.u16" > /dev/null 2>&1 \
+				&& jq -r '.reward // 1' "$W/rw.jsonl" > "$W/rw.rewards" && build/host/reward-soft "$W/rw.u16" "$W/rw.rewards" "$W/rw.soft" --scale "$reward_weight" > "$W/reward-soft.out" 2>&1; then
+				cat "$W/rw.u16" >> "$W/setc.u16"
+				cat "$W/rw.soft" >> "$W/setc.soft"
+				nrw=$(wc -l < "$W/rw.jsonl")
+			else
+				say "round $round: the reward set could not be built: $(tail -n 1 "$W/reward-soft.out" 2>/dev/null | cut -c1-120)"
+			fi
+		fi
+	fi
+	mv "$W/setc.u16" "$setfile"
+	mv "$W/setc.soft" "$setsoft"
+	say "round $round: the correction set is $(wc -l < "$W/set.jsonl") conversations, $nc tokens, from the last $keep_rounds rounds$([ "$reward" -eq 1 ] && echo "; the reward set $nrw of the student's own right replies of the last $reward_rounds rounds, at weight $reward_weight ($(sed -n -E 's/.* ([0-9]+) reinforced tokens.*/\1/p' "$W/reward-soft.out" 2>/dev/null) reinforced tokens)")"
+}
+# a set written before its records existed gets empty ones (weight 1, as mixstream gave it then)
+if [ -s "$setfile" ] && { [ ! -f "$setsoft" ] || [ $(( $(stat -c %s "$setsoft") / rec )) -ne $(( $(stat -c %s "$setfile") / 2 )) ]; }; then
+	build/host/soft-align --empty $(( $(stat -c %s "$setfile") / 2 )) "$setsoft" > /dev/null || { say "soft-align --empty failed"; exit 1; }
+fi
 
 say "=== identity loop: set $corpus (the teacher's corpus as it grows), test persona $persona, prompt \"$prompt\", the teacher judges (tools/teacher-judge.sh) and corrects ($corrections a round, ratio $ratio, the last $keep_rounds rounds kept), from ${cur_ckpt:-fresh weights}; a round every $round_chunks new chunks, lr $lr, memory $tables, the vocabulary on the first $vocab_bytes bytes"
 
@@ -228,7 +275,7 @@ while true; do
 	stream=$ckdir/round-$round.u16
 	trained_after=$have
 	if [ "$corrections" -gt 0 ] && [ -s "$setfile" ]; then
-		build/host/mixstream "$setfile" "$train" $((trained * 32)) "$ratio" "$untrained" "$stream" --soft "$soft" "${stream%.u16}.soft" > "$W/mix-$round.out" 2>&1 || { say "round $round: mixstream failed: $(tail -n 1 "$W/mix-$round.out" | cut -c1-120)"; exit 1; }
+		build/host/mixstream "$setfile" "$train" $((trained * 32)) "$ratio" "$untrained" "$stream" --soft "$soft" "${stream%.u16}.soft" --set-soft "$setsoft" > "$W/mix-$round.out" 2>&1 || { say "round $round: mixstream failed: $(tail -n 1 "$W/mix-$round.out" | cut -c1-120)"; exit 1; }
 		# the base's end token in the mix is where the next round starts (a partial conversation is moved up by mixstream)
 		end_tok=$(sed -n -E 's/.*from token [0-9]+ to ([0-9]+) of.*/\1/p' "$W/mix-$round.out" | head -n 1)
 		[ -n "$end_tok" ] && trained_after=$((end_tok / 32))
@@ -278,14 +325,9 @@ while true; do
 	# the correction pass: the teacher grades and rewrites the student's answers; the rewrites recur in the next round
 	if [ "$corrections" -gt 0 ]; then
 		cj=$ckdir/corrections-round-$round.jsonl
-		tools/teacher-correct.sh "$corpus" "$persona" "$vocab" "$cj" "$round" "$trained" --count "$corrections" --tables "$tables" --seed "$round" --log "$log" --record "$record" > "$W/correct-$round.out" 2>&1
-		if [ -s "$cj" ]; then
-			ls "$ckdir"/corrections-round-*.jsonl | sort -t- -k3 -n | tail -n "$keep_rounds" | xargs cat > "$W/set.jsonl"
-			if build/host/chat-text "$W/set.jsonl" "$W/set.txt" --no-think-block --detok > /dev/null 2>&1 && build/host/bpe encode "$vocab" "$W/set.txt" "$setfile" > /dev/null 2>&1; then
-				say "round $round: the correction set is $(wc -l < "$W/set.jsonl") conversations, $(( $(stat -c %s "$setfile") / 2 )) tokens, from the last $keep_rounds rounds"
-			else
-				say "round $round: the correction set could not be encoded"
-			fi
-		fi
+		rj=$ckdir/rewards-round-$round.jsonl
+		rwopt=(); [ "$reward" -eq 1 ] && { : > "$rj"; rwopt=(--rewards "$rj" --reward-min "$reward_min"); }
+		tools/teacher-correct.sh "$corpus" "$persona" "$vocab" "$cj" "$round" "$trained" --count "$corrections" --tables "$tables" --seed "$round" --log "$log" --record "$record" "${rwopt[@]}" > "$W/correct-$round.out" 2>&1
+		[ -s "$cj" ] && build_set
 	fi
 done

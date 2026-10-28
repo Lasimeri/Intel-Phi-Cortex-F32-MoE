@@ -6,7 +6,9 @@
  * is seen every RATIO + 1 conversations while the base keeps flowing. A conversation ends at the end marker (id
  * EOT, default 4095); the newline token (id 10) after it opens the next one, and a set conversation cycled back to
  * the stream's first gets one too.
- *   mixstream SET.u16 BASE.u16 START RATIO CHUNKS OUT.u16 [EOT] [--soft BASE.soft OUT.soft]
+ *   mixstream SET.u16 BASE.u16 START RATIO CHUNKS OUT.u16 [EOT] [--soft BASE.soft OUT.soft [--set-soft SET.soft]]
+ * --set-soft gives the set's own records (one per token of SET.u16: the reward set's weights, tools/reward-soft.c), in
+ * place of empty ones; the newline inserted before a cycled set conversation still gets an empty record.
  * --soft mirrors the stream in the soft-target records of the partial distillation (lib/cx-proto.h cx_soft, 48 B a
  * token, one per token of BASE.u16 in BASE.soft): every base token copied carries its record, every set token and
  * every inserted newline an empty one, so OUT.soft has one record per token of OUT.u16.
@@ -38,7 +40,16 @@ static const void *map_file(const char *path, long *bytes)
 }
 
 /* the soft mirror: records of base tokens copied, empty records for the rest; nothing without --soft */
-typedef struct { const cx_soft *base; FILE *out; long nbase; cx_soft empty; } mirror;
+typedef struct { const cx_soft *base, *set; FILE *out; long nbase, nset; cx_soft empty; } mirror;
+
+/* the set's records of tokens [from, from + n): its own (--set-soft) or empty ones */
+static void mirror_set(mirror *m, long from, long n)
+{
+	if (!m->out) return;
+	if (!m->set) { for (long i = 0; i < n; i++) fwrite(&m->empty, sizeof m->empty, 1, m->out); return; }
+	if (from + n > m->nset) { fprintf(stderr, "mixstream: the set's soft records end at %ld, token %ld asked\n", m->nset, from + n); exit(1); }
+	fwrite(m->set + from, sizeof *m->set, (size_t)n, m->out);
+}
 
 static void mirror_base(mirror *m, long from, long n)
 {
@@ -59,9 +70,10 @@ int main(int argc, char **argv)
 	const long start = atol(argv[3]), chunks = atol(argv[5]);
 	const int ratio = atoi(argv[4]);
 	uint16_t eot = 4095;
-	const char *soft_in = NULL, *soft_out = NULL;
+	const char *soft_in = NULL, *soft_out = NULL, *set_soft = NULL;
 	for (int i = 7; i < argc; i++) {
 		if (!strcmp(argv[i], "--soft") && i + 2 < argc) { soft_in = argv[++i]; soft_out = argv[++i]; }
+		else if (!strcmp(argv[i], "--set-soft") && i + 1 < argc) set_soft = argv[++i];
 		else if (argv[i][0] >= '0' && argv[i][0] <= '9') eot = (uint16_t)atoi(argv[i]);
 		else { fprintf(stderr, "mixstream: unknown argument %s\n", argv[i]); return 2; }
 	}
@@ -79,6 +91,12 @@ int main(int argc, char **argv)
 		if (m.nbase < nbase) { fprintf(stderr, "mixstream: %s holds %ld records for %ld tokens of %s\n", soft_in, m.nbase, nbase, argv[2]); return 1; }
 		m.out = fopen(soft_out, "wb");
 		if (!m.out) { perror(soft_out); return 1; }
+		if (set_soft) {
+			long ssb;
+			m.set = map_file(set_soft, &ssb);
+			m.nset = ssb / (long)sizeof *m.set;
+			if (m.nset != nset) { fprintf(stderr, "mixstream: %s holds %ld records for %ld tokens of %s\n", set_soft, m.nset, nset, argv[1]); return 1; }
+		}
 	}
 	/* the set's conversations: [from, to] with the end marker at `to` */
 	long *from = malloc((size_t)(nset + 1) * sizeof *from), *to = malloc((size_t)(nset + 1) * sizeof *to), nconv = 0, f = 0, set_tokens = 0;
@@ -97,7 +115,7 @@ int main(int argc, char **argv)
 		const long a = from[k], b = to[k];
 		if (written > 0 && set[a] != NL) { fwrite(&nl, sizeof nl, 1, out); mirror_empty(&m, 1); written++; }
 		fwrite(set + a, sizeof *set, (size_t)(b - a + 1), out);
-		mirror_empty(&m, b - a + 1);
+		mirror_set(&m, a, b - a + 1);
 		written += b - a + 1;
 		set_convs++;
 		k = (k + 1) % nconv;
